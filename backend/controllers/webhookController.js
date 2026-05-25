@@ -10,4 +10,15 @@ const verifyWebhook = (req, res) => {
   res.sendStatus(403);
 };
 
-module.exports = { verifyWebhook };
+const receiveWebhook = (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Webhook event received",
+    data: req.body,
+  });
+};
+
+module.exports = {
+  verifyWebhook,
+  receiveWebhook,
+};
