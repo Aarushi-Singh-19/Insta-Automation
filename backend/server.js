@@ -5,6 +5,9 @@ const healthRoutes = require("./routes/healthRoutes");
 
 const app = express();
 
+const webhookRoutes = require("./routes/webhookRoutes");
+
+app.use("/webhook", webhookRoutes);
 
 app.use(express.json());
 
