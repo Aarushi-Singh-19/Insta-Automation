@@ -1,3 +1,4 @@
+const { checkKeywordMatch } = require("../utils/keywordMatcher");
 const verifyWebhook = (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
@@ -13,9 +14,40 @@ const verifyWebhook = (req, res) => {
 
 const receiveWebhook = (req, res) => {
   console.log("Webhook Event Received:");
-  console.log(JSON.stringify(req.body, null, 2));
 
-  res.sendStatus(200);
+  const body = req.body;
+
+  try {
+const change = body.entry?.[0]?.changes?.[0];
+const commentText = change?.value?.text;
+const username = change?.value?.from?.username;
+const field = change?.field;
+
+if (!commentText || !username) {
+  console.log("No valid comment data found");
+  return res.sendStatus(200);
+}
+   console.log("Field:", field);
+
+    console.log("Comment:", commentText);
+    console.log("Username:", username);
+
+const triggerKeyword = "link";
+
+if (checkKeywordMatch(commentText, triggerKeyword)) {
+  console.log("Trigger DM Automation");
+} else {
+  console.log("No matching keyword found");
+}
+
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.log("Error reading webhook payload");
+    console.log(error.message);
+
+    res.sendStatus(400);
+  }
 };
 
 module.exports = {
