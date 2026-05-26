@@ -3,19 +3,19 @@ const verifyWebhook = (req, res) => {
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
-  if (mode && token === "my_verify_token") {
+  if (mode === "subscribe" && token === process.env.VERIFY_TOKEN) {
+    console.log("Webhook verified successfully");
     return res.status(200).send(challenge);
   }
 
-  res.sendStatus(403);
+  return res.sendStatus(403);
 };
 
 const receiveWebhook = (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Webhook event received",
-    data: req.body,
-  });
+  console.log("Webhook Event Received:");
+  console.log(JSON.stringify(req.body, null, 2));
+
+  res.sendStatus(200);
 };
 
 module.exports = {

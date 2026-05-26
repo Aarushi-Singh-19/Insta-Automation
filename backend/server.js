@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const express = require("express");
+
 const healthRoutes = require("./routes/healthRoutes");
 const webhookRoutes = require("./routes/webhookRoutes");
 
@@ -8,12 +9,12 @@ const app = express();
 
 app.use(express.json());
 
+app.use("/api/health", healthRoutes);
+app.use("/webhook", webhookRoutes);
+
 app.get("/", (req, res) => {
   res.send("Instagram Comment-to-DM Automation Backend is running");
 });
-
-app.use("/api/health", healthRoutes);
-app.use("/webhook", webhookRoutes);
 
 const PORT = process.env.PORT || 5000;
 
