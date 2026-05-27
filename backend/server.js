@@ -9,6 +9,9 @@ const app = express();
 
 app.use(express.json());
 
+const ruleRoutes = require("./routes/ruleRoutes");
+app.use("/api/rules", ruleRoutes);
+
 app.use("/api/health", healthRoutes);
 app.use("/webhook", webhookRoutes);
 
