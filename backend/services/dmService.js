@@ -1,16 +1,16 @@
-const { automationRules } = require("../data/automationRules");
+const Rule = require("../models/Rule");
 
 const getRandomReply = (replies) => {
   const randomIndex = Math.floor(Math.random() * replies.length);
   return replies[randomIndex];
 };
 
-const findMatchingRule = (commentText) => {
+const findMatchingRule = async (commentText) => {
   const lowerComment = commentText.toLowerCase();
 
-  const sortedRules = automationRules.sort((a, b) => a.priority - b.priority);
+  const rules = await Rule.find({ isActive: true }).sort({ priority: 1 });
 
-  for (const rule of sortedRules) {
+  for (const rule of rules) {
     if (rule.triggerType === "keywords") {
       const isMatched = rule.triggerKeywords.some((keyword) =>
         lowerComment.includes(keyword.toLowerCase())

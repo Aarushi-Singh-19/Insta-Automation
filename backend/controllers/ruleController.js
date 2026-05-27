@@ -50,7 +50,64 @@ const createRule = async (req, res) => {
   }
 };
 
+const updateRule = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+const updatedRule = await Rule.findByIdAndUpdate(id, req.body, {
+  returnDocument: "after",
+  runValidators: true,
+});
+
+    if (!updatedRule) {
+      return res.status(404).json({
+        success: false,
+        message: "Rule not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Rule updated successfully",
+      rule: updatedRule,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error updating rule",
+    });
+  }
+};
+
+const deleteRule = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deletedRule = await Rule.findByIdAndDelete(id);
+
+    if (!deletedRule) {
+      return res.status(404).json({
+        success: false,
+        message: "Rule not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Rule deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error deleting rule",
+    });
+  }
+};
+
+
 module.exports = {
   getRules,
   createRule,
+  updateRule,
+  deleteRule,
 };

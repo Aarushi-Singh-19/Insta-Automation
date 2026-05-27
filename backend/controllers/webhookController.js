@@ -17,6 +17,7 @@ const receiveWebhook = async (req, res) => {
   console.log("Webhook Event Received:");
 
   const body = req.body;
+  console.log("Full Body:", JSON.stringify(body, null, 2));
 
   try {
     const change = body.entry?.[0]?.changes?.[0];
@@ -33,7 +34,7 @@ const receiveWebhook = async (req, res) => {
     console.log("Comment:", commentText);
     console.log("Username:", username);
 
-    const matchedRule = findMatchingRule(commentText);
+ const matchedRule = await findMatchingRule(commentText);
 
     if (matchedRule) {
       console.log("Matched Rule:", matchedRule.ruleName);
