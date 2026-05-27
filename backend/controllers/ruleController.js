@@ -1,39 +1,53 @@
-const { automationRules } = require("../data/automationRules");
+const Rule = require("../models/Rule");
 
-const getRules = (req, res) => {
-  res.status(200).json({
-    success: true,
-    count: automationRules.length,
-    rules: automationRules,
-  });
-};
+const getRules = async (req, res) => {
+  try {
+    const rules = await Rule.find().sort({ priority: 1 });
 
-const createRule = (req, res) => {
-  const { ruleName, triggerKeywords, replies } = req.body;
-
-  if (!ruleName || !triggerKeywords || !replies) {
-    return res.status(400).json({
+    res.status(200).json({
+      success: true,
+      count: rules.length,
+      rules,
+    });
+  } catch (error) {
+    res.status(500).json({
       success: false,
-      message: "ruleName, triggerKeywords, and replies are required",
+      message: "Error fetching rules",
     });
   }
+};
 
-  const newRule = {
-    ruleName,
-    priority: automationRules.length + 1,
-    triggerType: "keywords",
-    triggerKeywords,
-    replyMode: "single",
-    replies,
-  };
+const createRule = async (req, res) => {
+  try {
+    const { ruleName, triggerKeywords, replies } = req.body;
 
-  automationRules.push(newRule);
+    if (!ruleName || !triggerKeywords || !replies) {
+      return res.status(400).json({
+        success: false,
+        message: "ruleName, triggerKeywords, and replies are required",
+      });
+    }
 
-  res.status(201).json({
-    success: true,
-    message: "Automation rule created successfully",
-    rule: newRule,
-  });
+    const newRule = await Rule.create({
+      ruleName,
+      priority: 1,
+      triggerType: "keywords",
+      triggerKeywords,
+      replyMode: "single",
+      replies,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Automation rule saved to database",
+      rule: newRule,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error creating rule",
+    });
+  }
 };
 
 module.exports = {

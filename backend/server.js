@@ -1,19 +1,21 @@
 require("dotenv").config();
 
 const express = require("express");
+const connectDB = require("./config/db");
 
 const healthRoutes = require("./routes/healthRoutes");
 const webhookRoutes = require("./routes/webhookRoutes");
+const ruleRoutes = require("./routes/ruleRoutes");
 
 const app = express();
 
-app.use(express.json());
+connectDB();
 
-const ruleRoutes = require("./routes/ruleRoutes");
-app.use("/api/rules", ruleRoutes);
+app.use(express.json());
 
 app.use("/api/health", healthRoutes);
 app.use("/webhook", webhookRoutes);
+app.use("/api/rules", ruleRoutes);
 
 app.get("/", (req, res) => {
   res.send("Instagram Comment-to-DM Automation Backend is running");
