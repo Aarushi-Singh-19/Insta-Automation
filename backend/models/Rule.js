@@ -8,6 +8,12 @@ const ruleSchema = new mongoose.Schema(
       trim: true,
     },
 
+    userId: {
+  type: String,
+  required: true,
+  trim: true,
+},
+
     postId: {
   type: String,
   required: true,

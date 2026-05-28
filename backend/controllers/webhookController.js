@@ -1,6 +1,8 @@
 const { selectReply } = require("../services/replyService");
 const { getMatchingRule } = require("../services/ruleService");
 
+const userId = "user_001";
+
 const verifyWebhook = (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
@@ -38,7 +40,7 @@ console.log("Post ID:", postId);
     console.log("Comment:", commentText);
     console.log("Username:", username);
 
-const matchingRule = await getMatchingRule(commentText, postId);
+const matchingRule = await getMatchingRule(commentText, postId, userId);
 
 if (matchingRule) {
 
