@@ -1,4 +1,5 @@
-const { sendDM, findMatchingRule } = require("../services/dmService");
+
+const { getMatchingRule } = require("../services/ruleService");
 
 const verifyWebhook = (req, res) => {
   const mode = req.query["hub.mode"];
@@ -34,16 +35,21 @@ const receiveWebhook = async (req, res) => {
     console.log("Comment:", commentText);
     console.log("Username:", username);
 
- const matchedRule = await findMatchingRule(commentText);
+const matchingRule = await getMatchingRule(commentText);
 
-    if (matchedRule) {
-      console.log("Matched Rule:", matchedRule.ruleName);
-      console.log("Reply:", matchedRule.reply);
+if (matchingRule) {
 
-      await sendDM(username, matchedRule.reply);
-    } else {
-      console.log("No automation rule matched.");
-    }
+  console.log("Matched Rule:", matchingRule);
+
+  console.log(
+    `Sending DM: ${matchingRule.replyMessage}`
+  );
+
+} else {
+
+  console.log("No matching rule found");
+
+}
 
     res.sendStatus(200);
   } catch (error) {
