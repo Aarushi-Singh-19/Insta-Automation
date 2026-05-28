@@ -1,7 +1,10 @@
 const Rule = require("../models/Rule");
 
-const getMatchingRule = async (commentText) => {
-  const rules = await Rule.find({ isActive: true }).sort({ priority: -1 });
+const getMatchingRule = async (commentText, postId) => {
+  const rules = await Rule.find({
+    isActive: true,
+    postId: postId,
+  }).sort({ priority: -1 });
 
   for (const rule of rules) {
     const matched = rule.triggerKeywords.some((keyword) =>

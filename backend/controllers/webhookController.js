@@ -25,17 +25,20 @@ const receiveWebhook = async (req, res) => {
     const commentText = change?.value?.text;
     const username = change?.value?.from?.username;
     const field = change?.field;
+    const postId = change?.value?.media?.id;
 
-    if (!commentText || !username) {
-      console.log("No valid comment data found");
-      return res.sendStatus(200);
-    }
 
+if (!commentText || !username || !postId) {
+  console.log("No valid comment data found");
+  return res.sendStatus(200);
+}
+
+console.log("Post ID:", postId);
     console.log("Field:", field);
     console.log("Comment:", commentText);
     console.log("Username:", username);
 
-const matchingRule = await getMatchingRule(commentText);
+const matchingRule = await getMatchingRule(commentText, postId);
 
 if (matchingRule) {
 
