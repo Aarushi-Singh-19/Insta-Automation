@@ -1,4 +1,4 @@
-
+const { selectReply } = require("../services/replyService");
 const { getMatchingRule } = require("../services/ruleService");
 
 const verifyWebhook = (req, res) => {
@@ -41,9 +41,9 @@ if (matchingRule) {
 
   console.log("Matched Rule:", matchingRule);
 
-  console.log(
-    `Sending DM: ${matchingRule.replyMessage}`
-  );
+const selectedReply = selectReply(matchingRule);
+
+console.log(`Sending DM: ${selectedReply}`);
 
 } else {
 

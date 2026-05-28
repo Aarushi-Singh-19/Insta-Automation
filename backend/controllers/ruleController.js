@@ -1,113 +1,39 @@
 const Rule = require("../models/Rule");
 
-const getRules = async (req, res) => {
-  try {
-    const rules = await Rule.find().sort({ priority: 1 });
-
-    res.status(200).json({
-      success: true,
-      count: rules.length,
-      rules,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error fetching rules",
-    });
-  }
-};
-
 const createRule = async (req, res) => {
   try {
-    const { ruleName, triggerKeywords, replies } = req.body;
-
-    if (!ruleName || !triggerKeywords || !replies) {
-      return res.status(400).json({
-        success: false,
-        message: "ruleName, triggerKeywords, and replies are required",
-      });
-    }
-
-    const newRule = await Rule.create({
+    const {
       ruleName,
-      priority: 1,
-      triggerType: "keywords",
+      priority,
+      triggerType,
       triggerKeywords,
-      replyMode: "single",
+      replyMode,
       replies,
+      isActive,
+    } = req.body;
+
+    const rule = await Rule.create({
+      ruleName,
+      priority,
+      triggerType,
+      triggerKeywords,
+      replyMode,
+      replies,
+      isActive,
     });
 
     res.status(201).json({
       success: true,
-      message: "Automation rule saved to database",
-      rule: newRule,
+      message: "Rule created successfully",
+      data: rule,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: "Error creating rule",
+      error: error.message,
     });
   }
 };
 
-const updateRule = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-const updatedRule = await Rule.findByIdAndUpdate(id, req.body, {
-  returnDocument: "after",
-  runValidators: true,
-});
-
-    if (!updatedRule) {
-      return res.status(404).json({
-        success: false,
-        message: "Rule not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Rule updated successfully",
-      rule: updatedRule,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error updating rule",
-    });
-  }
-};
-
-const deleteRule = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const deletedRule = await Rule.findByIdAndDelete(id);
-
-    if (!deletedRule) {
-      return res.status(404).json({
-        success: false,
-        message: "Rule not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Rule deleted successfully",
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error deleting rule",
-    });
-  }
-};
-
-
-module.exports = {
-  getRules,
-  createRule,
-  updateRule,
-  deleteRule,
-};
+module.exports = { createRule };
