@@ -6,21 +6,55 @@ const getRules = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      count: rules.length,
       data: rules,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Error fetching rules",
-      error: error.message,
+      message: error.message,
     });
   }
 };
 
 const createRule = async (req, res) => {
   try {
-    const rule = await Rule.create(req.body);
+    const {
+      ruleName,
+      userId,
+      postId,
+      priority,
+      triggerType,
+      triggerKeywords,
+      replyMode,
+      replies,
+      isActive,
+    } = req.body;
+
+    if (!ruleName || !userId || !postId) {
+      return res.status(400).json({
+        success: false,
+        message: "ruleName, userId, postId are required",
+      });
+    }
+
+    if (!replies || replies.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one reply is required",
+      });
+    }
+
+    const rule = await Rule.create({
+      ruleName,
+      userId,
+      postId,
+      priority,
+      triggerType,
+      triggerKeywords,
+      replyMode,
+      replies,
+      isActive,
+    });
 
     res.status(201).json({
       success: true,
@@ -28,10 +62,11 @@ const createRule = async (req, res) => {
       data: rule,
     });
   } catch (error) {
+    console.log("CREATE RULE ERROR:", error);
+
     res.status(500).json({
       success: false,
-      message: "Error creating rule",
-      error: error.message,
+      message: error.message,
     });
   }
 };
@@ -43,48 +78,19 @@ const updateRule = async (req, res) => {
       runValidators: true,
     });
 
-    if (!rule) {
-      return res.status(404).json({
-        success: false,
-        message: "Rule not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Rule updated successfully",
-      data: rule,
-    });
+    res.json(rule);
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error updating rule",
-      error: error.message,
-    });
+    res.status(500).json({ message: error.message });
   }
 };
 
 const deleteRule = async (req, res) => {
   try {
-    const rule = await Rule.findByIdAndDelete(req.params.id);
+    await Rule.findByIdAndDelete(req.params.id);
 
-    if (!rule) {
-      return res.status(404).json({
-        success: false,
-        message: "Rule not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Rule deleted successfully",
-    });
+    res.json({ message: "Deleted successfully" });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error deleting rule",
-      error: error.message,
-    });
+    res.status(500).json({ message: error.message });
   }
 };
 

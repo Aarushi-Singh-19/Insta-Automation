@@ -10,13 +10,13 @@ const ruleSchema = new mongoose.Schema(
 
     userId: {
   type: String,
-  required: true,
+  required: false,
   trim: true,
 },
 
     postId: {
   type: String,
-  required: true,
+  required:false,
   trim: true,
 },
 
