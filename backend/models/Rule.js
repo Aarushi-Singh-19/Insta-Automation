@@ -8,10 +8,10 @@ const ruleSchema = new mongoose.Schema(
       trim: true,
     },
 
-    userId: {
-  type: String,
-  required: false,
-  trim: true,
+userId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "User",
+  required: true,
 },
 
     postId: {

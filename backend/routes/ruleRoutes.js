@@ -1,3 +1,5 @@
+const protect = require("../middleware/authMiddleware");
+
 const express = require("express");
 const router = express.Router();
 
@@ -8,9 +10,9 @@ const {
   deleteRule,
 } = require("../controllers/ruleController");
 
-router.get("/", getRules);
-router.post("/", createRule);
-router.put("/:id", updateRule);
-router.delete("/:id", deleteRule);
+router.get("/", protect, getRules);
+router.post("/", protect, createRule);
+router.put("/:id", protect, updateRule);
+router.delete("/:id", protect, deleteRule);
 
 module.exports = router;

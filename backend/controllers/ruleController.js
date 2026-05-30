@@ -2,7 +2,7 @@ const Rule = require("../models/Rule");
 
 const getRules = async (req, res) => {
   try {
-    const rules = await Rule.find().sort({ priority: -1 });
+    const rules = await Rule.find({ userId: req.user.id }).sort({ priority: -1 });
 
     res.status(200).json({
       success: true,
@@ -20,7 +20,6 @@ const createRule = async (req, res) => {
   try {
     const {
       ruleName,
-      userId,
       postId,
       priority,
       triggerType,
@@ -30,23 +29,9 @@ const createRule = async (req, res) => {
       isActive,
     } = req.body;
 
-    if (!ruleName || !userId || !postId) {
-      return res.status(400).json({
-        success: false,
-        message: "ruleName, userId, postId are required",
-      });
-    }
-
-    if (!replies || replies.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "At least one reply is required",
-      });
-    }
-
     const rule = await Rule.create({
       ruleName,
-      userId,
+      userId: req.user.id, // from JWT middleware
       postId,
       priority,
       triggerType,
@@ -58,25 +43,25 @@ const createRule = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Rule created successfully",
       data: rule,
     });
   } catch (error) {
-    console.log("CREATE RULE ERROR:", error);
-
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    console.log(error);
+    res.status(500).json({ message: error.message });
   }
 };
 
 const updateRule = async (req, res) => {
   try {
-    const rule = await Rule.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const rule = await Rule.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.id },
+      req.body,
+      { new: true, runValidators: true }
+    );
+
+    if (!rule) {
+      return res.status(404).json({ message: "Rule not found" });
+    }
 
     res.json(rule);
   } catch (error) {
@@ -84,9 +69,17 @@ const updateRule = async (req, res) => {
   }
 };
 
+
 const deleteRule = async (req, res) => {
   try {
-    await Rule.findByIdAndDelete(req.params.id);
+    const rule = await Rule.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.user.id,
+    });
+
+    if (!rule) {
+      return res.status(404).json({ message: "Rule not found" });
+    }
 
     res.json({ message: "Deleted successfully" });
   } catch (error) {
