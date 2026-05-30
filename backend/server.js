@@ -9,13 +9,14 @@ const healthRoutes = require("./routes/healthRoutes");
 const webhookRoutes = require("./routes/webhookRoutes");
 const ruleRoutes = require("./routes/ruleRoutes");
 const authRoutes = require("./routes/authRoutes");
+const simulateRoutes = require("./routes/simulateRoutes");
 
 const app = express();
 
-// DB connection
+// 1. DB connection
 connectDB();
 
-// Middleware (MUST come first)
+// 2. Core middleware (MUST be first)
 app.use(cors({
   origin: "http://localhost:5173",
   methods: ["GET", "POST", "PUT", "DELETE"],
@@ -23,18 +24,21 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Routes
+// 3. Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/health", healthRoutes);
+app.use("/api/simulate", simulateRoutes);
 app.use("/webhook", webhookRoutes);
 app.use("/api/rules", ruleRoutes);
 
-// Test route
+// 4. Test route
 app.get("/", (req, res) => {
   res.send("Instagram Comment-to-DM Automation Backend is running");
 });
 
+// 5. Start server
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {

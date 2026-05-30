@@ -1,6 +1,7 @@
 const Rule = require("../models/Rule");
 
 const getRules = async (req, res) => {
+  console.log("REQ USER IN CONTROLLER:", req.user);
   try {
     const rules = await Rule.find({ userId: req.user.id }).sort({ priority: -1 });
 

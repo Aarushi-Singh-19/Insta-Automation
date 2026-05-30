@@ -1,18 +1,18 @@
-const protect = require("../middleware/authMiddleware");
-
 const express = require("express");
 const router = express.Router();
 
+const auth = require("../middleware/auth");
 const {
-  getRules,
   createRule,
+  getRules,
   updateRule,
-  deleteRule,
+  deleteRule
 } = require("../controllers/ruleController");
 
-router.get("/", protect, getRules);
-router.post("/", protect, createRule);
-router.put("/:id", protect, updateRule);
-router.delete("/:id", protect, deleteRule);
+// Protected routes
+router.post("/", auth, createRule);
+router.get("/", auth, getRules);
+router.put("/:id", auth, updateRule);
+router.delete("/:id", auth, deleteRule);
 
 module.exports = router;

@@ -2,6 +2,13 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+// helper (keep ABOVE everything)
+const sanitizeUser = (user) => {
+  const userObj = user.toObject();
+  delete userObj.password;
+  return userObj;
+};
+
 // SIGNUP
 const signup = async (req, res) => {
   try {
@@ -24,8 +31,10 @@ const signup = async (req, res) => {
       password: hashedPassword,
     });
 
-    res.status(201).json(user);
-
+    res.status(201).json({
+      message: "User created successfully",
+      user: sanitizeUser(user),
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -33,13 +42,10 @@ const signup = async (req, res) => {
 
 // LOGIN
 const login = async (req, res) => {
-    console.log("LOGIN BODY RECEIVED:", req.body);
   try {
     console.log("LOGIN BODY RECEIVED:", req.body);
-    const { email, password } = req.body;
 
-    // 🔴 ADD THIS DEBUG (temporary)
-    console.log("LOGIN BODY:", req.body);
+    const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password required" });
@@ -55,12 +61,17 @@ const login = async (req, res) => {
       return res.status(400).json({ message: "Invalid password" });
     }
 
-    const token = jwt.sign({ id: user._id }, "secretkey", {
-      expiresIn: "7d",
+    // ✅ FIXED: consistent JWT secret
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      token,
+      user: sanitizeUser(user),
     });
-
-    res.json({ token, user });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: err.message });
