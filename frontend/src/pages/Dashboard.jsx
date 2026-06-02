@@ -6,12 +6,27 @@ import CreateRuleForm from "../components/CreateRuleForm";
 
 function Dashboard() {
   const [rules, setRules] = useState([]);
+  const [editingRule, setEditingRule] = useState(null);
+  console.log("Editing Rule:", editingRule);
   const navigate = useNavigate();
 
 useEffect(() => {
   fetchRules();
 
 }, []);
+
+const handleDelete = async (id) => {
+  try {
+    await API.delete(`/rules/${id}`);
+
+    setRules((prevRules) =>
+      prevRules.filter((rule) => rule._id !== id)
+    );
+  } catch (error) {
+    console.log("Error deleting rule:", error);
+  }
+};
+
 
   const fetchRules = async () => {
     try {
@@ -44,9 +59,14 @@ useEffect(() => {
   </button>
 </div>
 
-    <CreateRuleForm fetchRules={fetchRules} />
+    <CreateRuleForm
+  fetchRules={fetchRules}
+  editingRule={editingRule}
+/>
 
     {rules.map((rule) => (
+
+      
       <div
         key={rule._id}
         style={{
@@ -64,6 +84,20 @@ useEffect(() => {
         <p>
           Keywords: {rule.triggerKeywords.join(", ")}
         </p>
+
+
+<button
+  onClick={() => setEditingRule(rule)}
+>
+  Edit
+</button>
+
+<button
+  onClick={() => handleDelete(rule._id)}
+>
+  Delete
+</button>
+
       </div>
     ))}
   </div>
