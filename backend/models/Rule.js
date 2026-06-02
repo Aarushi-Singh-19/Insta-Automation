@@ -9,7 +9,11 @@ const ruleSchema = new mongoose.Schema(
     ruleName: String,
     postId: String,
     priority: { type: Number, default: 1 },
-    triggerType: { type: String, default: "ANY" },
+   triggerType: {
+  type: String,
+  enum: ["keyword", "any_comment"],
+  default: "keyword",
+},
     triggerKeywords: { type: [String], default: [] },
     replyMode: { type: String, default: "single" },
     replies: { type: [String], default: [] },

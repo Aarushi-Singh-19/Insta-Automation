@@ -1,6 +1,7 @@
 const { findActiveCampaignByPost } = require("../utils/campaignResolver");
 const ActionService = require("../services/action.service");
 const { buildActionFromRule } = require("../services/actionBuilder.service");
+const { findMatchingRule } = require("../utils/ruleEngine");
 
 // VERIFY WEBHOOK
 const verifyWebhook = (req, res) => {
@@ -49,25 +50,11 @@ const receiveWebhook = async (req, res) => {
 
     console.log("RULE COUNT:", rules.length);
 
-    let matchedRule = null;
+   const matchedRule = findMatchingRule(commentText, rules);
 
-    for (let rule of rules) {
-      const keywords = rule.triggerKeywords || [];
-
-      const isMatch = keywords.some((kw) =>
-        commentText.toLowerCase().includes((kw || "").toLowerCase().trim())
-      );
-
-      if (isMatch) {
-        matchedRule = rule;
-        break;
-      }
-    }
-
-    if (!matchedRule) {
-      return res.json({ message: "No rule matched" });
-    }
-
+if (!matchedRule) {
+  return res.json({ message: "No rule matched" });
+}
 const action = buildActionFromRule(matchedRule, username);
 
 const actionQueue = require("../queues/action.queue");
@@ -75,6 +62,7 @@ const actionQueue = require("../queues/action.queue");
 await actionQueue.add("execute-action", {
   action,
   campaign,
+  commentId: change?.id, // IMPORTANT
 });
 
     return res.json({
