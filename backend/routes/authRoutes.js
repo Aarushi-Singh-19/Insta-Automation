@@ -1,8 +1,15 @@
 const express = require("express");
-const router = express.Router();
-const { signup, login } = require("../controllers/authController");
 
-router.post("/signup", signup);
-router.post("/login", login);
+
+const router = express.Router();
+
+// TEMP test routes (replace later with real auth logic)
+router.post("/signup", (req, res) => {
+  res.json({ message: "Signup working" });
+});
+
+router.post("/login", (req, res) => {
+  res.json({ message: "Login working" });
+});
 
 module.exports = router;

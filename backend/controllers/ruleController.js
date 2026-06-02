@@ -1,7 +1,7 @@
 const Rule = require("../models/Rule");
 
+// GET RULES
 const getRules = async (req, res) => {
-  console.log("REQ USER IN CONTROLLER:", req.user);
   try {
     const rules = await Rule.find({ userId: req.user.id }).sort({ priority: -1 });
 
@@ -10,62 +10,32 @@ const getRules = async (req, res) => {
       data: rules,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// CREATE RULE
 const createRule = async (req, res) => {
   try {
-    const {
-      ruleName,
-      postId,
-      priority,
-      triggerType,
-      triggerKeywords,
-      replyMode,
-      replies,
-      isActive,
-    } = req.body;
-
     const rule = await Rule.create({
-      ruleName,
-      userId: req.user.id, // from JWT middleware
-      postId,
-      priority,
-      triggerType,
-      triggerKeywords,
-      replyMode,
-      replies,
-      isActive,
+      ...req.body,
+      userId: req.user.id,
     });
 
-    res.status(201).json({
-      success: true,
-      data: rule,
-    });
+    res.status(201).json({ success: true, data: rule });
   } catch (error) {
-    console.log(error);
     res.status(500).json({ message: error.message });
   }
 };
 
-
+// UPDATE RULE
 const updateRule = async (req, res) => {
   try {
-    console.log("UPDATE ROUTE HIT");
-    console.log("PARAMS:", req.params);
-    console.log("BODY:", req.body);
-
     const rule = await Rule.findOneAndUpdate(
       { _id: req.params.id, userId: req.user.id },
       req.body,
-      { new: true, runValidators: true }
+      { new: true }
     );
-
-    console.log("UPDATED RULE:", rule);
 
     if (!rule) {
       return res.status(404).json({ message: "Rule not found" });
@@ -73,14 +43,11 @@ const updateRule = async (req, res) => {
 
     res.json(rule);
   } catch (error) {
-    console.log("UPDATE ERROR:");
-    console.log(error);
-
     res.status(500).json({ message: error.message });
   }
 };
 
-
+// DELETE RULE
 const deleteRule = async (req, res) => {
   try {
     const rule = await Rule.findOneAndDelete({
@@ -98,9 +65,31 @@ const deleteRule = async (req, res) => {
   }
 };
 
+// TOGGLE RULE
+const toggleRuleStatus = async (req, res) => {
+  try {
+    const rule = await Rule.findOne({
+      _id: req.params.id,
+      userId: req.user.id,
+    });
+
+    if (!rule) {
+      return res.status(404).json({ message: "Rule not found" });
+    }
+
+    rule.isActive = !rule.isActive;
+    await rule.save();
+
+    res.json({ success: true, data: rule });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getRules,
   createRule,
   updateRule,
   deleteRule,
+  toggleRuleStatus,
 };

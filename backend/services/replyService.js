@@ -1,14 +1,19 @@
-const selectReply = (rule) => {
-  if (!rule || !rule.replies || rule.replies.length === 0) {
-    return null;
-  }
+// backend/services/replyService.js
 
-  if (rule.replyMode === "random") {
-    const randomIndex = Math.floor(Math.random() * rule.replies.length);
-    return rule.replies[randomIndex];
-  }
-
-  return rule.replies[0];
+const getDefaultReplies = () => {
+  return [
+    "Got your message 👍",
+    "We’ll DM you shortly 🚀",
+    "Thanks for commenting!"
+  ];
 };
 
-module.exports = { selectReply };
+const pickRandomReply = (replies) => {
+  if (!replies || replies.length === 0) return null;
+  return replies[Math.floor(Math.random() * replies.length)];
+};
+
+module.exports = {
+  getDefaultReplies,
+  pickRandomReply,
+};

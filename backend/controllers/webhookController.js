@@ -1,67 +1,96 @@
-const { selectReply } = require("../services/replyService");
-const { getMatchingRule } = require("../services/ruleService");
+const { findActiveCampaignByPost } = require("../utils/campaignResolver");
+const ActionService = require("../services/action.service");
+const { buildActionFromRule } = require("../services/actionBuilder.service");
 
-const userId = "user_001";
-
+// VERIFY WEBHOOK
 const verifyWebhook = (req, res) => {
+  const VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN;
+
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
-  if (mode === "subscribe" && token === process.env.VERIFY_TOKEN) {
-    console.log("Webhook verified successfully");
+  if (mode === "subscribe" && token === VERIFY_TOKEN) {
     return res.status(200).send(challenge);
   }
 
   return res.sendStatus(403);
 };
 
+// RECEIVE WEBHOOK
 const receiveWebhook = async (req, res) => {
-  console.log("Webhook Event Received:");
-
-  const body = req.body;
-  console.log("Full Body:", JSON.stringify(body, null, 2));
-
   try {
-    const change = body.entry?.[0]?.changes?.[0];
-    const commentText = change?.value?.text;
-    const username = change?.value?.from?.username;
-    const field = change?.field;
-    const postId = change?.value?.media?.id;
+    console.log("=== WEBHOOK HIT ===");
+    console.log("STEP 1 HIT");
 
+    const entry = req.body.entry?.[0];
+    const change = entry?.changes?.[0]?.value;
 
-if (!commentText || !username || !postId) {
-  console.log("No valid comment data found");
-  return res.sendStatus(200);
-}
+    console.log("STEP 2 HIT");
 
-console.log("Post ID:", postId);
-    console.log("Field:", field);
-    console.log("Comment:", commentText);
-    console.log("Username:", username);
+    const postId = change?.media_id || change?.post_id;
+    const commentText = change?.text || "";
+    const username = change?.from?.username || "unknown";
 
-const matchingRule = await getMatchingRule(commentText, postId, userId);
+    console.log("STEP 3 HIT", postId, commentText, username);
 
-if (matchingRule) {
+    if (!postId) {
+      return res.json({ message: "No postId found" });
+    }
 
-  console.log("Matched Rule:", matchingRule);
+    const campaign = await findActiveCampaignByPost(postId);
+    console.log("CAMPAIGN FOUND:", campaign ? "YES" : "NO");
 
-const selectedReply = selectReply(matchingRule);
+    if (!campaign) {
+      return res.json({ message: "No active campaign" });
+    }
 
-console.log(`Sending DM: ${selectedReply}`);
+    const rules = campaign.ruleIds || [];
 
-} else {
+    console.log("RULE COUNT:", rules.length);
 
-  console.log("No matching rule found");
+    let matchedRule = null;
 
-}
+    for (let rule of rules) {
+      const keywords = rule.triggerKeywords || [];
 
-    res.sendStatus(200);
+      const isMatch = keywords.some((kw) =>
+        commentText.toLowerCase().includes((kw || "").toLowerCase().trim())
+      );
+
+      if (isMatch) {
+        matchedRule = rule;
+        break;
+      }
+    }
+
+    if (!matchedRule) {
+      return res.json({ message: "No rule matched" });
+    }
+
+const action = buildActionFromRule(matchedRule, username);
+
+const actionQueue = require("../queues/action.queue");
+
+await actionQueue.add("execute-action", {
+  action,
+  campaign,
+});
+
+    return res.json({
+      success: true,
+      message: "Action executed",
+      campaign: campaign.name,
+      matchedRule,
+      action,
+    });
+
   } catch (error) {
-    console.log("Error reading webhook payload");
-    console.log(error.message);
-
-    res.sendStatus(400);
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
