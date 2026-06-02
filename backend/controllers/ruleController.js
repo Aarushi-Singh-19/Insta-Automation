@@ -52,13 +52,20 @@ const createRule = async (req, res) => {
   }
 };
 
+
 const updateRule = async (req, res) => {
   try {
+    console.log("UPDATE ROUTE HIT");
+    console.log("PARAMS:", req.params);
+    console.log("BODY:", req.body);
+
     const rule = await Rule.findOneAndUpdate(
       { _id: req.params.id, userId: req.user.id },
       req.body,
       { new: true, runValidators: true }
     );
+
+    console.log("UPDATED RULE:", rule);
 
     if (!rule) {
       return res.status(404).json({ message: "Rule not found" });
@@ -66,6 +73,9 @@ const updateRule = async (req, res) => {
 
     res.json(rule);
   } catch (error) {
+    console.log("UPDATE ERROR:");
+    console.log(error);
+
     res.status(500).json({ message: error.message });
   }
 };
