@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 
 const campaignSchema = new mongoose.Schema(
   {
+
+
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -44,12 +46,12 @@ instagramAccountId: {
       maxDelaySeconds: { type: Number, default: 40 },
     },
 
-    metrics: {
-      commentsProcessed: { type: Number, default: 0 },
-      dmsSent: { type: Number, default: 0 },
-      repliesSent: { type: Number, default: 0 },
-      errors: { type: Number, default: 0 },
-    },
+metrics: {
+  commentsProcessed: { type: Number, default: 0 },
+  repliesSent: { type: Number, default: 0 },
+  dmsSent: { type: Number, default: 0 },
+  errors: { type: Number, default: 0 },
+},
   },
   { timestamps: true }
 );

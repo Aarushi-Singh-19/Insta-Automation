@@ -2,6 +2,9 @@ const mongoose = require("mongoose");
 
 const failedJobSchema = new mongoose.Schema(
   {
+    errorType: { type: String }, // NEW
+isRetryable: { type: Boolean, default: true }, // NEW
+failureStage: { type: String }, // EXECUTION / QUEUE / API
     jobId: String,
     campaignId: String,
     ruleId: String,
