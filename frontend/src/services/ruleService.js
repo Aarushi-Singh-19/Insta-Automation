@@ -11,6 +11,20 @@ export const getRules = async (token) => {
 
   return response.data;
 };
+export const toggleRule = async (ruleId) => {
+  const response = await fetch(`/api/rules/toggle/${ruleId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to toggle rule");
+  }
+
+  return response.json();
+};
 
 export const deleteRule = async (id, token) => {
   const response = await axios.delete(`${API_URL}/${id}`, {

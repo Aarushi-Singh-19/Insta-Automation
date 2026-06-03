@@ -1,7 +1,11 @@
 import { useState, useEffect } from "react";
 import API from "../services/api";
 
-function CreateRuleForm({ fetchRules, editingRule })  {
+function CreateRuleForm({
+  fetchRules,
+  editingRule,
+  clearEditingRule,
+}) {
   const [ruleName, setRuleName] = useState("");
   const [priority, setPriority] = useState(1);
   const [keywords, setKeywords] = useState("");
@@ -38,6 +42,7 @@ if (editingRule) {
   await API.put(`/rules/${editingRule._id}`, newRule);
 
   alert("Rule updated successfully");
+  clearEditingRule();
 } else {
   await API.post("/rules", newRule);
 

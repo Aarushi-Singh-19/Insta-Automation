@@ -1,46 +1,24 @@
-const { findActiveCampaignByPost } = require("../utils/campaignResolver");
-const ActionService = require("../services/action.service");
-const { buildActionFromRule } = require("../services/actionBuilder.service");
+const LogService = require("../services/log.service");
 const { findMatchingRule } = require("../utils/ruleEngine");
+const { findActiveCampaignByPost } = require("../utils/campaignResolver");
+const { buildActionFromRule } = require("../services/actionBuilder.service");
 
-// VERIFY WEBHOOK
-const verifyWebhook = (req, res) => {
-  const VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN;
-
-  const mode = req.query["hub.mode"];
-  const token = req.query["hub.verify_token"];
-  const challenge = req.query["hub.challenge"];
-
-  if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    return res.status(200).send(challenge);
-  }
-
-  return res.sendStatus(403);
-};
-
-// RECEIVE WEBHOOK
 const receiveWebhook = async (req, res) => {
   try {
+
     console.log("=== WEBHOOK HIT ===");
-    console.log("STEP 1 HIT");
+
 
     const entry = req.body.entry?.[0];
     const change = entry?.changes?.[0]?.value;
-
-    console.log("STEP 2 HIT");
 
     const postId = change?.media_id || change?.post_id;
     const commentText = change?.text || "";
     const username = change?.from?.username || "unknown";
 
-    console.log("STEP 3 HIT", postId, commentText, username);
-
-    if (!postId) {
-      return res.json({ message: "No postId found" });
-    }
+    console.log("DATA:", { postId, commentText, username });
 
     const campaign = await findActiveCampaignByPost(postId);
-    console.log("CAMPAIGN FOUND:", campaign ? "YES" : "NO");
 
     if (!campaign) {
       return res.json({ message: "No active campaign" });
@@ -48,33 +26,83 @@ const receiveWebhook = async (req, res) => {
 
     const rules = campaign.ruleIds || [];
 
-    console.log("RULE COUNT:", rules.length);
+    const matchedRule = findMatchingRule(commentText, rules);
 
-   const matchedRule = findMatchingRule(commentText, rules);
+    
+    console.log("RULE COUNT:", rules.length);
+console.log("MATCHED RULE:", matchedRule);
+
+    await LogService.log({
+      campaignId: campaign._id,
+      userId: campaign.userId,
+      type: "WEBHOOK_RECEIVED",
+      message: "Webhook received",
+      metadata: {
+        postId,
+        commentText,
+        username,
+      },
+    });
 
 if (!matchedRule) {
+  await LogService.log({
+    campaignId: campaign._id,
+    userId: campaign.userId,
+    type: "RULE_NOT_MATCHED",
+    message: "No rule matched",
+    metadata: { text: commentText },
+  });
+
   return res.json({ message: "No rule matched" });
 }
-const action = buildActionFromRule(matchedRule, username);
+
+await LogService.log({
+  campaignId: campaign._id,
+  userId: campaign.userId,
+  type: "RULE_MATCHED",
+  message: "Rule matched successfully",
+  metadata: {
+    ruleId: matchedRule._id,
+  },
+});
+
+const action = buildActionFromRule(
+  matchedRule,
+  username,
+  campaign
+);
 
 const actionQueue = require("../queues/action.queue");
 
 await actionQueue.add("execute-action", {
   action,
-  campaign,
-  commentId: change?.id, // IMPORTANT
+  campaignId: campaign._id,
+  ruleId: matchedRule._id,
+  userId: campaign.userId,
+  commentId: change?.id,
 });
+
+console.log("✅ JOB ADDED TO QUEUE");
+
+await LogService.log({
+  campaignId: campaign._id,
+  userId: campaign.userId,
+  type: "ACTION_QUEUED",
+  message: "Action queued successfully",
+  metadata: action,
+});
+
+    
 
     return res.json({
       success: true,
-      message: "Action executed",
-      campaign: campaign.name,
+      message: "Rules working correctly",
       matchedRule,
-      action,
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("Webhook error:", error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -82,7 +110,4 @@ await actionQueue.add("execute-action", {
   }
 };
 
-module.exports = {
-  verifyWebhook,
-  receiveWebhook,
-};
+module.exports = { receiveWebhook };
