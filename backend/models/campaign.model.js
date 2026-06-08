@@ -2,8 +2,6 @@ const mongoose = require("mongoose");
 
 const campaignSchema = new mongoose.Schema(
   {
-
-
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -16,15 +14,20 @@ const campaignSchema = new mongoose.Schema(
       trim: true,
     },
 
-instagramAccountId: {
-  type: String,
-  required: false
-},
-
-    postId: {
+    instagramAccountId: {
       type: String,
-      required: true,
+      required: false,
     },
+
+    // =========================
+    // FIX: SUPPORT MULTIPLE POSTS
+    // =========================
+    postIds: [
+      {
+        type: String,
+        required: true,
+      },
+    ],
 
     status: {
       type: String,
@@ -46,14 +49,21 @@ instagramAccountId: {
       maxDelaySeconds: { type: Number, default: 40 },
     },
 
-metrics: {
-  commentsProcessed: { type: Number, default: 0 },
-  repliesSent: { type: Number, default: 0 },
-  dmsSent: { type: Number, default: 0 },
-  errors: { type: Number, default: 0 },
-},
+    metrics: {
+      commentsProcessed: { type: Number, default: 0 },
+      repliesSent: { type: Number, default: 0 },
+      dmsSent: { type: Number, default: 0 },
+      errors: { type: Number, default: 0 },
+    },
   },
   { timestamps: true }
 );
+
+// =========================
+// BACKWARD COMPATIBILITY
+// =========================
+campaignSchema.virtual("primaryPostId").get(function () {
+  return this.postIds?.[0] || null;
+});
 
 module.exports = mongoose.model("Campaign", campaignSchema);

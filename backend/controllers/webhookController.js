@@ -14,46 +14,55 @@ const receiveWebhook = async (req, res) => {
     const entry = req.body.entry?.[0];
     const change = entry?.changes?.[0]?.value;
 
-    const postId = change?.media_id || change?.post_id;
+    const postId =
+      change?.media_id ||
+      change?.post_id ||
+      change?.media?.id;
+
+      console.log("POST_ID:", postId);
+
     const commentText = change?.text || "";
     const username = change?.from?.username || "unknown";
     const eventId = change?.id;
 
     console.log("DATA:", { postId, commentText, username, eventId });
 
-    // ❌ Guard: invalid webhook
+    // ===============================
+    // VALIDATION
+    // ===============================
     if (!eventId || !postId) {
-      return res.status(400).json({ message: "Missing eventId or postId" });
+      return res.status(400).json({
+        message: "Missing eventId or postId",
+      });
     }
 
     // ===============================
-    // 1. DEDUPLICATION (CRITICAL)
+    // 1. DEDUPLICATION
     // ===============================
-    const inserted = await ProcessedEvent.findOneAndUpdate(
-      { eventId },
-      {
-        $setOnInsert: {
-          eventId,
-          type: "comment",
-          status: "processed",
-        },
-      },
-      {
-        upsert: true,
-        new: true,
-        rawResult: true,
-      }
-    );
+    const existing = await ProcessedEvent.findOne({ eventId });
 
-    // If document already existed → skip processing
-    if (!inserted?.lastErrorObject?.upserted) {
+    if (existing) {
       console.log("🔁 Duplicate event ignored:", eventId);
-      return res.status(200).json({ message: "Duplicate event ignored" });
+      return res
+        .status(200)
+        .json({ message: "Duplicate event ignored" });
     }
 
+    await ProcessedEvent.create({
+      eventId,
+      type: "comment",
+      status: "processed",
+    });
+
     // ===============================
-    // 2. FIND CAMPAIGN
+    // 2. FIND CAMPAIGN (GLOBAL LOOKUP)
     // ===============================
+    console.log("========== WEBHOOK DEBUG ==========");
+console.log("Full Body:", JSON.stringify(req.body, null, 2));
+console.log("Extracted postId:", postId);
+console.log("Type:", typeof postId);
+console.log("==================================");
+
     const campaign = await findActiveCampaignByPost(postId);
 
     if (!campaign) {
@@ -68,8 +77,22 @@ const receiveWebhook = async (req, res) => {
       return res.json({ message: "No active campaign" });
     }
 
+    if (!campaign.userId) {
+      await LogService.log({
+        campaignId: campaign._id,
+        userId: null,
+        type: "INVALID_CAMPAIGN",
+        message: "Campaign missing userId",
+        metadata: { postId },
+      });
+
+      return res.status(400).json({
+        message: "Invalid campaign",
+      });
+    }
+
     // ===============================
-    // 3. LOG INGESTION (SAFE)
+    // 3. LOG INGESTION
     // ===============================
     await LogService.log({
       campaignId: campaign._id,
@@ -88,10 +111,13 @@ const receiveWebhook = async (req, res) => {
     // 4. RULE MATCHING
     // ===============================
     const rules = campaign.ruleIds || [];
+
+    console.log("RAW RULES:", rules);
+    console.log("COMMENT TEXT:", commentText);
+
     const matchedRule = findMatchingRule(commentText, rules);
 
-    console.log("RULE COUNT:", rules.length);
-    console.log("MATCHED RULE:", matchedRule);
+    console.log("MATCH RESULT:", matchedRule);
 
     if (!matchedRule) {
       await LogService.log({
@@ -111,7 +137,7 @@ const receiveWebhook = async (req, res) => {
       type: "RULE_MATCHED",
       message: "Rule matched successfully",
       metadata: {
-        ruleId: matchedRule._id,
+        ruleId: matchedRule.ruleId,
       },
     });
 
@@ -125,7 +151,7 @@ const receiveWebhook = async (req, res) => {
     );
 
     // ===============================
-    // 6. ENQUEUE JOB (SAFE + DEDUP READY)
+    // 6. QUEUE ACTION
     // ===============================
     await actionQueue.add(
       "execute-action",
@@ -137,7 +163,7 @@ const receiveWebhook = async (req, res) => {
         commentId: eventId,
       },
       {
-        jobId: eventId, // 🔥 CRITICAL: prevents retry duplication
+        jobId: eventId,
         attempts: 3,
         backoff: {
           type: "exponential",
@@ -159,16 +185,11 @@ const receiveWebhook = async (req, res) => {
       metadata: action,
     });
 
-    // ❌ IMPORTANT:
-    // DO NOT update metrics here anymore
-    // Metrics must be handled in WORKER only
-
     return res.json({
       success: true,
       message: "Webhook processed successfully",
       matchedRule,
     });
-
   } catch (error) {
     console.error("Webhook error:", error);
 

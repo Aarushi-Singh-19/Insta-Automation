@@ -1,353 +1,215 @@
+const path = require("path");
+
+require("dotenv").config({
+  path: path.join(__dirname, "../.env"),
+});
+
+const connectDB = require("../config/db");
+
+
+const { Worker } = require("bullmq");
+const IORedis = require("ioredis");
+
 const MetricsService = require("../services/metrics.service");
-console.log("🚀 Worker starting...");
-
-const { classifyError } = require("../utils/errorClassifier");
-const { Worker } = require("bullmq");
-const IORedis = require("ioredis");
 const ActionService = require("../services/action.service");
 const FailedJob = require("../models/failedJob.model");
-const ActionLog = require("../models/actionLog.model");
+const ActionLog = require("../models/EventLog");
+const { classifyError } = require("../utils/errorClassifier");
 
+console.log("🚀 Worker starting...");
+
+// Redis connection
 const connection = new IORedis({
   maxRetriesPerRequest: null,
 });
 
-const worker = new Worker(
-  "action-queue",
-  async (job) => {
-    const { action, campaignId, commentId, ruleId, userId } = job.data;
+// Metric mapping
+const metricMap = {
+  reply: "repliesSent",
+  send_dm: "dmsSent",
+};
 
-    try {
-      console.log("⚡ Executing action:", action);
+const startWorker = async () => {
+  // Wait for MongoDB before creating Worker
+  await connectDB();
 
-      // =================================================
-      // 1. IDEMPOTENCY CHECK
-      // =================================================
-      const existing = await ActionLog.findOne({ eventId: commentId });
+  console.log("✅ MongoDB connected for Worker");
 
-      if (existing?.status === "success") {
-        console.log("🔁 Duplicate execution blocked:", commentId);
-        return { skipped: true };
-      }
+  const worker = new Worker(
+    "action-queue",
+    async (job) => {
+      const { action, campaignId, commentId, ruleId, userId } = job.data;
 
-      // =================================================
-      // 2. MARK QUEUED (SAFE UPSERT)
-      // =================================================
-      await ActionLog.updateOne(
-        { eventId: commentId },
-        {
-          $setOnInsert: {
-            eventId: commentId,
-            campaignId,
-            ruleId,
-            userId,
-            actionType: action.type,
-            status: "queued",
-            createdAt: new Date(),
+      try {
+        console.log("⚡ Executing action:", action);
+
+        // =========================
+        // 1. IDEMPOTENCY CHECK
+        // =========================
+        const existingSuccess = await ActionLog.findOne({
+          eventId: commentId,
+          status: "success",
+        });
+
+        if (existingSuccess) {
+          console.log("🔁 Already processed:", commentId);
+          return { skipped: true };
+        }
+
+        // Create queued log if missing
+        await ActionLog.updateOne(
+          { eventId: commentId },
+          {
+            $setOnInsert: {
+              eventId: commentId,
+              campaignId,
+              ruleId,
+              userId,
+              actionType: action.type,
+              status: "queued",
+              metricsUpdated: false,
+              createdAt: new Date(),
+            },
           },
-        },
-        { upsert: true }
-      );
+          { upsert: true }
+        );
 
-      // =================================================
-      // 3. EXECUTE ACTION
-      // =================================================
-      const result = await ActionService.execute(action);
+        // =========================
+        // 2. EXECUTE ACTION
+        // =========================
+        const result = await ActionService.execute(action);
 
-      // =================================================
-      // 4. MARK SUCCESS (ONLY ONCE)
-      // =================================================
-      const updated = await ActionLog.updateOne(
-        { eventId: commentId, status: { $ne: "success" } },
-        {
-          $set: {
-            status: "success",
-            updatedAt: new Date(),
-          },
-        }
-      );
-
-      // =================================================
-      // 5. SAFE METRICS UPDATE (ONLY FIRST SUCCESS)
-      // =================================================
-      if (updated.modifiedCount > 0) {
-        if (action.type === "reply") {
-          await MetricsService.increment(campaignId, "repliesSent");
-        }
-
-        if (action.type === "send_dm") {
-          await MetricsService.increment(campaignId, "dmsSent");
-        }
-
-        await MetricsService.increment(campaignId, "commentsProcessed");
-      }
-
-      return result;
-    } catch (error) {
-      console.log("❌ Action failed:", error.message);
-
-      const errorType = classifyError(error);
-
-      const isRetryable =
-        errorType !== "DUPLICATE_ACTION" &&
-        errorType !== "AUTH_ERROR";
-
-      // =================================================
-      // 6. MARK FAILURE
-      // =================================================
-      await ActionLog.updateOne(
-        { eventId: commentId },
-        {
-          $set: {
-            status: "failed",
-            error: error.message,
-            errorType,
-            updatedAt: new Date(),
-          },
-        }
-      );
-
-      // =================================================
-      // 7. FAILED JOB LOG
-      // =================================================
-      await FailedJob.create({
-        jobId: job.id,
-        campaignId,
-        ruleId,
-        userId,
-        actionType: action.type,
-        payload: job.data,
-        errorMessage: error.message,
-        errorType,
-        isRetryable,
-        stack: error.stack,
-        attemptsMade: job.attemptsMade,
-      });
-
-      await MetricsService.increment(campaignId, "errors");
-
-      // =================================================
-      // 8. STOP RETRY FOR NON-RETRYABLE ERRORS
-      // =================================================
-      if (!isRetryable) {
-        console.log("⛔ Non-retryable error, stopping retries");
-        return { failed: true, errorType };
-      }
-
-      throw error;
-    }
-  },
-  {
-    connection,
-    attempts: 5,
-    backoff: {
-      type: "exponential",
-      delay: 2000,
-    },
-    removeOnComplete: 100,
-    removeOnFail: false,
-  }
+console.log(
+  `✅ Action executed for event ${commentId}`
 );
 
-console.log("✅ Worker ready and waiting for jobs...");
+        // =========================
+        // 3. MARK SUCCESS
+        // =========================
+        await ActionLog.updateOne(
+          { eventId: commentId },
+          {
+            $set: {
+              status: "success",
+              updatedAt: new Date(),
+            },
+          }
+        );
 
-// =================================================
-// DLQ HANDLER
-// =================================================
-worker.on("failed", async (job, err) => {
-  try {
-    console.log("❌ JOB FAILED FINAL:", job.id);
+        // =========================
+        // 4. UPDATE METRICS ONCE
+        // =========================
+        const log = await ActionLog.findOne({
+          eventId: commentId,
+          metricsUpdated: { $ne: true },
+        });
 
-    await FailedJob.create({
-      jobId: job.id,
-      campaignId: job.data?.campaignId,
-      ruleId: job.data?.ruleId,
-      userId: job.data?.userId,
-      actionType: job.data?.action?.type,
-      payload: job.data,
-      errorMessage: err.message,
-      stack: err.stack,
-      attemptsMade: job.attemptsMade,
-    });
-  } catch (e) {
-    console.log("❌ FailedJob logging failed:", e.message);
-  }
-});
+        if (log) {
+          const metricField = metricMap[action.type];
 
-module.exports = worker;const MetricsService = require("../services/metrics.service");
-console.log("🚀 Worker starting...");
+          if (metricField) {
+            await MetricsService.increment(
+              campaignId,
+              metricField
+            );
+          }
 
-const { classifyError } = require("../utils/errorClassifier");
-const { Worker } = require("bullmq");
-const IORedis = require("ioredis");
-const ActionService = require("../services/action.service");
-const FailedJob = require("../models/failedJob.model");
-const ActionLog = require("../models/actionLog.model");
-
-const connection = new IORedis({
-  maxRetriesPerRequest: null,
-});
-
-const worker = new Worker(
-  "action-queue",
-  async (job) => {
-    const { action, campaignId, commentId, ruleId, userId } = job.data;
-
-    try {
-      console.log("⚡ Executing action:", action);
-
-      // =================================================
-      // 1. IDEMPOTENCY CHECK
-      // =================================================
-      const existing = await ActionLog.findOne({ eventId: commentId });
-
-      if (existing?.status === "success") {
-        console.log("🔁 Duplicate execution blocked:", commentId);
-        return { skipped: true };
-      }
-
-      // =================================================
-      // 2. MARK QUEUED (SAFE UPSERT)
-      // =================================================
-      await ActionLog.updateOne(
-        { eventId: commentId },
-        {
-          $setOnInsert: {
-            eventId: commentId,
+          await MetricsService.increment(
             campaignId,
-            ruleId,
-            userId,
-            actionType: action.type,
-            status: "queued",
-            createdAt: new Date(),
-          },
-        },
-        { upsert: true }
-      );
+            "commentsProcessed"
+          );
 
-      // =================================================
-      // 3. EXECUTE ACTION
-      // =================================================
-      const result = await ActionService.execute(action);
-
-      // =================================================
-      // 4. MARK SUCCESS (ONLY ONCE)
-      // =================================================
-      const updated = await ActionLog.updateOne(
-        { eventId: commentId, status: { $ne: "success" } },
-        {
-          $set: {
-            status: "success",
-            updatedAt: new Date(),
-          },
-        }
-      );
-
-      // =================================================
-      // 5. SAFE METRICS UPDATE (ONLY FIRST SUCCESS)
-      // =================================================
-      if (updated.modifiedCount > 0) {
-        if (action.type === "reply") {
-          await MetricsService.increment(campaignId, "repliesSent");
+          await ActionLog.updateOne(
+            { eventId: commentId },
+            {
+              $set: {
+                metricsUpdated: true,
+              },
+            }
+          );
         }
 
-        if (action.type === "send_dm") {
-          await MetricsService.increment(campaignId, "dmsSent");
-        }
+        return result;
+      } catch (error) {
+        console.log("❌ Action failed:", error.message);
 
-        await MetricsService.increment(campaignId, "commentsProcessed");
-      }
+        const errorType = classifyError(error);
 
-      return result;
-    } catch (error) {
-      console.log("❌ Action failed:", error.message);
+        const isRetryable =
+          errorType !== "DUPLICATE_ACTION" &&
+          errorType !== "AUTH_ERROR";
 
-      const errorType = classifyError(error);
+        // =========================
+        // 5. MARK FAILED
+        // =========================
+        await ActionLog.updateOne(
+          { eventId: commentId },
+          {
+            $set: {
+              status: "failed",
+              error: error.message,
+              errorType,
+              updatedAt: new Date(),
+            },
+          }
+        );
 
-      const isRetryable =
-        errorType !== "DUPLICATE_ACTION" &&
-        errorType !== "AUTH_ERROR";
+        // =========================
+        // 6. STORE FAILED JOB
+        // =========================
+        await FailedJob.create({
+          jobId: job.id,
+          campaignId,
+          ruleId,
+          userId,
+          actionType: action.type,
+          payload: job.data,
+          errorMessage: error.message,
+          errorType,
+          isRetryable,
+          stack: error.stack,
+          attemptsMade: job.attemptsMade,
+        });
 
-      // =================================================
-      // 6. MARK FAILURE
-      // =================================================
-      await ActionLog.updateOne(
-        { eventId: commentId },
-        {
-          $set: {
-            status: "failed",
-            error: error.message,
+        // =========================
+        // 7. ERROR METRIC
+        // =========================
+        await MetricsService.increment(
+          campaignId,
+          "errors"
+        );
+
+        if (!isRetryable) {
+          console.log("⛔ Non-retryable error");
+          return {
+            failed: true,
             errorType,
-            updatedAt: new Date(),
-          },
+          };
         }
-      );
 
-      // =================================================
-      // 7. FAILED JOB LOG
-      // =================================================
-      await FailedJob.create({
-        jobId: job.id,
-        campaignId,
-        ruleId,
-        userId,
-        actionType: action.type,
-        payload: job.data,
-        errorMessage: error.message,
-        errorType,
-        isRetryable,
-        stack: error.stack,
-        attemptsMade: job.attemptsMade,
-      });
-
-      await MetricsService.increment(campaignId, "errors");
-
-      // =================================================
-      // 8. STOP RETRY FOR NON-RETRYABLE ERRORS
-      // =================================================
-      if (!isRetryable) {
-        console.log("⛔ Non-retryable error, stopping retries");
-        return { failed: true, errorType };
+        throw error;
       }
-
-      throw error;
-    }
-  },
-  {
-    connection,
-    attempts: 5,
-    backoff: {
-      type: "exponential",
-      delay: 2000,
     },
-    removeOnComplete: 100,
-    removeOnFail: false,
-  }
-);
+    {
+      connection,
+    }
+  );
 
-console.log("✅ Worker ready and waiting for jobs...");
+  worker.on("completed", (job) => {
+    console.log("🎯 Completed:", job.id);
+  });
 
-// =================================================
-// DLQ HANDLER
-// =================================================
-worker.on("failed", async (job, err) => {
-  try {
-    console.log("❌ JOB FAILED FINAL:", job.id);
+  worker.on("failed", (job, err) => {
+    console.log("💥 Failed:", job?.id, err.message);
+  });
 
-    await FailedJob.create({
-      jobId: job.id,
-      campaignId: job.data?.campaignId,
-      ruleId: job.data?.ruleId,
-      userId: job.data?.userId,
-      actionType: job.data?.action?.type,
-      payload: job.data,
-      errorMessage: err.message,
-      stack: err.stack,
-      attemptsMade: job.attemptsMade,
-    });
-  } catch (e) {
-    console.log("❌ FailedJob logging failed:", e.message);
-  }
+  console.log("✅ Worker ready and waiting for jobs...");
+};
+
+startWorker().catch((err) => {
+  console.error("❌ Worker startup failed");
+  console.error(err);
+  process.exit(1);
 });
 
-module.exports = worker;
+module.exports = {};

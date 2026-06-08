@@ -1,14 +1,17 @@
 const Campaign = require("../models/campaign.model");
 
-// FIND ACTIVE CAMPAIGN BY POST ID
+// FIND ACTIVE CAMPAIGN BY POST ID (USER-SAFE)
 const findActiveCampaignByPost = async (postId) => {
-  console.log("SEARCHING CAMPAIGN FOR:", postId);
+  console.log("SEARCHING CAMPAIGN FOR:", postId, userId);
 
-  const result = await Campaign.findOne({
-    postId: postId,
-  }).populate("ruleIds");
+const result = await Campaign.findOne({
+  status: "active",
+  postIds: {
+    $in: [postId],
+  },
+}).populate("ruleIds");
 
-  console.log("FOUND:", result);
+  console.log("FOUND:", result ? result._id : null);
 
   return result;
 };

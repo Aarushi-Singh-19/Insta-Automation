@@ -8,46 +8,53 @@ const ALLOWED_FIELDS = [
 ];
 
 class MetricsService {
-  async increment(campaignId, field) {
+  // =========================
+  // INCREMENT SINGLE METRIC
+  // =========================
+  async increment(campaignId, field, value = 1) {
     if (!ALLOWED_FIELDS.includes(field)) {
       throw new Error(`Invalid metric field: ${field}`);
     }
 
-    const result = await Campaign.findByIdAndUpdate(
-      campaignId,
+    const result = await Campaign.updateOne(
+      { _id: campaignId },
       {
         $inc: {
-          [`metrics.${field}`]: 1,
+          [`metrics.${field}`]: value,
         },
-      },
-      { new: true }
+      }
     );
 
-    if (!result) {
+    if (result.matchedCount === 0) {
       throw new Error("Campaign not found");
     }
 
     return result;
   }
 
+  // =========================
+  // BULK INCREMENT METRICS
+  // =========================
   async bulkIncrement(campaignId, fieldsObj) {
     const safeInc = {};
 
     for (const key in fieldsObj) {
-      if (ALLOWED_FIELDS.includes(key)) {
+      if (ALLOWED_FIELDS.includes(key) && typeof fieldsObj[key] === "number") {
         safeInc[`metrics.${key}`] = fieldsObj[key];
       }
     }
 
-    if (Object.keys(safeInc).length === 0) return;
+    if (Object.keys(safeInc).length === 0) {
+      console.warn("⚠️ No valid metrics to increment:", fieldsObj);
+      return null;
+    }
 
-    const result = await Campaign.findByIdAndUpdate(
-      campaignId,
-      { $inc: safeInc },
-      { new: true }
+    const result = await Campaign.updateOne(
+      { _id: campaignId },
+      { $inc: safeInc }
     );
 
-    if (!result) {
+    if (result.matchedCount === 0) {
       throw new Error("Campaign not found");
     }
 

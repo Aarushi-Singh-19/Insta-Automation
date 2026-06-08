@@ -14,7 +14,8 @@ router.post("/comment", auth, async (req, res) => {
     }
 
     // Get user rules only
-    const rules = await Rule.find({ userId: req.user.id });
+    const rules = await Rule.find({});
+console.log(rules);
 
     let matchedRule = null;
 

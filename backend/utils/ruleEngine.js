@@ -1,21 +1,28 @@
 const findMatchingRule = (comment, rules) => {
-  const text = comment.toLowerCase();
+  if (!comment || !rules?.length) return null;
+
+  const text = comment.toLowerCase().trim();
 
   for (let rule of rules) {
+    if (!rule) continue;
 
     // ANY COMMENT (PRO FEATURE)
     if (rule.triggerType === "any_comment") {
       return rule;
     }
 
-    const keywords = rule.triggerKeywords || [];
+    const keywords = Array.isArray(rule.triggerKeywords)
+      ? rule.triggerKeywords
+      : [];
 
-    const isMatch = keywords.some((kw) =>
-      text.includes((kw || "").toLowerCase().trim())
-    );
+    for (let kw of keywords) {
+      if (!kw) continue;
 
-    if (isMatch) {
-      return rule;
+      const cleanKw = String(kw).toLowerCase().trim();
+
+      if (cleanKw && text.includes(cleanKw)) {
+        return rule;
+      }
     }
   }
 

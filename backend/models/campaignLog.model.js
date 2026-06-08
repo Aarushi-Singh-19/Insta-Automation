@@ -7,14 +7,15 @@ const campaignLogSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: [
-        "WEBHOOK_RECEIVED",
-        "RULE_MATCHED",
-        "RULE_NOT_MATCHED",
-        "ACTION_QUEUED",
-        "ACTION_SUCCESS",
-        "ACTION_FAILED",
-      ],
+enum: [
+  "WEBHOOK_RECEIVED",
+  "RULE_MATCHED",
+  "RULE_NOT_MATCHED",
+  "ACTION_QUEUED",
+  "ACTION_SUCCESS",
+  "ACTION_FAILED",
+  "NO_CAMPAIGN"
+],
     },
 
     message: String,
