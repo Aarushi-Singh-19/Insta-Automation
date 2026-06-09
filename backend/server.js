@@ -5,6 +5,8 @@ const analyticsRoutes = require("./routes/analyticsRoutes");
 
 const connectDB = require("./config/db");
 
+const instagramRoutes = require("./routes/instagram.routes");
+
 dotenv.config();
 
 const app = express();
@@ -20,6 +22,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
+app.use("/api/instagram", instagramRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/health", require("./routes/healthRoutes"));
