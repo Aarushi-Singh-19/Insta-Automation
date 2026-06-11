@@ -7,6 +7,10 @@ const connectDB = require("./config/db");
 
 const instagramRoutes = require("./routes/instagram.routes");
 
+const webhookRoutes = require("./routes/webhookRoutes");
+
+
+
 dotenv.config();
 
 const app = express();
@@ -22,6 +26,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
+app.use("/api/webhook", webhookRoutes);
 app.use("/api/instagram", instagramRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/auth", require("./routes/authRoutes"));

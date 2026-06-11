@@ -6,7 +6,12 @@ const {
   instagramCallback,
 } = require("../controllers/instagram.controller");
 
-router.get("/connect", connectInstagram);
+const authMiddleware = require("../middleware/authMiddleware");
+
+// STEP 1: protect connect route
+router.get("/connect", authMiddleware, connectInstagram);
+
+// callback stays public
 router.get("/callback", instagramCallback);
 
 module.exports = router;
