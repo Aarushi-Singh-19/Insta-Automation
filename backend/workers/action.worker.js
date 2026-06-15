@@ -6,14 +6,16 @@ require("dotenv").config({
 
 const connectDB = require("../config/db");
 
-
 const { Worker } = require("bullmq");
 const IORedis = require("ioredis");
 
 const MetricsService = require("../services/metrics.service");
 const ActionService = require("../services/action.service");
+
 const FailedJob = require("../models/failedJob.model");
 const ActionLog = require("../models/EventLog");
+const InstagramAccount = require("../models/InstagramAccount.js");
+
 const { classifyError } = require("../utils/errorClassifier");
 
 console.log("🚀 Worker starting...");
@@ -30,7 +32,6 @@ const metricMap = {
 };
 
 const startWorker = async () => {
-  // Wait for MongoDB before creating Worker
   await connectDB();
 
   console.log("✅ MongoDB connected for Worker");
@@ -38,7 +39,13 @@ const startWorker = async () => {
   const worker = new Worker(
     "action-queue",
     async (job) => {
-      const { action, campaignId, commentId, ruleId, userId } = job.data;
+      const {
+        action,
+        campaignId,
+        commentId,
+        ruleId,
+        userId,
+      } = job.data;
 
       try {
         console.log("⚡ Executing action:", action);
@@ -56,7 +63,6 @@ const startWorker = async () => {
           return { skipped: true };
         }
 
-        // Create queued log if missing
         await ActionLog.updateOne(
           { eventId: commentId },
           {
@@ -75,16 +81,46 @@ const startWorker = async () => {
         );
 
         // =========================
-        // 2. EXECUTE ACTION
+        // 2. GET INSTAGRAM ACCOUNT (FIXED)
         // =========================
-        const result = await ActionService.execute(action);
+        let igAccount;
 
-console.log(
-  `✅ Action executed for event ${commentId}`
-);
+        try {
+         igAccount = await InstagramAccount.findOne({
+  userId,
+  status: "active",
+});
+        } catch (err) {
+          console.error("IG lookup failed:", err.message);
+          throw new Error("IG_DB_ERROR");
+        }
+
+        if (!igAccount) {
+          throw new Error("NO_INSTAGRAM_ACCOUNT_CONNECTED");
+        }
+
+        console.log("📸 IG ACCOUNT FOUND:", {
+          igId: igAccount.instagramBusinessId,
+          username: igAccount.username,
+        });
 
         // =========================
-        // 3. MARK SUCCESS
+        // 3. EXECUTE ACTION
+        // =========================
+        const result = await ActionService.execute(action, {
+          campaignId,
+          commentId,
+          ruleId,
+          userId,
+          instagramAccount: igAccount,
+        });
+
+        console.log(
+          `✅ Action executed for event ${commentId}`
+        );
+
+        // =========================
+        // 4. MARK SUCCESS
         // =========================
         await ActionLog.updateOne(
           { eventId: commentId },
@@ -97,7 +133,7 @@ console.log(
         );
 
         // =========================
-        // 4. UPDATE METRICS ONCE
+        // 5. UPDATE METRICS
         // =========================
         const log = await ActionLog.findOne({
           eventId: commentId,
@@ -140,7 +176,7 @@ console.log(
           errorType !== "AUTH_ERROR";
 
         // =========================
-        // 5. MARK FAILED
+        // 6. MARK FAILED
         // =========================
         await ActionLog.updateOne(
           { eventId: commentId },
@@ -155,7 +191,7 @@ console.log(
         );
 
         // =========================
-        // 6. STORE FAILED JOB
+        // 7. STORE FAILED JOB
         // =========================
         await FailedJob.create({
           jobId: job.id,
@@ -172,7 +208,7 @@ console.log(
         });
 
         // =========================
-        // 7. ERROR METRIC
+        // 8. ERROR METRIC
         // =========================
         await MetricsService.increment(
           campaignId,

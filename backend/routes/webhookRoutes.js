@@ -3,13 +3,12 @@ const router = express.Router();
 
 const {
   verifyWebhook,
-  handleWebhook,
+  receiveWebhook,
 } = require("../controllers/webhookController");
 
-// verification (Meta setup step)
 router.get("/instagram", verifyWebhook);
 
 // actual events
-router.post("/instagram", handleWebhook);
+router.post("/instagram", receiveWebhook); 
 
 module.exports = router;

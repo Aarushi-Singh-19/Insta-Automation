@@ -4,14 +4,34 @@ const router = express.Router();
 const {
   connectInstagram,
   instagramCallback,
+  connectInstagramV2,
+  instagramCallbackV2,
 } = require("../controllers/instagram.controller");
 
 const authMiddleware = require("../middleware/authMiddleware");
 
-// STEP 1: protect connect route
-router.get("/connect", authMiddleware, connectInstagram);
+// Instagram Login V2
+router.get(
+  "/connect-v2",
+  authMiddleware,
+  connectInstagramV2
+);
 
-// callback stays public
-router.get("/callback", instagramCallback);
+router.get(
+  "/callback-v2",
+  instagramCallbackV2
+);
+
+// Existing Facebook Login Flow
+router.get(
+  "/connect",
+  authMiddleware,
+  connectInstagram
+);
+
+router.get(
+  "/callback",
+  instagramCallback
+);
 
 module.exports = router;

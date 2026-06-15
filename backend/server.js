@@ -1,4 +1,9 @@
+
+
+
 const express = require("express");
+
+
 const cors = require("cors");
 const dotenv = require("dotenv");
 const analyticsRoutes = require("./routes/analyticsRoutes");
@@ -9,6 +14,7 @@ const instagramRoutes = require("./routes/instagram.routes");
 
 const webhookRoutes = require("./routes/webhookRoutes");
 
+require("./workers/bullmq/commentWorker");
 
 
 dotenv.config();

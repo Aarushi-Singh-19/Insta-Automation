@@ -30,6 +30,11 @@ const instagramAccountSchema = new mongoose.Schema(
       required: true,
     },
 
+    pageAccessToken: {
+      type: String,
+      required: true,
+    },
+
     tokenExpiresAt: {
       type: Date,
       default: null,
@@ -44,6 +49,11 @@ const instagramAccountSchema = new mongoose.Schema(
     connectedAt: {
       type: Date,
       default: Date.now,
+    },
+
+    lastSyncedAt: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }

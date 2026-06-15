@@ -1,3 +1,5 @@
+const axios = require("axios");
+const InstagramAccount = require("../models/InstagramAccount");
 class RetryableError extends Error {
   constructor(message, isRetryable = true) {
     super(message);
@@ -7,14 +9,14 @@ class RetryableError extends Error {
 class ActionService {
 
     
- async execute(action) {
+async execute(action, context = {}){
   try {
     if (action.type === "reply") {
-      return await this.replyToComment(action);
+      return await this.replyToComment(action, context);
     }
 
     if (action.type === "send_dm") {
-      return await this.sendDM(action);
+      return await this.sendDM(action, context);
     }
 
     throw new Error("Unknown action type: " + action.type);
@@ -26,10 +28,31 @@ class ActionService {
   }
 }
 
-async replyToComment(action) {
+async replyToComment(action, context) {
   const { username, message } = action;
 
+  const { commentId, userId } = context;
+
+  console.log("Comment ID:", commentId);
+console.log("User ID:", userId);
+
   console.log(`💬 Replying to @${username}: ${message}`);
+
+  const account = await InstagramAccount.findOne({
+  userId,
+  status: "active",
+});
+
+if (!account) {
+  throw new Error(
+    "No active Instagram account connected"
+  );
+}
+
+console.log(
+  "Instagram Account Found:",
+  account.instagramBusinessId
+);
 
   // 🔥 simulate API risk points
   const randomFail = Math.random();

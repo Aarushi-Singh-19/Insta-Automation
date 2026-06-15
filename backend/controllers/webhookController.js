@@ -49,6 +49,11 @@ const receiveWebhook = async (req, res) => {
         const username = change?.from?.username || "unknown";
         const eventId = change?.id;
 
+        console.log(
+  "FULL CHANGE:",
+  JSON.stringify(change, null, 2)
+);
+
         console.log("DATA:", {
           postId,
           commentText,
@@ -131,7 +136,22 @@ const receiveWebhook = async (req, res) => {
         // ===============================
         const rules = campaign.ruleIds || [];
 
+        console.log(
+  "RULES:",
+  JSON.stringify(
+    rules.map((r) => ({
+      id: r._id,
+      triggerType: r.triggerType,
+      triggerKeywords: r.triggerKeywords,
+    })),
+    null,
+    2
+  )
+);
+
         const matchedRule = findMatchingRule(commentText, rules);
+
+        console.log("MATCHED RULE:", matchedRule);
 
         if (!matchedRule) {
           await LogService.log({
@@ -177,7 +197,7 @@ const receiveWebhook = async (req, res) => {
             commentId: eventId,
           },
           {
-            jobId: eventId,
+            jobId: `comment-${eventId}`,
             attempts: 3,
             backoff: {
               type: "exponential",
@@ -235,6 +255,7 @@ const handleWebhook = async (req, res) => {
     return res.sendStatus(500);
   }
 };
+
 
 module.exports = {
   verifyWebhook,

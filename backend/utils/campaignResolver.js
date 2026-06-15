@@ -2,7 +2,7 @@ const Campaign = require("../models/campaign.model");
 
 // FIND ACTIVE CAMPAIGN BY POST ID (USER-SAFE)
 const findActiveCampaignByPost = async (postId) => {
-  console.log("SEARCHING CAMPAIGN FOR:", postId, userId);
+  console.log("SEARCHING CAMPAIGN FOR:", postId);
 
 const result = await Campaign.findOne({
   status: "active",
