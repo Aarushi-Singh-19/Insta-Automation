@@ -1,13 +1,18 @@
 const ProcessedEvent = require("../models/processedEvent.model");
-const LogService = require("../services/log.service");
+// const LogService = require("../services/log.service");
+const Rule = require('../models/Rule');
 
 const { findMatchingRule } = require("../utils/ruleEngine");
-const { findActiveCampaignByPost } = require("../utils/campaignResolver");
-const { buildActionFromRule } = require("../services/actionBuilder.service");
+// const { findActiveCampaignByPost } = require("../utils/campaignResolver");
+const actionBuilder =
+  require("../services/actionBuilder.service");
 
 const actionQueue = require("../queues/action.queue");
 
 
+const {
+  findActiveCampaignByPost,
+} = require("../utils/campaignResolver");
 // ===============================
 // WEBHOOK VERIFY (UNCHANGED)
 // ===============================
@@ -30,210 +35,199 @@ const verifyWebhook = (req, res) => {
 // ===============================
 const receiveWebhook = async (req, res) => {
   try {
-    console.log("=== WEBHOOK HIT ===");
-
+    console.log(
+    "WEBHOOK RECEIVED:",
+    JSON.stringify(req.body, null, 2)
+  );
     const entries = req.body.entry || [];
 
     for (const entry of entries) {
       const changes = entry.changes || [];
 
-      for (const changeObj of changes) {
-        const change = changeObj.value;
+ for (const changeObj of changes) {
 
-        const postId =
-          change?.media_id ||
-          change?.post_id ||
-          change?.media?.id;
+  console.log(
+    "WEBHOOK FIELD:",
+    changeObj.field
+  );
 
-        const commentText = change?.text || "";
-        const username = change?.from?.username || "unknown";
+  if (changeObj.field !== "comments") {
+    continue;
+  }
+
+  const change = changeObj.value;
+
         const eventId = change?.id;
-
+        const postId = change?.media?.id;
         console.log(
-  "FULL CHANGE:",
-  JSON.stringify(change, null, 2)
+  "WEBHOOK MEDIA ID:",
+  postId
 );
+        const commentText = change?.text || "";
+        const username =
+          change?.from?.username || "unknown";
 
-        console.log("DATA:", {
+        console.log("COMMENT EVENT:", {
+          eventId,
           postId,
           commentText,
           username,
-          eventId,
         });
 
-        // ===============================
-        // VALIDATION
-        // ===============================
-        if (!eventId || !postId) continue;
-
-        // ===============================
-        // 1. SAFE DEDUPLICATION (ATOMIC)
-        // ===============================
-        const inserted = await ProcessedEvent.findOneAndUpdate(
-          { eventId },
-          {
-            $setOnInsert: {
-              eventId,
-              type: "comment",
-              status: "processed",
-            },
-          },
-          { upsert: true, new: true }
-        );
-
-        if (!inserted?.isNew && inserted?.createdAt === undefined) {
-          console.log("🔁 Duplicate event ignored:", eventId);
+        if (!eventId) {
           continue;
         }
 
-        // ===============================
-        // 2. FIND CAMPAIGN
-        // ===============================
-        const campaign = await findActiveCampaignByPost(postId);
+  const existing =
+  await ProcessedEvent.findOne({
+    eventId,
+  });
+
+if (existing) {
+  console.log(
+    "Duplicate event ignored:",
+    eventId
+  );
+
+  continue;
+}
+
+await ProcessedEvent.create({
+  eventId,
+  type: "comment",
+  status: "processed",
+});
+
+      console.log(
+          "New event stored:",
+          eventId
+        );
+
+        const campaign =
+          await findActiveCampaignByPost(
+            postId
+          );
 
         if (!campaign) {
-          await LogService.log({
-            campaignId: null,
-            userId: null,
-            type: "NO_CAMPAIGN",
-            message: "No active campaign found",
-            metadata: { postId },
-          });
+          console.log(
+            "NO ACTIVE CAMPAIGN FOR POST:",
+            postId
+          );
 
           continue;
         }
-
-        if (!campaign.userId) {
-          await LogService.log({
-            campaignId: campaign._id,
-            userId: null,
-            type: "INVALID_CAMPAIGN",
-            message: "Campaign missing userId",
-            metadata: { postId },
-          });
-
-          continue;
-        }
-
-        // ===============================
-        // 3. LOG INGESTION
-        // ===============================
-        await LogService.log({
-          campaignId: campaign._id,
-          userId: campaign.userId,
-          type: "WEBHOOK_RECEIVED",
-          message: "Webhook received",
-          metadata: {
-            postId,
-            commentText,
-            username,
-            eventId,
-          },
-        });
-
-        // ===============================
-        // 4. RULE MATCHING
-        // ===============================
-        const rules = campaign.ruleIds || [];
 
         console.log(
-  "RULES:",
-  JSON.stringify(
-    rules.map((r) => ({
-      id: r._id,
-      triggerType: r.triggerType,
-      triggerKeywords: r.triggerKeywords,
-    })),
-    null,
-    2
-  )
-);
-
-        const matchedRule = findMatchingRule(commentText, rules);
-
-        console.log("MATCHED RULE:", matchedRule);
-
-        if (!matchedRule) {
-          await LogService.log({
+          "CAMPAIGN FOUND:",
+          {
             campaignId: campaign._id,
             userId: campaign.userId,
-            type: "RULE_NOT_MATCHED",
-            message: "No rule matched",
-            metadata: { text: commentText },
-          });
-
-          continue;
-        }
-
-        await LogService.log({
-          campaignId: campaign._id,
-          userId: campaign.userId,
-          type: "RULE_MATCHED",
-          message: "Rule matched successfully",
-          metadata: {
-            ruleId: matchedRule.ruleId,
-          },
-        });
-
-        // ===============================
-        // 5. BUILD ACTION
-        // ===============================
-        const action = buildActionFromRule(
-          matchedRule,
-          username,
-          campaign
-        );
-
-        // ===============================
-        // 6. QUEUE ACTION
-        // ===============================
-        await actionQueue.add(
-          "execute-action",
-          {
-            action,
-            campaignId: campaign._id,
-            ruleId: matchedRule._id,
-            userId: campaign.userId,
-            commentId: eventId,
-          },
-          {
-            jobId: `comment-${eventId}`,
-            attempts: 3,
-            backoff: {
-              type: "exponential",
-              delay: 2000,
-            },
           }
         );
+const activeRules = await Rule.find({
+  _id: {
+    $in: campaign.ruleIds || [],
+  },
+  isActive: true,
+}).lean();
 
-        console.log("✅ JOB ADDED TO QUEUE");
+if (!activeRules.length) {
+  console.log(
+    "NO ACTIVE RULES FOR CAMPAIGN:",
+    campaign._id
+  );
 
-        // ===============================
-        // 7. LOG QUEUED ACTION
-        // ===============================
-        await LogService.log({
-          campaignId: campaign._id,
-          userId: campaign.userId,
-          type: "ACTION_QUEUED",
-          message: "Action queued successfully",
-          metadata: action,
-        });
+  continue;
+}
+
+const matchedRule = findMatchingRule(
+  commentText,
+  activeRules
+);
+if (!matchedRule) {
+  console.log(
+    "NO RULE MATCHED FOR COMMENT:",
+    commentText
+  );
+
+  continue;
+}
+
+console.log("RULE MATCHED:", {
+  ruleId: matchedRule._id,
+});
+
+const action = actionBuilder.buildActionFromRule(
+  matchedRule,
+  username,
+  campaign
+);
+
+const executionPayload = {
+  action,
+
+  campaignId: campaign._id,
+
+  commentId: eventId,
+
+  ruleId: matchedRule._id,
+
+  userId: campaign.userId,
+
+  postId,
+
+  username,
+
+  commentText,
+
+  receivedAt: new Date(),
+};
+console.log("QUEUE COMMENT ID:", eventId);
+console.log(
+  "RAW WEBHOOK:",
+  JSON.stringify(req.body, null, 2)
+);
+
+console.log(
+  "ACTION BUILT:",
+  JSON.stringify(action, null, 2)
+);
+
+const job = await actionQueue.add(
+  "process-comment",
+  executionPayload,
+  {
+    attempts: 3,
+
+    backoff: {
+      type: "exponential",
+      delay: 5000,
+    },
+
+    removeOnComplete: 1000,
+    removeOnFail: 5000,
+  }
+);
+
+console.log("JOB QUEUED:", {
+  jobId: job.id,
+  campaignId: campaign._id,
+  ruleId: matchedRule._id,
+});
       }
     }
 
-    return res.json({
-      success: true,
-      message: "Webhook processed successfully",
-    });
+    return res.sendStatus(200);
   } catch (error) {
-    console.error("Webhook error:", error);
+    console.error(
+      "Webhook error:",
+      error
+    );
 
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.sendStatus(500);
   }
 };
+
 
 
 // ===============================

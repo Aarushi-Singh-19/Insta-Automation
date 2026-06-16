@@ -303,6 +303,7 @@ const connectInstagramV2 = async (req, res) => {
   }
 };
 
+
 const instagramCallbackV2 = async (req, res) => {
   try {
     const { code, state } = req.query;
@@ -354,7 +355,11 @@ const instagramCallbackV2 = async (req, res) => {
         2
       )
     );
-
+    
+console.log(
+  "TOKEN PERMISSIONS:",
+  tokenResponse.data.permissions
+);
     const accessToken = tokenResponse.data.access_token;
 const instagramUserId = tokenResponse.data.user_id;
 
@@ -374,6 +379,55 @@ try {
     }
   );
 
+
+console.log("ABOUT TO SAVE INSTAGRAM ACCOUNT", {
+  userId: decodedState.userId,
+  instagramBusinessId:
+    instagramUserId.toString(),
+  username:
+    profileResponse.data.username,
+});
+
+const savedAccount =
+  await InstagramAccount.findOneAndUpdate(
+    {
+      userId: decodedState.userId,
+      instagramBusinessId:
+        instagramUserId.toString(),
+    },
+    {
+      userId: decodedState.userId,
+
+      instagramBusinessId:
+        instagramUserId.toString(),
+
+      pageId:
+        instagramUserId.toString(),
+
+      username:
+        profileResponse.data.username,
+
+      accessToken,
+
+      pageAccessToken:
+        accessToken,
+
+      status: "active",
+
+      lastSyncedAt: new Date(),
+    },
+    {
+      upsert: true,
+      new: true,
+      runValidators: true,
+    }
+  );
+
+console.log(
+  "INSTAGRAM ACCOUNT SAVED:",
+  savedAccount
+);
+
   console.log(
     "INSTAGRAM PROFILE:",
     JSON.stringify(
@@ -382,19 +436,51 @@ try {
       2
     )
   );
+  const accountInfo = await axios.get(
+  "https://graph.instagram.com/me",
+  {
+    params: {
+      fields:
+        "id,username,account_type",
+      access_token: accessToken,
+    },
+  }
+);
 
-} catch (profileError) {
-  console.error(
-    "PROFILE LOOKUP ERROR:",
-    profileError.response?.data || profileError.message
-  );
-}
-try {
+console.log(
+  "ACCOUNT INFO:",
+  JSON.stringify(
+    accountInfo.data,
+    null,
+    2
+  )
+);
+
+const mediaDebug = await axios.get(
+  `https://graph.instagram.com/${profileResponse.data.id}/media`,
+  {
+    params: {
+      fields: "id,caption,comments_count",
+      access_token: accessToken,
+    },
+  }
+);
+
+console.log(
+  "MEDIA DEBUG:",
+  JSON.stringify(
+    mediaDebug.data,
+    null,
+    2
+  )
+);
+ 
+  try {
   mediaResponse = await axios.get(
     "https://graph.instagram.com/me/media",
     {
       params: {
-        fields: "id,caption",
+        fields: "id,caption,permalink",
         access_token: accessToken,
       },
     }
@@ -416,34 +502,66 @@ try {
   );
 }
 
+} catch (profileError) {
+  console.error(
+    "PROFILE/SAVE ERROR:",
+    profileError.response?.data || profileError
+  );
 
+  throw profileError;
+}
 try {
-  const firstMediaId =
-    mediaResponse.data?.data?.[0]?.id;
+// const firstMediaId =
+//   mediaResponse?.data?.data?.[0]?.id;
+//temp change
+const firstMediaId =
+  "18339826036216462";
 
   console.log(
     "TEST MEDIA ID:",
     firstMediaId
   );
 
-  if (firstMediaId) {
-    const commentsResponse = await axios.get(
-      `https://graph.instagram.com/${firstMediaId}/comments`,
-      {
-        params: {
-          access_token: accessToken,
-        },
-      }
-    );
+console.log(
+  "MEDIA FULL:",
+  JSON.stringify(
+    mediaResponse.data,
+    null,
+    2
+  )
+);
 
-    console.log(
-      "COMMENTS RESPONSE:",
-      JSON.stringify(
-        commentsResponse.data,
-        null,
-        2
-      )
-    );
+  if (firstMediaId) {
+const commentsUrl =
+  `https://graph.instagram.com/v25.0/${firstMediaId}/comments`;
+
+console.log(
+  "COMMENTS URL:",
+  commentsUrl
+);
+
+const commentsResponse = await axios.get(
+  commentsUrl,
+  {
+    params: {
+      access_token: accessToken,
+      limit: 100,
+    },
+  }
+);
+
+console.log(
+  "RAW COMMENTS RESPONSE:",
+  JSON.stringify(
+    commentsResponse.data,
+    null,
+    2
+  )
+);
+console.log(
+  "COMMENTS COUNT:",
+  commentsResponse.data?.data?.length
+);
   }
 } catch (commentsError) {
   console.error(

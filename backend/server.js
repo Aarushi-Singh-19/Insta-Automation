@@ -1,6 +1,8 @@
 
 
-
+const webhookDebugRoutes = require(
+  "./routes/webhookDebug.routes"
+);
 const express = require("express");
 
 
@@ -21,6 +23,11 @@ dotenv.config();
 
 const app = express();
 
+
+app.use(
+  "/api/webhook-debug",
+  webhookDebugRoutes
+);
 // Middleware
 app.use(cors({
   origin: "http://localhost:5173",

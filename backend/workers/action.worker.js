@@ -47,6 +47,12 @@ const startWorker = async () => {
         userId,
       } = job.data;
 
+      console.log("JOB DATA RECEIVED:");
+console.log(job.data);
+
+console.log("WORKER USER ID:", userId);
+console.log("WORKER USER ID TYPE:", typeof userId);
+
       try {
         console.log("⚡ Executing action:", action);
 
@@ -86,16 +92,38 @@ const startWorker = async () => {
         let igAccount;
 
         try {
-         igAccount = await InstagramAccount.findOne({
+console.log("LOOKING UP INSTAGRAM ACCOUNT", {
   userId,
   status: "active",
 });
+
+igAccount = await InstagramAccount.findOne({
+  userId,
+  status: "active",
+});
+
+console.log(
+  "LOOKUP RESULT:",
+  igAccount
+);
         } catch (err) {
           console.error("IG lookup failed:", err.message);
           throw new Error("IG_DB_ERROR");
         }
+const allAccounts =
+  await InstagramAccount.find({});
 
+console.log(
+  "ALL INSTAGRAM ACCOUNTS:",
+  allAccounts.map(a => ({
+    id: a._id,
+    userId: a.userId,
+    username: a.username,
+    status: a.status,
+  }))
+);
         if (!igAccount) {
+          
           throw new Error("NO_INSTAGRAM_ACCOUNT_CONNECTED");
         }
 

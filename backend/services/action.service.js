@@ -54,6 +54,28 @@ console.log(
   account.instagramBusinessId
 );
 
+try {
+  const verify = await axios.get(
+    `https://graph.facebook.com/v23.0/${commentId}`,
+    {
+      params: {
+        access_token:
+          account.pageAccessToken,
+      },
+    }
+  );
+
+  console.log(
+    "COMMENT LOOKUP SUCCESS:",
+    verify.data
+  );
+} catch (err) {
+  console.error(
+    "COMMENT LOOKUP FAILED:",
+    err.response?.data || err.message
+  );
+}
+
   // 🔥 simulate API risk points
   const randomFail = Math.random();
 
