@@ -6,8 +6,10 @@ function Hero() {
       </h1>
 
       <p>
-        Automatically send DMs, reply to comments,
-        capture leads, and grow your audience.
+      Automate Instagram keyword-triggered DMs, comment replies, and lead generation workflows.
+
+TriggerDM helps creators, coaches, agencies, and businesses automatically engage with people who comment on their posts and reels.
+
       </p>
 
       <button className="cta-btn">
