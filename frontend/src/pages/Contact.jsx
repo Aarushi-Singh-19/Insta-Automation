@@ -5,7 +5,7 @@ function Contact() {
 
       <p>TriggerDM Support</p>
 
-      <p>Email: support@triggerdm.in</p>
+      <p>Email: aarushisingh19102005@gmail.com</p>
 
       <p>We aim to respond within 48 hours.</p>
     </div>

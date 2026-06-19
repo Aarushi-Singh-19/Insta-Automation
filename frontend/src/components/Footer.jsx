@@ -12,7 +12,7 @@ function Footer() {
         <Link to="/contact">Contact</Link>
       </div>
 
-      <p>support@triggerdm.in</p>
+      <p>aarushisingh19102005@gmail.com</p>
 
     </footer>
   );

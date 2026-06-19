@@ -24,7 +24,7 @@ function Privacy() {
       </p>
 
       <h2>Contact</h2>
-      <p>Email: support@triggerdm.in</p>
+      <p>Email: aarushisingh19102005@gmail.com</p>
     </div>
   );
 }
