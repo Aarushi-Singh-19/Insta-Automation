@@ -1,8 +1,15 @@
 function Privacy() {
   return (
-    <div>
-      <h1>Privacy Policy</h1>
-      <p>Privacy policy coming soon.</p>
+    <div
+      style={{
+        padding: "50px",
+        background: "red",
+        color: "white",
+        minHeight: "100vh",
+        fontSize: "40px"
+      }}
+    >
+      PRIVACY PAGE WORKING
     </div>
   );
 }
