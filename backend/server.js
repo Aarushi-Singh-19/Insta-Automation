@@ -1,13 +1,15 @@
+const dotenv = require("dotenv");
+dotenv.config();
 
+console.log("REDIS_URL =", process.env.REDIS_URL);
 
+const express = require("express");
+const cors = require("cors");
 const webhookDebugRoutes = require(
   "./routes/webhookDebug.routes"
 );
-const express = require("express");
 
 
-const cors = require("cors");
-const dotenv = require("dotenv");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 
 const connectDB = require("./config/db");
@@ -16,7 +18,7 @@ const instagramRoutes = require("./routes/instagram.routes");
 
 const webhookRoutes = require("./routes/webhookRoutes");
 
-require("./workers/bullmq/commentWorker");
+// require("./workers/bullmq/commentWorker");
 
 
 dotenv.config();

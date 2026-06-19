@@ -7,7 +7,7 @@ require("dotenv").config({
 const connectDB = require("../config/db");
 
 const { Worker } = require("bullmq");
-const IORedis = require("ioredis");
+const connection = require("../config/redis");
 
 const MetricsService = require("../services/metrics.service");
 const ActionService = require("../services/action.service");
@@ -21,9 +21,12 @@ const { classifyError } = require("../utils/errorClassifier");
 console.log("🚀 Worker starting...");
 
 // Redis connection
-const connection = new IORedis({
-  maxRetriesPerRequest: null,
-});
+
+
+console.log(
+  "Redis URL loaded:",
+  process.env.REDIS_URL ? "YES" : "NO"
+);
 
 // Metric mapping
 const metricMap = {
