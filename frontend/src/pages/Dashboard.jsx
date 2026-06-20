@@ -117,11 +117,43 @@ function Dashboard() {
   TriggerDM
 </h2>
 
-<p style={{ color: "#374151" }}>Overview</p>
-<p style={{ color: "#374151" }}>Automations</p>
-<p style={{ color: "#374151" }}>Instagram Accounts</p>
-<p style={{ color: "#374151" }}>Billing</p>
-<p style={{ color: "#374151" }}>Settings</p>
+<p
+  style={{
+    color: "#374151",
+    cursor: "pointer",
+    marginTop: "20px",
+  }}
+>
+  Overview
+</p>
+<p
+  style={{
+    color: "#374151",
+    cursor: "pointer",
+    marginTop: "20px",
+  }}
+>Automations</p>
+<p
+  style={{
+    color: "#374151",
+    cursor: "pointer",
+    marginTop: "20px",
+  }}
+>Instagram Accounts</p>
+<p
+  style={{
+    color: "#374151",
+    cursor: "pointer",
+    marginTop: "20px",
+  }}
+>Billing</p>
+<p
+  style={{
+    color: "#374151",
+    cursor: "pointer",
+    marginTop: "20px",
+  }}
+>Settings</p>
 
       <button onClick={handleLogout}>
         Logout
@@ -129,11 +161,33 @@ function Dashboard() {
     </div>
 
     <div style={{ padding: "30px" }}>
-<h1>Welcome back 👋</h1>
+<div
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "20px",
+  }}
+>
+  <div>
+    <h1>Welcome back 👋</h1>
+    <p>Manage your Instagram comment-to-DM automations.</p>
+  </div>
 
-<p>
-  Manage your Instagram comment-to-DM automations.
-</p>
+  <button
+    style={{
+      padding: "12px 20px",
+      border: "none",
+      borderRadius: "10px",
+      color: "white",
+      cursor: "pointer",
+      background:
+        "linear-gradient(135deg, #E1306C, #833AB4)",
+    }}
+  >
+    + Create Automation
+  </button>
+</div>
 <div
   style={{
     display: "grid",
