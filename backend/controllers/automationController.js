@@ -37,6 +37,23 @@ const createAutomation = async (req, res) => {
   }
 };
 
+const getAutomations = async (req, res) => {
+  try {
+    const automations = await Automation.find({
+      user: req.user.id,
+    }).sort({ createdAt: -1 });
+
+    res.json(automations);
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message: "Failed to fetch automations",
+    });
+  }
+};
+
 module.exports = {
   createAutomation,
+  getAutomations,
 };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import API from "../services/api";
 import DashboardLayout from "../components/DashboardLayout";
 
@@ -19,6 +19,8 @@ const [commentReplyEnabled, setCommentReplyEnabled] = useState(false);
 const [commentReplyMessage, setCommentReplyMessage] = useState("");
 
 const [followGate, setFollowGate] = useState(false);
+
+const [automations, setAutomations] = useState([]);
 
 
 const handleSaveAutomation = async () => {
@@ -49,13 +51,25 @@ const handleSaveAutomation = async () => {
     console.log("AUTOMATION SAVED:", res.data);
 
     alert("Automation saved successfully");
+    fetchAutomations();
   } catch (err) {
     console.error(err);
     alert("Failed to save automation");
   }
 };
 
+const fetchAutomations = async () => {
+  try {
+    const res = await API.get("/automations");
+    setAutomations(res.data);
+  } catch (err) {
+    console.error(err);
+  }
+};
 
+useEffect(() => {
+  fetchAutomations();
+}, []);
 
 console.log({
   triggerType,
@@ -89,6 +103,7 @@ console.log({
 </button>
 
 {showForm && (
+  
   <div
     style={{
       border: "1px solid #e5e7eb",
@@ -221,6 +236,41 @@ console.log({
 </button>
 
   </div>
+)}
+
+<h2 style={{ marginTop: "30px" }}>
+  Saved Automations
+</h2>
+
+{automations.length === 0 ? (
+  <p>No automations yet.</p>
+) : (
+  automations.map((automation) => (
+    <div
+      key={automation._id}
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "12px",
+        padding: "16px",
+        marginTop: "12px",
+      }}
+    >
+      <p>
+        <strong>Keywords:</strong>{" "}
+        {automation.keywords.join(", ")}
+      </p>
+
+      <p>
+        <strong>Match Type:</strong>{" "}
+        {automation.matchType}
+      </p>
+
+      <p>
+        <strong>Status:</strong>{" "}
+        {automation.status}
+      </p>
+    </div>
+  ))
 )}
     </DashboardLayout>
   );
