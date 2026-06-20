@@ -105,7 +105,16 @@ function Dashboard() {
         padding: "20px",
       }}
     >
-      <h2>TriggerDM</h2>
+<h2
+  style={{
+    background: "linear-gradient(135deg, #E1306C, #833AB4)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+    fontWeight: "bold",
+  }}
+>
+  TriggerDM
+</h2>
 
       <p>Overview</p>
       <p>Automations</p>
