@@ -129,8 +129,39 @@ function Dashboard() {
     </div>
 
     <div style={{ padding: "30px" }}>
-      <h1>Overview Page</h1>
-      <p>Welcome to TriggerDM</p>
+<h1>Welcome back 👋</h1>
+
+<p>
+  Manage your Instagram comment-to-DM automations.
+</p>
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: "20px",
+    marginTop: "30px",
+  }}
+>
+  <div style={{ border: "1px solid #e5e7eb", padding: "20px", borderRadius: "12px" }}>
+    <h3>Active Automations</h3>
+    <h2>0</h2>
+  </div>
+
+  <div style={{ border: "1px solid #e5e7eb", padding: "20px", borderRadius: "12px" }}>
+    <h3>DMs Sent</h3>
+    <h2>0</h2>
+  </div>
+
+  <div style={{ border: "1px solid #e5e7eb", padding: "20px", borderRadius: "12px" }}>
+    <h3>Keywords Triggered</h3>
+    <h2>0</h2>
+  </div>
+
+  <div style={{ border: "1px solid #e5e7eb", padding: "20px", borderRadius: "12px" }}>
+    <h3>Instagram Accounts</h3>
+    <h2>0</h2>
+  </div>
+</div>
     </div>
 
   </div>
