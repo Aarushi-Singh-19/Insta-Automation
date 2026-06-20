@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
@@ -117,43 +118,66 @@ function Dashboard() {
   TriggerDM
 </h2>
 
-<p
+<Link
+  to="/dashboard"
   style={{
     color: "#374151",
-    cursor: "pointer",
+    textDecoration: "none",
+    display: "block",
     marginTop: "20px",
   }}
 >
   Overview
-</p>
-<p
+</Link>
+
+<Link
+  to="/dashboard"
   style={{
     color: "#374151",
-    cursor: "pointer",
+    textDecoration: "none",
+    display: "block",
     marginTop: "20px",
   }}
->Automations</p>
-<p
+>
+  Automation
+</Link>
+
+<Link
+  to="/dashboard"
   style={{
     color: "#374151",
-    cursor: "pointer",
+    textDecoration: "none",
+    display: "block",
     marginTop: "20px",
   }}
->Instagram Accounts</p>
-<p
+>
+  Instagram Accounts
+</Link>
+
+<Link
+  to="/dashboard"
   style={{
     color: "#374151",
-    cursor: "pointer",
+    textDecoration: "none",
+    display: "block",
     marginTop: "20px",
   }}
->Billing</p>
-<p
+>
+   Billing
+</Link>
+
+
+<Link
+  to="/dashboard"
   style={{
     color: "#374151",
-    cursor: "pointer",
+    textDecoration: "none",
+    display: "block",
     marginTop: "20px",
   }}
->Settings</p>
+>
+  Settings
+</Link>
 
       <button onClick={handleLogout}>
         Logout

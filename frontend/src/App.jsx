@@ -1,3 +1,4 @@
+import Automations from "./pages/Automations";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -37,6 +38,15 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+<Route
+  path="/automations"
+  element={
+    <ProtectedRoute>
+      <Automations />
+    </ProtectedRoute>
+  }
+/>
 
         <Route
   path="/privacy"
