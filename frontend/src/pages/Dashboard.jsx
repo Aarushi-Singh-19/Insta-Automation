@@ -131,7 +131,7 @@ function Dashboard() {
 </Link>
 
 <Link
-  to="/dashboard"
+  to="/automations"
   style={{
     color: "#374151",
     textDecoration: "none",
@@ -143,7 +143,7 @@ function Dashboard() {
 </Link>
 
 <Link
-  to="/dashboard"
+  to="/accounts"
   style={{
     color: "#374151",
     textDecoration: "none",
@@ -155,7 +155,7 @@ function Dashboard() {
 </Link>
 
 <Link
-  to="/dashboard"
+  to="/billing"
   style={{
     color: "#374151",
     textDecoration: "none",
@@ -168,7 +168,7 @@ function Dashboard() {
 
 
 <Link
-  to="/dashboard"
+  to="/settings"
   style={{
     color: "#374151",
     textDecoration: "none",

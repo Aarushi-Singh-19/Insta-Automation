@@ -1,4 +1,7 @@
 import Automations from "./pages/Automations";
+import Accounts from "./pages/Accounts";
+import Billing from "./pages/Billing";
+import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -40,10 +43,28 @@ function App() {
         />
 
 <Route
-  path="/automations"
+  path="/accounts"
   element={
     <ProtectedRoute>
-      <Automations />
+      <Accounts />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/billing"
+  element={
+    <ProtectedRoute>
+      <Billing />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/settings"
+  element={
+    <ProtectedRoute>
+      <Settings />
     </ProtectedRoute>
   }
 />
