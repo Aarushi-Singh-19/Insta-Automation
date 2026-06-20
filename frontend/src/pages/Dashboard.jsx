@@ -95,96 +95,36 @@ function Dashboard() {
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <h2>Automation Rules</h2>
+  <div style={{ display: "flex", minHeight: "100vh" }}>
+    
+    <div
+      style={{
+        width: "250px",
+        background: "#111",
+        color: "white",
+        padding: "20px",
+      }}
+    >
+      <h2>TriggerDM</h2>
 
-        <button onClick={handleLogout}>Logout</button>
-      </div>
+      <p>Overview</p>
+      <p>Automations</p>
+      <p>Instagram Accounts</p>
+      <p>Billing</p>
+      <p>Settings</p>
 
-      <CreateRuleForm fetchRules={fetchRules} />
-
-      {rules.map((rule) => (
-        <div
-          key={rule._id}
-          style={{
-            border: "1px solid gray",
-            padding: "10px",
-            marginBottom: "10px",
-          }}
-        >
-          {editingRuleId === rule._id ? (
-            <>
-              <input
-                name="ruleName"
-                value={editFormData.ruleName || ""}
-                onChange={handleChange}
-              />
-
-              <input
-                name="priority"
-                value={editFormData.priority || ""}
-                onChange={handleChange}
-              />
-
-              <input
-                name="replyMode"
-                value={editFormData.replyMode || ""}
-                onChange={handleChange}
-              />
-
-              <input
-                name="triggerKeywords"
-                value={editFormData.triggerKeywords || ""}
-                onChange={handleChange}
-              />
-
-              <button onClick={() => handleSaveEdit(rule._id)}>
-                Save
-              </button>
-
-              <button onClick={handleCancelEdit}>
-                Cancel
-              </button>
-            </>
-          ) : (
-            <>
-              <h3>{rule.ruleName}</h3>
-
-              <p>Priority: {rule.priority}</p>
-              <p>Reply Mode: {rule.replyMode}</p>
-
-              <p>
-                Keywords: {(rule.triggerKeywords || []).join(", ")}
-              </p>
-
-              <p>
-                Status: {rule.isActive ? "🟢 Active" : "🔴 Inactive"}
-              </p>
-
-              <button onClick={() => handleToggle(rule._id)}>
-                {rule.isActive ? "Disable" : "Enable"}
-              </button>
-
-              <button onClick={() => handleEditClick(rule)}>
-                Edit
-              </button>
-
-              <button onClick={() => handleDelete(rule._id)}>
-                Delete
-              </button>
-            </>
-          )}
-        </div>
-      ))}
+      <button onClick={handleLogout}>
+        Logout
+      </button>
     </div>
-  );
+
+    <div style={{ padding: "30px" }}>
+      <h1>Overview Page</h1>
+      <p>Welcome to TriggerDM</p>
+    </div>
+
+  </div>
+);
 }
 
 export default Dashboard;
