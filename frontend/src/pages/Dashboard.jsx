@@ -97,14 +97,15 @@ function Dashboard() {
   return (
   <div style={{ display: "flex", minHeight: "100vh" }}>
     
-    <div
-      style={{
-        width: "250px",
-        background: "#111",
-        color: "white",
-        padding: "20px",
-      }}
-    >
+<div
+  style={{
+    width: "250px",
+    background: "#ffffff",
+    borderRight: "1px solid #e5e7eb",
+    padding: "20px",
+    minHeight: "100vh",
+  }}
+>
 <h2
   style={{
     background: "linear-gradient(135deg, #E1306C, #833AB4)",
@@ -116,11 +117,11 @@ function Dashboard() {
   TriggerDM
 </h2>
 
-      <p>Overview</p>
-      <p>Automations</p>
-      <p>Instagram Accounts</p>
-      <p>Billing</p>
-      <p>Settings</p>
+<p style={{ color: "#374151" }}>Overview</p>
+<p style={{ color: "#374151" }}>Automations</p>
+<p style={{ color: "#374151" }}>Instagram Accounts</p>
+<p style={{ color: "#374151" }}>Billing</p>
+<p style={{ color: "#374151" }}>Settings</p>
 
       <button onClick={handleLogout}>
         Logout
