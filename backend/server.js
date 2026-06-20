@@ -52,6 +52,7 @@ app.use("/api/simulate", require("./routes/simulateRoutes"));
 app.use("/webhook", require("./routes/webhookRoutes"));
 app.use("/api/rules", require("./routes/ruleRoutes"));
 app.use("/api/campaigns", require("./routes/campaigns.routes"));
+app.use("/api/automations", require("./routes/automationRoutes"));
 app.use("/api/campaign-health", require("./routes/campaignHealth.routes"));
 app.use("/api/trend", require("./routes/trend.routes"));
 

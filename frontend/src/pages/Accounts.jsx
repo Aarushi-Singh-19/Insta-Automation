@@ -1,9 +1,9 @@
 import DashboardLayout from "../components/DashboardLayout";
 
-function Billing() {
+function Accounts() {
   return (
     <DashboardLayout>
-      <h1>Billing</h1>
+      <h1>Instagram Accounts</h1>
 
       <div
         style={{
@@ -13,7 +13,7 @@ function Billing() {
           marginTop: "20px",
         }}
       >
-        <h3>Billing Not done</h3>
+        <h3>No Instagram Account Connected</h3>
 
         <button
           style={{
@@ -25,11 +25,11 @@ function Billing() {
               "linear-gradient(135deg, #E1306C, #833AB4)",
           }}
         >
-          Billing
+          Connect Instagram
         </button>
       </div>
     </DashboardLayout>
   );
 }
 
-export default Billing;
+export default Accounts;

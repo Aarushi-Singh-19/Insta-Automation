@@ -206,7 +206,7 @@ function Dashboard() {
       color: "white",
       cursor: "pointer",
       background:
-        "linear-gradient(135deg, #E1306C, #833AB4)",
+        "linear-garadient(135deg, #E1306C, #833AB4)",
     }}
   >
     + Create Automation

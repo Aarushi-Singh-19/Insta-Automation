@@ -42,6 +42,15 @@ function App() {
           }
         />
 
+        <Route
+  path="/automations"
+  element={
+    <ProtectedRoute>
+      <Automations />
+    </ProtectedRoute>
+  }
+/>
+
 <Route
   path="/accounts"
   element={
