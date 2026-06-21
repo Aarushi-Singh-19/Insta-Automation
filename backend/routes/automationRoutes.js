@@ -7,6 +7,8 @@ const authMiddleware = require("../middleware/authMiddleware");
 const {
   createAutomation,
   getAutomations,
+  deleteAutomation,
+   updateAutomation,
 } = require("../controllers/automationController");
 
 router.post(
@@ -19,6 +21,19 @@ router.get(
   "/",
   authMiddleware,
   getAutomations
+);
+
+router.delete(
+  "/:id",
+  authMiddleware,
+  deleteAutomation
+);
+
+
+router.put(
+  "/:id",
+  authMiddleware,
+  updateAutomation
 );
 
 module.exports = router;

@@ -22,40 +22,75 @@ const [followGate, setFollowGate] = useState(false);
 
 const [automations, setAutomations] = useState([]);
 
+const [editingId, setEditingId] = useState(null);
+
 
 const handleSaveAutomation = async () => {
   try {
     const token = localStorage.getItem("token");
 
-    const res = await API.post(
-      "/automations",
-      {
-        triggerType,
-        keywords: keywords
-          .split(",")
-          .map((k) => k.trim())
-          .filter(Boolean),
-        matchType,
-        dmMessage,
-        commentReplyEnabled,
-        commentReplyMessage,
-        followGate,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const automationData = {
+      triggerType,
+      keywords: keywords
+        .split(",")
+        .map((k) => k.trim())
+        .filter(Boolean),
+      matchType,
+      dmMessage,
+      commentReplyEnabled,
+      commentReplyMessage,
+      followGate,
+    };
 
-    console.log("AUTOMATION SAVED:", res.data);
+    let res;
 
-    alert("Automation saved successfully");
-    fetchAutomations();
+    if (editingId) {
+      res = await API.put(
+        `/automations/${editingId}`,
+        automationData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+    } else {
+      res = await API.post(
+        "/automations",
+        automationData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+    }
+
+   console.log("AUTOMATION SAVED:", res.data);
+
+alert(
+  editingId
+    ? "Automation updated successfully"
+    : "Automation saved successfully"
+);
+
+setEditingId(null);
+setShowForm(false);
+
+setTriggerType("any-post");
+setKeywords("");
+setMatchType("any");
+setDmMessage("");
+setCommentReplyEnabled(false);
+setCommentReplyMessage("");
+setFollowGate(false);
+
+fetchAutomations();
   } catch (err) {
     console.error(err);
     alert("Failed to save automation");
   }
+
 };
 
 const fetchAutomations = async () => {
@@ -65,6 +100,39 @@ const fetchAutomations = async () => {
   } catch (err) {
     console.error(err);
   }
+};
+
+const handleDeleteAutomation = async (id) => {
+  try {
+    await API.delete(`/automations/${id}`);
+
+    setAutomations(
+      automations.filter(
+        (automation) => automation._id !== id
+      )
+    );
+  } catch (err) {
+    console.error(err);
+    alert("Failed to delete automation");
+  }
+};
+
+const handleEditAutomation = (automation) => {
+  setEditingId(automation._id);
+
+  setTriggerType(automation.triggerType);
+  setKeywords(automation.keywords.join(", "));
+  setMatchType(automation.matchType);
+  setDmMessage(automation.dmMessage);
+  setCommentReplyEnabled(
+    automation.commentReplyEnabled
+  );
+  setCommentReplyMessage(
+    automation.commentReplyMessage
+  );
+  setFollowGate(automation.followGate);
+
+  setShowForm(true);
 };
 
 useEffect(() => {
@@ -269,6 +337,28 @@ console.log({
         <strong>Status:</strong>{" "}
         {automation.status}
       </p>
+
+      <button
+  onClick={() =>
+    handleDeleteAutomation(automation._id)
+  }
+  style={{
+    marginTop: "10px",
+    padding: "8px 12px",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+  }}
+>
+  Delete
+</button>
+
+<button
+  onClick={() => handleEditAutomation(automation)}
+>
+  Edit
+</button>
+
     </div>
   ))
 )}

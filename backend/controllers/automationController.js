@@ -53,7 +53,55 @@ const getAutomations = async (req, res) => {
   }
 };
 
+
+const deleteAutomation = async (req, res) => {
+  try {
+    const automation = await Automation.findOneAndDelete({
+      _id: req.params.id,
+      user: req.user.id,
+    });
+
+    if (!automation) {
+      return res.status(404).json({
+        message: "Automation not found",
+      });
+    }
+
+    res.json({
+      message: "Automation deleted",
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+
+const updateAutomation = async (req, res) => {
+  try {
+    const automation =
+      await Automation.findOneAndUpdate(
+        {
+          _id: req.params.id,
+          user: req.user.id,
+        },
+        req.body,
+        { new: true }
+      );
+
+    res.json(automation);
+  } catch (err) {
+    res.status(500).json({
+      message: "Update failed",
+    });
+  }
+};
+
 module.exports = {
   createAutomation,
   getAutomations,
+  deleteAutomation,
+  updateAutomation,
 };
