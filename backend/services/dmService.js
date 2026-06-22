@@ -27,7 +27,7 @@ const findMatchingRule = async (commentText) => {
       }
     }
 
-    if (rule.triggerType === "any") {
+    if (rule.triggerType === "any_comment") {
       return {
         ruleName: rule.ruleName,
         reply:

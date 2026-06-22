@@ -30,7 +30,7 @@ function CreateRuleForm({
 const newRule = {
   ruleName,
   priority: Number(priority),
-  triggerType: "keywords",
+  triggerType: "keyword",
   triggerKeywords: keywords.split(",").map(k => k.trim()),
   replyMode,
   replies: replies.split(",").map(r => r.trim()),

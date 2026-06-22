@@ -14,13 +14,22 @@ router.post("/comment", auth, async (req, res) => {
     }
 
     // Get user rules only
-    const rules = await Rule.find({});
+console.log("REQ USER:", req.user);
+
+const rules = await Rule.find({
+  isActive: true,
+});
+
+console.log(
+  "ALL RULES:",
+  JSON.stringify(rules, null, 2)
+);
 console.log(rules);
 
     let matchedRule = null;
 
     for (let rule of rules) {
-      if (rule.triggerType === "any") {
+      if (rule.triggerType === "any_comment") {
         matchedRule = rule;
         break;
       }
