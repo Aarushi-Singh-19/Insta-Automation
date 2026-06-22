@@ -3,6 +3,10 @@ const router = express.Router();
 
 const auth = require("../middleware/authMiddleware");
 const Rule = require("../models/Rule");
+const Campaign = require("../models/campaign.model");
+
+const actionBuilder = require("../services/actionBuilder.service");
+const actionQueue = require("../queues/action.queue");
 
 // Simulate Instagram comment event
 router.post("/comment", auth, async (req, res) => {
@@ -54,22 +58,68 @@ console.log(rules);
     }
 
     // Pick reply
-    let reply = "";
 
-    if (matchedRule.replyMode === "single") {
-      reply = matchedRule.replies[0];
-    } else {
-      reply =
-        matchedRule.replies[
-          Math.floor(Math.random() * matchedRule.replies.length)
-        ];
-    }
 
-    res.json({
-      success: true,
-      matchedRule: matchedRule.ruleName,
-      reply,
-    });
+const fakeCampaign = await Campaign.findOne({});
+
+console.log("FOUND CAMPAIGN:", fakeCampaign);
+
+if (!fakeCampaign) {
+  return res.status(400).json({
+    message: "Create a campaign first",
+  });
+}
+
+console.log(
+  "SIMULATION USING CAMPAIGN:",
+  fakeCampaign._id
+);
+
+const action =
+  actionBuilder.buildActionFromRule(
+    matchedRule,
+    "simulation_user",
+    fakeCampaign
+  );;
+
+const job = await actionQueue.add(
+  
+  "simulation-comment",
+  {
+    action,
+
+    campaignId: fakeCampaign._id,
+
+    commentId:
+      "simulation-comment-" + Date.now(),
+
+    ruleId: matchedRule._id,
+
+    userId: req.user.id,
+
+    username: "simulation_user",
+
+    commentText,
+
+    receivedAt: new Date(),
+  }
+);
+
+console.log(
+  "JOB ADDED STATE:",
+  await job.getState()
+);
+
+console.log(
+  "JOB ID:",
+  job.id
+);
+res.json({
+  success: true,
+  matchedRule: matchedRule.ruleName,
+  action,
+  jobId: job.id,
+});
 
   } catch (err) {
     res.status(500).json({ message: err.message });

@@ -1,5 +1,7 @@
 const { Queue } = require("bullmq");
 const connection = require("../config/redis");
+console.log("REDIS CONNECTION:", connection);
+console.log("QUEUE NAME: action-queue");
 
 console.log(
   "Redis URL loaded:",

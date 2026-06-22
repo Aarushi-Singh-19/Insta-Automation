@@ -1,13 +1,15 @@
 const path = require("path");
 
+
 require("dotenv").config({
   path: path.join(__dirname, "../.env"),
 });
 
+const connection = require("../config/redis");
 const connectDB = require("../config/db");
 
 const { Worker } = require("bullmq");
-const connection = require("../config/redis");
+
 
 const MetricsService = require("../services/metrics.service");
 const ActionService = require("../services/action.service");
@@ -39,9 +41,12 @@ const startWorker = async () => {
 
   console.log("✅ MongoDB connected for Worker");
 
+  console.log("WORKER LISTENING ON:", "action-queue");
+
   const worker = new Worker(
     "action-queue",
     async (job) => {
+      console.log("🔥 JOB PICKED:", job.id);
       const {
         action,
         campaignId,
