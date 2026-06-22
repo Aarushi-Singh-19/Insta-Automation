@@ -423,6 +423,9 @@ const savedAccount =
     }
   );
 
+
+
+
 console.log(
   "INSTAGRAM ACCOUNT SAVED:",
   savedAccount
@@ -588,15 +591,40 @@ console.log(
     });
   }
 };
+
+  const getConnectedAccounts = async (req, res) => {
+  try {
+    const accounts = await InstagramAccount.find({
+      userId: req.user.id,
+    }).select(
+      "username status connectedAt lastSyncedAt"
+    );
+
+    return res.json({
+      success: true,
+      data: accounts,
+    });
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch accounts",
+    });
+  }
+};
+
 console.log({
   connectInstagram,
   instagramCallback,
   connectInstagramV2,
   instagramCallbackV2,
+  
 });
 module.exports = {
   connectInstagram,
   instagramCallback,
   connectInstagramV2,
   instagramCallbackV2,
+  getConnectedAccounts,
 };

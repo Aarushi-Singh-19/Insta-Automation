@@ -6,6 +6,7 @@ const {
   instagramCallback,
   connectInstagramV2,
   instagramCallbackV2,
+  getConnectedAccounts
 } = require("../controllers/instagram.controller");
 
 const authMiddleware = require("../middleware/authMiddleware");
@@ -32,6 +33,12 @@ router.get(
 router.get(
   "/callback",
   instagramCallback
+);
+
+router.get(
+  "/accounts",
+  authMiddleware,
+  getConnectedAccounts
 );
 
 module.exports = router;
