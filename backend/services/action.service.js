@@ -77,30 +77,12 @@ console.log("==================================");
 
 
 
-try {
-console.log("🚀 FACEBOOK GRAPH TEST");
+return await instagramApiService.replyToComment({
+  accessToken: account.pageAccessToken,
+  commentId,
+  message,
+});
 
-const res = await axios.get(
-  "https://graph.facebook.com/v19.0/me",
-  {
-    params: {
-      access_token: account.pageAccessToken,
-    },
-  }
-);
-
-console.log(
-  "FACEBOOK GRAPH TEST:",
-  res.data
-);
-} catch (err) {
-  console.error(
-    "INSTAGRAM REPLY ERROR:",
-    err.response?.data || err.message
-  );
-
-  throw err;
-}
   // 🔥 simulate API risk points
   // const randomFail = Math.random();
 
