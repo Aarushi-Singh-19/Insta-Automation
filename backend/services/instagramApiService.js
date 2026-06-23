@@ -15,23 +15,32 @@ async function replyToComment({ accessToken, commentId, message }) {
   return res.data;
 }
 
-async function sendDM({ accessToken, igUserId, message }) {
-  const url = `https://graph.facebook.com/${GRAPH_VERSION}/${igUserId}/messages`;
+async function replyToComment({ accessToken, commentId, message }) {
+  try {
+    console.log("REPLY ATTEMPT");
+    console.log("COMMENT ID:", commentId);
+    console.log("TOKEN LENGTH:", accessToken?.length);
 
-  const res = await axios.post(
-    url,
-    {
-      recipient: { id: igUserId },
-      message: { text: message },
-    },
-    {
+    const url = `https://graph.facebook.com/${GRAPH_VERSION}/${commentId}/replies`;
+
+    const res = await axios.post(url, null, {
       params: {
+        message,
         access_token: accessToken,
       },
-    }
-  );
+    });
 
-  return res.data;
+    console.log("REPLY SUCCESS:", res.data);
+
+    return res.data;
+  } catch (err) {
+    console.log(
+      "REPLY ERROR:",
+      JSON.stringify(err.response?.data || err.message, null, 2)
+    );
+
+    throw err;
+  }
 }
 
 module.exports = {

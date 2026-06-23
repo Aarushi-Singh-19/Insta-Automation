@@ -1,3 +1,6 @@
+const instagramApiService =
+  require("./instagramApiService");
+
 const axios = require("axios");
 const InstagramAccount = require("../models/InstagramAccount");
 class RetryableError extends Error {
@@ -29,6 +32,7 @@ async execute(action, context = {}){
 }
 
 async replyToComment(action, context) {
+  console.log("🚀 REPLY VERSION 2 RUNNING");
   const { username, message } = action;
 
   const { commentId, userId } = context;
@@ -54,38 +58,59 @@ console.log(
   account.instagramBusinessId
 );
 
-try {
-  const verify = await axios.get(
-    `https://graph.facebook.com/v23.0/${commentId}`,
-    {
-      params: {
-        access_token:
-          account.pageAccessToken,
-      },
-    }
-  );
 
-  console.log(
-    "COMMENT LOOKUP SUCCESS:",
-    verify.data
-  );
+console.log("IG ID:", account.instagramBusinessId);
+console.log("PAGE ID:", account.pageId);
+console.log("USERNAME:", account.username);
+
+console.log(
+  "TOKEN START:",
+  account.pageAccessToken?.substring(0, 30)
+);
+
+console.log(
+  "TOKEN LENGTH:",
+  account.pageAccessToken?.length
+);
+
+console.log("==================================");
+
+
+
+try {
+console.log("🚀 FACEBOOK GRAPH TEST");
+
+const res = await axios.get(
+  "https://graph.facebook.com/v19.0/me",
+  {
+    params: {
+      access_token: account.pageAccessToken,
+    },
+  }
+);
+
+console.log(
+  "FACEBOOK GRAPH TEST:",
+  res.data
+);
 } catch (err) {
   console.error(
-    "COMMENT LOOKUP FAILED:",
+    "INSTAGRAM REPLY ERROR:",
     err.response?.data || err.message
   );
+
+  throw err;
 }
-
   // 🔥 simulate API risk points
-  const randomFail = Math.random();
+  // const randomFail = Math.random();
 
-  if (randomFail < 0.1) {
-    throw new RetryableError("Instagram rate limit (simulated)", true);
-  }
+  // if (randomFail < 0.1) {
+  //   throw new RetryableError("Instagram rate limit (simulated)", true);
+  // }
 
-  if (randomFail < 0.15) {
-    throw new RetryableError("Instagram 5xx error (simulated)", true);
-  }
+  // if (randomFail < 0.15) {
+  //   throw new RetryableError("Instagram 5xx error (simulated)", true);
+  // }
 
   return { success: true };
 }
