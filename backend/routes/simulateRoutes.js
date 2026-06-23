@@ -83,9 +83,9 @@ const action =
   );;
 
 const job = await actionQueue.add(
-  
   "simulation-comment",
   {
+    isSimulation: true,
     action,
 
     campaignId: fakeCampaign._id,

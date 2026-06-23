@@ -143,14 +143,14 @@ console.log(
         // =========================
         // 3. EXECUTE ACTION
         // =========================
-        const result = await ActionService.execute(action, {
-          campaignId,
-          commentId,
-          ruleId,
-          userId,
-          instagramAccount: igAccount,
-        });
-
+const result = await ActionService.execute(action, {
+  campaignId,
+  commentId,
+  ruleId,
+  userId,
+  instagramAccount: igAccount,
+  isSimulation: job.data.isSimulation,
+});
         console.log(
           `✅ Action executed for event ${commentId}`
         );

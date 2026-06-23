@@ -37,6 +37,14 @@ async replyToComment(action, context) {
 
   const { commentId, userId } = context;
 
+  if (context.isSimulation) {
+  console.log("✅ SIMULATION SUCCESS");
+  return {
+    success: true,
+    simulated: true,
+  };
+}
+
   console.log("Comment ID:", commentId);
 console.log("User ID:", userId);
 
