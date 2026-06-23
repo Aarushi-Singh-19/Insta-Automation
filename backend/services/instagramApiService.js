@@ -8,7 +8,7 @@ async function replyToComment({ accessToken, commentId, message }) {
     console.log("COMMENT ID:", commentId);
     console.log("TOKEN LENGTH:", accessToken?.length);
 
-    const url = `https://graph.facebook.com/${GRAPH_VERSION}/${commentId}/replies`;
+    const url = `https://graph.instagram.com/${GRAPH_VERSION}/${commentId}/replies`;
 
     const res = await axios.post(url, null, {
       params: {
