@@ -28,13 +28,13 @@ const createAutomation = async (req, res) => {
       automation,
     });
   } catch (error) {
-    console.error(error);
+  console.error("CREATE AUTOMATION ERROR:", error);
 
-    res.status(500).json({
-      success: false,
-      message: "Failed to create automation",
-    });
-  }
+  res.status(500).json({
+    success: false,
+    message: error.message,
+  });
+}
 };
 
 const getAutomations = async (req, res) => {

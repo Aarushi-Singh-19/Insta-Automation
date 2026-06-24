@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 
+const subscriptionMiddleware = require("../middleware/subscriptionMiddleware");
+
 const authMiddleware = require("../middleware/authMiddleware");
 
 
@@ -14,6 +16,7 @@ const {
 router.post(
   "/",
   authMiddleware,
+  subscriptionMiddleware,
   createAutomation
 );
 
@@ -33,6 +36,7 @@ router.delete(
 router.put(
   "/:id",
   authMiddleware,
+  subscriptionMiddleware,
   updateAutomation
 );
 
