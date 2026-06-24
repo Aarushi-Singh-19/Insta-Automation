@@ -6,6 +6,17 @@ const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
 
+    const now = new Date();
+
+if (
+  user.subscriptionStatus === "trial" &&
+  user.trialEndDate &&
+  user.trialEndDate < now
+) {
+  user.subscriptionStatus = "expired";
+  await user.save();
+}
+
     if (!user) {
       return res.status(404).json({
         message: "User not found",
