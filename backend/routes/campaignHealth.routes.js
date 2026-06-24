@@ -1,6 +1,8 @@
 const router = require("express").Router();
 const CampaignHealthService = require("../services/campaignHealth.service");
 
+const User = require("../models/User");
+const Payment = require("../models/Payment");
 router.get("/:campaignId", async (req, res) => {
   try {
     const data = await CampaignHealthService.getCampaignHealth(
