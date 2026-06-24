@@ -4,7 +4,7 @@ import axios from "axios";
 //   baseURL: "http://localhost:5000/api",
 // });
 const API = axios.create({
-  baseURL: "https://insta-automation-slwr.onrender.com",
+ baseURL: "https://insta-automation-slwr.onrender.com/api",
 });
 // Attach token automatically (for SaaS auth later)
 API.interceptors.request.use((req) => {
