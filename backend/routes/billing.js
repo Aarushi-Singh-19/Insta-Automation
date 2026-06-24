@@ -1,3 +1,5 @@
+const crypto = require("crypto")
+const razorpay = require("../services/razorpayService");
 const express = require("express");
 const router = express.Router();
 
@@ -6,44 +8,89 @@ const User = require("../models/User");
 
 // Temporary placeholder for future Razorpay integration
 const createOrder = async (req, res) => {
-  res.json({
-    message: "Razorpay integration coming soon",
-  });
-};
-
-router.post("/create-order", authMiddleware, createOrder);
-
-router.post("/activate-test", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const options = {
+      amount: 19900, // ₹299 in paise
+      currency: "INR",
+      receipt: `receipt_${Date.now()}`,
+    };
 
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
-    }
-
-    const planEndDate = new Date();
-    planEndDate.setDate(planEndDate.getDate() + 30);
-
-    user.subscriptionStatus = "active";
-    user.currentPlan = "starter";
-    user.planEndDate = planEndDate;
-
-    await user.save();
-
-    const userObj = user.toObject();
-    delete userObj.password;
+    const order = await razorpay.orders.create(options);
 
     res.json({
       success: true,
-      user: userObj,
+      order,
     });
   } catch (err) {
+    console.error("Razorpay Order Error:", err);
+
     res.status(500).json({
+      success: false,
       message: err.message,
     });
   }
-});
+};
 
+const verifyPayment = async (req, res) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    } = req.body;
+
+    const generatedSignature = crypto
+      .createHmac(
+        "sha256",
+        process.env.RAZORPAY_KEY_SECRET
+      )
+      .update(
+        razorpay_order_id + "|" + razorpay_payment_id
+      )
+      .digest("hex");
+
+    if (generatedSignature !== razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid signature",
+      });
+    }
+
+const user = await User.findById(req.user.id);
+
+if (!user) {
+  return res.status(404).json({
+    success: false,
+    message: "User not found",
+  });
+}
+
+const planEndDate = new Date();
+planEndDate.setDate(planEndDate.getDate() + 30);
+
+user.subscriptionStatus = "active";
+user.currentPlan = "starter";
+user.planEndDate = planEndDate;
+
+await user.save();
+
+res.json({
+  success: true,
+  message: "Payment verified successfully",
+  user,
+});
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+router.post("/create-order", authMiddleware, createOrder);
+router.post(
+  "/verify-payment",
+  authMiddleware,
+  verifyPayment
+);
 module.exports = router;

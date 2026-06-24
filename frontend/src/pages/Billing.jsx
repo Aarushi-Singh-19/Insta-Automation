@@ -124,15 +124,61 @@ const daysRemaining = user?.trialEndDate
           </ul>
 
           <button
-            onClick={async () => {
+onClick={async () => {
   try {
-    await API.post("/billing/activate-test");
+    const res = await API.post("/billing/create-order");
 
-    const res = await API.get("/auth/me");
+    const order = res.data.order;
 
-    setUser(res.data.user);
+    
+// console.log(
+//   "Razorpay Key:",
+//   import.meta.env.VITE_RAZORPAY_KEY_ID
+// );
 
-    alert("Plan upgraded successfully");
+const options = {
+  key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+
+  amount: order.amount,
+      currency: order.currency,
+
+      name: "TriggerDM",
+
+      description: "Starter Plan",
+
+      order_id: order.id,
+
+handler: async function (response) {
+  try {
+    const verifyRes = await API.post(
+      "/billing/verify-payment",
+      {
+        razorpay_order_id: response.razorpay_order_id,
+        razorpay_payment_id: response.razorpay_payment_id,
+        razorpay_signature: response.razorpay_signature,
+      }
+    );
+
+    console.log("Verify Response:", verifyRes.data);
+
+    const userRes = await API.get("/auth/me");
+
+    setUser(userRes.data.user);
+
+    alert("Subscription Activated Successfully");
+  } catch (error) {
+    console.log(error);
+  }
+},
+
+      theme: {
+        color: "#E1306C",
+      },
+    };
+
+    const razorpay = new window.Razorpay(options);
+
+    razorpay.open();
   } catch (error) {
     console.log(error);
   }
