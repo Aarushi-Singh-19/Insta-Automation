@@ -32,7 +32,8 @@ const createAutomation = async (req, res) => {
 
   res.status(500).json({
     success: false,
-    message: error.message,
+    error: error.message,
+    stack: error.stack,
   });
 }
 };
