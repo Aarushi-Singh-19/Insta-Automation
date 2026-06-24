@@ -29,6 +29,29 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
+    subscriptionStatus: {
+  type: String,
+  enum: ["trial", "active", "expired"],
+  default: "trial",
+},
+
+currentPlan: {
+  type: String,
+  default: "trial",
+},
+
+trialStartDate: {
+  type: Date,
+},
+
+trialEndDate: {
+  type: Date,
+},
+
+planEndDate: {
+  type: Date,
+},
+
     facebookPageId: {
       type: String,
       default: null,
@@ -43,5 +66,7 @@ const userSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+
 
 module.exports = mongoose.model("User", userSchema);

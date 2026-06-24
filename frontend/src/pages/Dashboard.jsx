@@ -7,16 +7,25 @@ import CreateRuleForm from "../components/CreateRuleForm";
 
 function Dashboard() {
   const [rules, setRules] = useState([]);
+  const [user, setUser] = useState(null);
 
   const [editingRuleId, setEditingRuleId] = useState(null);
   const [editFormData, setEditFormData] = useState({});
 
+  const [analytics, setAnalytics] = useState({
+  queued: 0,
+  success: 0,
+  failed: 0,
+});
+
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchRules();
-  }, []);
 
+useEffect(() => {
+  fetchRules();
+  fetchUser();
+  fetchAnalytics();
+}, []);
   const fetchRules = async () => {
     try {
       const response = await API.get("/rules");
@@ -25,6 +34,15 @@ function Dashboard() {
       console.log("Error fetching rules:", error);
     }
   };
+
+  const fetchAnalytics = async () => {
+  try {
+    const res = await API.get("/analytics/trends");
+    setAnalytics(res.data);
+  } catch (error) {
+    console.log("Analytics error:", error);
+  }
+};
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -42,6 +60,16 @@ function Dashboard() {
       isActive: rule.isActive,
     });
   };
+
+  const fetchUser = async () => {
+  try {
+    const res = await API.get("/auth/me");
+
+    setUser(res.data.user);
+  } catch (error) {
+    console.log("Error fetching user:", error);
+  }
+};
 
   const handleCancelEdit = () => {
     setEditingRuleId(null);
@@ -94,6 +122,16 @@ function Dashboard() {
       console.log("Error deleting rule:", error);
     }
   };
+
+    const daysRemaining = user?.trialEndDate
+  ? Math.max(
+      0,
+      Math.ceil(
+        (new Date(user.trialEndDate) - new Date()) /
+          (1000 * 60 * 60 * 24)
+      )
+    )
+  : 0;
 
   return (
   <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -195,7 +233,43 @@ function Dashboard() {
 >
   <div>
     <h1>Welcome back 👋</h1>
+
     <p>Manage your Instagram comment-to-DM automations.</p>
+    {user?.subscriptionStatus === "trial" && (
+  <div
+    style={{
+      background: "#FEF3C7",
+      border: "1px solid #F59E0B",
+      padding: "24px",
+      maxWidth: "500px",
+      width: "100%",
+      borderRadius: "12px",
+      marginTop: "20px",
+      marginBottom: "20px",
+    }}
+  >
+    <h3>🚀 Free Trial Active</h3>
+
+<p>
+  {daysRemaining} day(s) remaining in your free trial.
+</p>
+
+<button
+  onClick={() => navigate("/billing")}
+  style={{
+    padding: "10px 16px",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    background: "#F59E0B",
+    color: "white",
+    fontWeight: "600",
+  }}
+>
+  Upgrade Plan
+</button>
+  </div>
+)}
   </div>
 
   <button
@@ -222,22 +296,22 @@ function Dashboard() {
 >
   <div style={{ border: "1px solid #e5e7eb", padding: "20px", borderRadius: "12px" }}>
     <h3>Active Automations</h3>
-    <h2>0</h2>
+   <h2>{rules.length}</h2>
   </div>
 
   <div style={{ border: "1px solid #e5e7eb", padding: "20px", borderRadius: "12px" }}>
     <h3>DMs Sent</h3>
-    <h2>0</h2>
+   <h2>{rules.length}</h2>
   </div>
 
   <div style={{ border: "1px solid #e5e7eb", padding: "20px", borderRadius: "12px" }}>
     <h3>Keywords Triggered</h3>
-    <h2>0</h2>
+    <h2>{rules.length}</h2>
   </div>
 
   <div style={{ border: "1px solid #e5e7eb", padding: "20px", borderRadius: "12px" }}>
     <h3>Instagram Accounts</h3>
-    <h2>0</h2>
+   <h2>{rules.length}</h2>
   </div>
 </div>
     </div>

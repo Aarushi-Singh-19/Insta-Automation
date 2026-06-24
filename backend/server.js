@@ -18,10 +18,13 @@ const instagramRoutes = require("./routes/instagram.routes");
 
 const webhookRoutes = require("./routes/webhookRoutes");
 
+const billingRoutes = require("./routes/billing");
+
+
 // require("./workers/bullmq/commentWorker");
 
 
-dotenv.config();
+
 
 const app = express();
 
@@ -35,14 +38,15 @@ app.use(cors({
   origin:["http://localhost:5173",
     "https://triggerdm.in",
     "https://www.triggerdm.in"],
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-  credentials: true
-}));
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Routes
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    credentials: true
+  }));
+  
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+  
+  // Routes
+  app.use("/api/billing", billingRoutes);
 app.use("/api/webhook", webhookRoutes);
 app.use("/api/instagram", instagramRoutes);
 app.use("/api/analytics", analyticsRoutes);
