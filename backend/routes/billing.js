@@ -11,12 +11,14 @@ const Payment = require("../models/Payment");
 // Temporary placeholder for future Razorpay integration
 const createOrder = async (req, res) => {
   try {
-    const options = {
-      amount: 19900, // ₹299 in paise
-      currency: "INR",
-      receipt: `receipt_${Date.now()}`,
-    };
-
+const options = {
+  amount: 19900,
+  currency: "INR",
+  receipt: `receipt_${Date.now()}`,
+  notes: {
+    userId: req.user.id,
+  },
+};
     const order = await razorpay.orders.create(options);
 
     res.json({
@@ -78,13 +80,19 @@ user.planEndDate = planEndDate;
 
 await user.save();
 
-await Payment.create({
-  userId: user._id,
-  orderId: razorpay_order_id,
+const existingPayment = await Payment.findOne({
   paymentId: razorpay_payment_id,
-  amount: 199,
-  status: "success",
 });
+
+if (!existingPayment) {
+  await Payment.create({
+    userId: user._id,
+    orderId: razorpay_order_id,
+    paymentId: razorpay_payment_id,
+    amount: 199,
+    status: "success",
+  });
+}
 
 res.json({
   success: true,
@@ -135,5 +143,4 @@ router.get(
   getPaymentHistory
 );
 
-module.exports = router;
 module.exports = router;
