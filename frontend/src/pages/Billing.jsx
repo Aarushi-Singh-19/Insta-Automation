@@ -121,7 +121,11 @@ const daysRemaining = user?.trialEndDate
 {user?.subscriptionStatus === "active" && (
   <p>
     <strong>Valid Until:</strong>{" "}
-    {new Date(user.planEndDate).toLocaleDateString()}
+    {new Date(user.planEndDate).toLocaleDateString("en-IN", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+})}
   </p>
 )}
         </div>
@@ -137,14 +141,14 @@ const daysRemaining = user?.trialEndDate
         >
           <h2>Starter Plan</h2>
 
-          <h1
-            style={{
-              marginTop: "10px",
-              marginBottom: "20px",
-            }}
-          >
-            ₹199/month
-          </h1>
+<h1
+  style={{
+    marginTop: "10px",
+    marginBottom: "20px",
+  }}
+>
+  ₹199/month
+</h1>
 
           <ul
             style={{
@@ -255,6 +259,134 @@ const daysRemaining = user?.trialEndDate
         </div> {/* Starter Plan card */}
 
       </div> {/* Grid */}
+
+      <h2
+  style={{
+    marginTop: "40px",
+    marginBottom: "20px",
+  }}
+>
+  Payment History
+</h2>
+
+
+{loadingPayments && (
+  <p style={{ color: "#6b7280" }}>
+    Loading payment history...
+  </p>
+)}
+
+{paymentError && (
+  <p style={{ color: "red" }}>
+    {paymentError}
+  </p>
+)}
+
+{!loadingPayments &&
+  !paymentError &&
+  payments.length === 0 && (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "12px",
+        padding: "20px",
+        background: "#fff",
+      }}
+    >
+      No payments found.
+    </div>
+)}
+
+{!loadingPayments &&
+  !paymentError &&
+  payments.length > 0 && (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "16px",
+        overflow: "hidden",
+        background: "#fff",
+        marginTop: "20px",
+      }}
+    >
+      <table
+        style={{
+          width: "100%",
+          borderCollapse: "collapse",
+        }}
+      >
+      <thead>
+        <tr style={{ background: "#f3f4f6" }}>
+          <th style={{ padding: "12px", textAlign: "left" }}>Date</th>
+          <th style={{ padding: "12px", textAlign: "left" }}>Amount</th>
+          <th style={{ padding: "12px", textAlign: "left" }}>Status</th>
+          <th style={{ padding: "12px", textAlign: "left" }}>Order ID</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {payments.map((payment) => (
+          <tr
+  key={payment._id}
+  style={{
+    borderBottom: "1px solid #e5e7eb",
+  }}
+>
+            <td style={{ padding: "12px" }}>
+              {new Date(payment.createdAt).toLocaleDateString("en-IN", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+})}
+            </td>
+
+            <td style={{ padding: "12px" }}>
+              ₹{payment.amount.toFixed(2)}
+            </td>
+
+            <td style={{ padding: "12px" }}>
+              {payment.status === "success" ? (
+<span
+  style={{
+    background: "#DCFCE7",
+    color: "#166534",
+    padding: "6px 12px",
+    borderRadius: "999px",
+    fontWeight: "600",
+    fontSize: "13px",
+  }}
+>
+  Success
+</span>
+              ) : (
+ <span
+  style={{
+    background: "#FEE2E2",
+    color: "#991B1B",
+    padding: "6px 12px",
+    borderRadius: "999px",
+    fontWeight: "600",
+    fontSize: "13px",
+  }}
+>
+  Failed
+</span>
+              )}
+            </td>
+
+            <td style={{ padding: "12px" }}>
+              <span title={payment.orderId}>
+  {payment.orderId.length > 18
+  ? payment.orderId.slice(0, 18) + "..."
+  : payment.orderId}
+</span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+</table>
+</div>
+)}
     </DashboardLayout>
   );
 }
