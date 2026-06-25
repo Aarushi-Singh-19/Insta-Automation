@@ -8,8 +8,13 @@ function Billing() {
 
   const [user, setUser] = useState(null);
 
-  useEffect(() => {
+  const [payments, setPayments] = useState([]);
+const [loadingPayments, setLoadingPayments] = useState(true);
+const [paymentError, setPaymentError] = useState("");
+
+useEffect(() => {
   fetchUser();
+  fetchPaymentHistory();
 }, []);
 
 const fetchUser = async () => {
@@ -18,6 +23,23 @@ const fetchUser = async () => {
     setUser(res.data.user);
   } catch (error) {
     console.log(error);
+  }
+};
+
+const fetchPaymentHistory = async () => {
+  try {
+    setLoadingPayments(true);
+
+    const res = await API.get("/billing/history");
+
+    if (res.data.success) {
+      setPayments(res.data.payments);
+    }
+  } catch (error) {
+    console.log(error);
+    setPaymentError("Unable to load payment history.");
+  } finally {
+    setLoadingPayments(false);
   }
 };
 
