@@ -13,10 +13,11 @@ const paymentSchema = new mongoose.Schema(
       required: true,
     },
 
-    paymentId: {
-      type: String,
-      required: true,
-    },
+ paymentId: {
+  type: String,
+  required: true,
+  unique: true,
+},
 
     amount: {
       type: Number,
