@@ -288,11 +288,15 @@ const connectInstagramV2 = async (req, res) => {
 
     console.log("INSTAGRAM LOGIN URL:");
     console.log(authUrl);
-
+console.log("APP ID:", process.env.INSTAGRAM_APP_ID);
+console.log("REDIRECT URI:", process.env.INSTAGRAM_REDIRECT_URI_V2);
+console.log("AUTH URL:", authUrl);
     return res.json({
       success: true,
       authUrl,
     });
+
+    
   } catch (error) {
     console.error(error);
 
