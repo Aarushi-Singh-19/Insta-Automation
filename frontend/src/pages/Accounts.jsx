@@ -25,6 +25,8 @@ const connectInstagram = async () => {
   const [accounts, setAccounts] = useState([]);
 const [loading, setLoading] = useState(true);
 
+const [media, setMedia] = useState([]);
+
 useEffect(() => {
   const fetchAccounts = async () => {
     try {
@@ -33,6 +35,9 @@ useEffect(() => {
       );
 
       setAccounts(res.data.data || []);
+
+      const mediaRes = await api.get("/instagram/media");
+setMedia(mediaRes.data.data || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -43,6 +48,7 @@ useEffect(() => {
   fetchAccounts();
 }, []);
 
+console.log("MEDIA:", media);
 
   return (
     <DashboardLayout>

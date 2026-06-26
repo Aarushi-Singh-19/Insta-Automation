@@ -365,6 +365,22 @@ console.log(
   tokenResponse.data.permissions
 );
     const accessToken = tokenResponse.data.access_token;
+
+    const longLivedTokenResponse = await axios.get(
+  "https://graph.instagram.com/access_token",
+  {
+    params: {
+      grant_type: "ig_exchange_token",
+      client_secret: process.env.INSTAGRAM_APP_SECRET,
+      access_token: accessToken,
+    },
+  }
+);
+
+console.log(
+  "LONG LIVED TOKEN:",
+  JSON.stringify(longLivedTokenResponse.data, null, 2)
+);
 const instagramUserId = tokenResponse.data.user_id;
 
 let mediaResponse;
@@ -411,10 +427,11 @@ const savedAccount =
       username:
         profileResponse.data.username,
 
-      accessToken,
-
-      pageAccessToken:
-        accessToken,
+accessToken: longLivedTokenResponse.data.access_token,
+pageAccessToken: longLivedTokenResponse.data.access_token,
+tokenExpiresAt: new Date(
+  Date.now() + longLivedTokenResponse.data.expires_in * 1000
+),
 
       status: "active",
 
@@ -615,6 +632,50 @@ return res.redirect("https://triggerdm.in/accounts");
   }
 };
 
+const getInstagramMedia = async (req, res) => {
+  try {
+    // 1. Find connected Instagram account
+    const account = await InstagramAccount.findOne({
+      userId: req.user.id,
+      status: "active",
+    });
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: "No connected Instagram account found",
+      });
+    }
+
+    // 2. Fetch media from Instagram Graph API
+    const mediaResponse = await axios.get(
+      "https://graph.instagram.com/me/media",
+      {
+        params: {
+          fields:
+            "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp",
+          access_token: account.accessToken,
+        },
+      }
+    );
+
+    return res.json({
+      success: true,
+      data: mediaResponse.data.data,
+    });
+  } catch (error) {
+  console.error("GET MEDIA ERROR");
+  console.error("Status:", error.response?.status);
+  console.error("Response:", error.response?.data);
+  console.error("Message:", error.message);
+
+  return res.status(500).json({
+    success: false,
+    error: error.response?.data || error.message,
+  });
+}
+};
+
 console.log({
   connectInstagram,
   instagramCallback,
@@ -628,4 +689,5 @@ module.exports = {
   connectInstagramV2,
   instagramCallbackV2,
   getConnectedAccounts,
+  getInstagramMedia,
 };
