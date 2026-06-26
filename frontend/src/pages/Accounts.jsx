@@ -2,8 +2,26 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 import DashboardLayout from "../components/DashboardLayout";
 
+
+
 function Accounts() {
 
+const connectInstagram = async () => {
+  try {
+    const res = await api.get("/instagram/connect-v2");
+
+    console.log(res.data);
+
+    if (res.data.success && res.data.authUrl) {
+      window.location.href = res.data.authUrl;
+    } else {
+      alert("Instagram authorization URL not received.");
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Failed to connect Instagram.");
+  }
+};
   const [accounts, setAccounts] = useState([]);
 const [loading, setLoading] = useState(true);
 
@@ -43,18 +61,20 @@ useEffect(() => {
     >
       <h3>No Instagram Account Connected</h3>
 
-      <button
-        style={{
-          padding: "12px 20px",
-          border: "none",
-          borderRadius: "10px",
-          color: "white",
-          background:
-            "linear-gradient(135deg, #E1306C, #833AB4)",
-        }}
-      >
-        Connect Instagram
-      </button>
+<button
+  onClick={connectInstagram}
+  style={{
+    padding: "12px 20px",
+    border: "none",
+    borderRadius: "10px",
+    color: "white",
+    background:
+      "linear-gradient(135deg, #E1306C, #833AB4)",
+    cursor: "pointer",
+  }}
+>
+  Connect Instagram
+</button>
     </div>
   ) : (
     accounts.map((account) => (
