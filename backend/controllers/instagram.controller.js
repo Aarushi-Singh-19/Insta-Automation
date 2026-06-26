@@ -574,10 +574,7 @@ console.log(
   );
 }
 
-    return res.json({
-      success: true,
-      tokenResponse: tokenResponse.data,
-    });
+return res.redirect("https://triggerdm.in/accounts");
   } catch (error) {
     console.error(
       "V2 TOKEN ERROR:",
