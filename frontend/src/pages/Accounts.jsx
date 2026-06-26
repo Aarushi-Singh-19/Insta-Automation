@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 import DashboardLayout from "../components/DashboardLayout";
 
-
-
 function Accounts() {
 
 const connectInstagram = async () => {
@@ -25,7 +23,7 @@ const connectInstagram = async () => {
   const [accounts, setAccounts] = useState([]);
 const [loading, setLoading] = useState(true);
 
-const [media, setMedia] = useState([]);
+
 
 useEffect(() => {
   const fetchAccounts = async () => {
@@ -36,8 +34,7 @@ useEffect(() => {
 
       setAccounts(res.data.data || []);
 
-      const mediaRes = await api.get("/instagram/media");
-setMedia(mediaRes.data.data || []);
+
     } catch (err) {
       console.error(err);
     } finally {
@@ -48,7 +45,6 @@ setMedia(mediaRes.data.data || []);
   fetchAccounts();
 }, []);
 
-console.log("MEDIA:", media);
 
   return (
     <DashboardLayout>
@@ -83,40 +79,85 @@ console.log("MEDIA:", media);
 </button>
     </div>
   ) : (
-    accounts.map((account) => (
-      <div
-        key={account._id}
+<>
+  {accounts.map((account) => (
+    <div
+      key={account._id}
+      style={{
+        border: "1px solid #e5e7eb",
+        padding: "20px",
+        borderRadius: "12px",
+        marginTop: "20px",
+      }}
+    >
+      <h3>@{account.username}</h3>
+
+      <p>Status: {account.status}</p>
+
+      <p>
+        Connected:{" "}
+        {new Date(account.connectedAt).toLocaleDateString()}
+      </p>
+
+      <button
         style={{
-          border: "1px solid #e5e7eb",
-          padding: "20px",
-          borderRadius: "12px",
-          marginTop: "20px",
+          padding: "10px 18px",
+          border: "none",
+          borderRadius: "10px",
+          color: "white",
+          background: "#ef4444",
         }}
       >
-        <h3>@{account.username}</h3>
+        Disconnect
+      </button>
+    </div>
+  ))}
 
-        <p>Status: {account.status}</p>
+  <h2 style={{ marginTop: "40px" }}>Instagram Posts</h2>
 
-        <p>
-          Connected:{" "}
-          {new Date(
-            account.connectedAt
-          ).toLocaleDateString()}
+ <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
+    gap: "20px",
+    marginTop: "20px",
+  }}
+>
+  {media.map((post) => (
+    <div
+      key={post.id}
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "12px",
+        overflow: "hidden",
+        background: "#fff",
+      }}
+    >
+      <img
+        src={post.thumbnail_url || post.media_url}
+        alt={post.caption || "Instagram Post"}
+        style={{
+          width: "100%",
+          height: "250px",
+          objectFit: "cover",
+        }}
+      />
+
+      <div style={{ padding: "15px" }}>
+        <p style={{ fontWeight: "bold" }}>
+          {post.media_type}
         </p>
 
-        <button
-          style={{
-            padding: "10px 18px",
-            border: "none",
-            borderRadius: "10px",
-            color: "white",
-            background: "#ef4444",
-          }}
-        >
-          Disconnect
-        </button>
+        <p>
+          {post.caption
+            ? post.caption.substring(0, 100)
+            : "No caption"}
+        </p>
       </div>
-    ))
+    </div>
+  ))}
+</div>
+</>
   )}
 
     </DashboardLayout>

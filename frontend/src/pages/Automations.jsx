@@ -24,6 +24,10 @@ const [automations, setAutomations] = useState([]);
 
 const [editingId, setEditingId] = useState(null);
 
+const [media, setMedia] = useState([]);
+const [selectedPostId, setSelectedPostId] = useState("");
+const [loadingMedia, setLoadingMedia] = useState(false);
+
 
 const handleSaveAutomation = async () => {
   try {
@@ -138,6 +142,34 @@ const handleEditAutomation = (automation) => {
 useEffect(() => {
   fetchAutomations();
 }, []);
+
+useEffect(() => {
+  const fetchInstagramMedia = async () => {
+    if (triggerType !== "specific-post") return;
+
+    try {
+      setLoadingMedia(true);
+
+      const token = localStorage.getItem("token");
+
+      const res = await API.get("/instagram/media", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log("Instagram Media:", res.data);
+
+      setMedia(res.data.media || []);
+    } catch (err) {
+      console.error("Failed to load Instagram media:", err);
+    } finally {
+      setLoadingMedia(false);
+    }
+  };
+
+  fetchInstagramMedia();
+}, [triggerType]);
 
 console.log({
   triggerType,
