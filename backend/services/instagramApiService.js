@@ -30,23 +30,52 @@ async function replyToComment({ accessToken, commentId, message }) {
   }
 }
 
-async function sendDM({ accessToken, igUserId, message }) {
-  const url = `https://graph.facebook.com/${GRAPH_VERSION}/${igUserId}/messages`;
+async function sendDM({
+  accessToken,
+  instagramBusinessId,
+  commentId,
+  recipientId,
+  message,
+}) {
+  try {
+    const recipient = commentId
+      ? { comment_id: commentId }
+      : recipientId
+      ? { id: recipientId }
+      : null;
 
-  const res = await axios.post(
-    url,
-    {
-      recipient: { id: igUserId },
-      message: { text: message },
-    },
-    {
-      params: {
-        access_token: accessToken,
-      },
+    if (!recipient) {
+      throw new Error("DM_RECIPIENT_REQUIRED");
     }
-  );
 
-  return res.data;
+    const url =
+      `https://graph.facebook.com/${GRAPH_VERSION}/` +
+      `${instagramBusinessId}/messages`;
+
+    const res = await axios.post(
+      url,
+      {
+        recipient,
+        message: { text: message },
+      },
+      {
+        params: {
+          access_token: accessToken,
+        },
+      }
+    );
+
+    console.log("DM SUCCESS:", res.data);
+
+    return res.data;
+  } catch (err) {
+    console.log(
+      "DM ERROR:",
+      JSON.stringify(err.response?.data || err.message, null, 2)
+    );
+
+    throw err;
+  }
 }
 
 module.exports = {

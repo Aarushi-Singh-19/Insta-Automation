@@ -1,9 +1,12 @@
 const Automation = require("../models/Automation");
+const Campaign = require("../models/campaign.model");
+const Rule = require("../models/Rule");
 
 const createAutomation = async (req, res) => {
   try {
     const {
       triggerType,
+      instagramMediaId,
       keywords,
       matchType,
       dmMessage,
@@ -12,9 +15,13 @@ const createAutomation = async (req, res) => {
       followGate,
     } = req.body;
 
+    // =========================
+    // 1. Save Automation
+    // =========================
     const automation = await Automation.create({
-      user: req.user.id, // we'll wire auth properly next
+      user: req.user.id,
       triggerType,
+      instagramMediaId,
       keywords,
       matchType,
       dmMessage,
@@ -23,18 +30,96 @@ const createAutomation = async (req, res) => {
       followGate,
     });
 
-    res.status(201).json({
+    console.log("✅ Automation Saved:", automation._id);
+
+    // =========================
+    // 2. Create Rule
+    // =========================
+    const rule = await Rule.create({
+      userId: req.user.id,
+
+      ruleName: `Automation - ${automation._id}`,
+
+      postId:
+        triggerType === "specific-post"
+          ? instagramMediaId
+          : "",
+
+      triggerType:
+        keywords && keywords.length > 0
+          ? "keyword"
+          : "any_comment",
+
+      triggerKeywords: keywords || [],
+
+      replyMode: "single",
+
+      // Existing Rule engine uses replies for COMMENT replies.
+      replies:
+        commentReplyEnabled && commentReplyMessage
+          ? [commentReplyMessage]
+          : [],
+
+      isActive: automation.status === "active",
+    });
+
+    console.log("✅ Rule Created:", rule._id);
+
+    // =========================
+    // 3. Create Campaign
+    // =========================
+    const campaign = await Campaign.create({
+      userId: req.user.id,
+
+      automationId: automation._id,
+
+      name: `Automation - ${automation._id}`,
+
+      triggerType,
+
+      instagramMediaId,
+
+      instagramAccountId: "",
+
+      postIds:
+        triggerType === "specific-post"
+          ? [instagramMediaId]
+          : [],
+
+      status:
+        automation.status === "active"
+          ? "active"
+          : "draft",
+
+      ruleIds: [rule._id],
+
+      settings: {
+        enableDM: Boolean(dmMessage && dmMessage.trim()),
+        enableReply: Boolean(commentReplyEnabled && commentReplyMessage),
+        dmMessage: dmMessage || "",
+      },
+    });
+
+    console.log("✅ Campaign Created:", campaign._id);
+
+    // =========================
+    // 4. Return Response
+    // =========================
+    return res.status(201).json({
       success: true,
       automation,
+      campaign,
+      rule,
     });
-  } catch (error) {
-  console.error("CREATE AUTOMATION ERROR:", error);
 
-  res.status(500).json({
-    success: false,
-    error: error.message,
-  });
-}
+  } catch (error) {
+    console.error("CREATE AUTOMATION ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
 };
 
 const getAutomations = async (req, res) => {

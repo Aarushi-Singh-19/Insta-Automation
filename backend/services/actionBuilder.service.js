@@ -1,25 +1,37 @@
 class ActionBuilderService {
-  buildActionFromRule(rule, username, campaign) {
-    if (rule.replyMode === "single") {
-      const message = rule.replies?.[0] || "Thanks for your comment!";
+  buildActionsFromRule(rule, username, recipientId, campaign) {
+    const actions = [];
+    const replyEnabled = campaign.settings?.enableReply !== false;
+    const replyMessage = rule.replies?.[0];
 
-      return {
+    if (replyEnabled && replyMessage) {
+      actions.push({
         type: "reply",
         username,
-        message,
+        message: replyMessage,
         campaignId: campaign._id,
         ruleId: rule._id,
-      };
+      });
     }
 
-    // fallback
-    return {
-      type: "reply",
-      username,
-      message: "Thanks for your comment!",
-      campaignId: campaign._id,
-      ruleId: rule._id,
-    };
+    const dmMessage = campaign.settings?.dmMessage?.trim();
+    if (campaign.settings?.enableDM !== false && dmMessage) {
+      actions.push({
+        type: "send_dm",
+        username,
+        recipientId,
+        message: dmMessage,
+        campaignId: campaign._id,
+        ruleId: rule._id,
+      });
+    }
+
+    return actions;
+  }
+
+  // Kept for the simulation route and callers that only expect one action.
+  buildActionFromRule(rule, username, campaign) {
+    return this.buildActionsFromRule(rule, username, undefined, campaign)[0] || null;
   }
 }
 

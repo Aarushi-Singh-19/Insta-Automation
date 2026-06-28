@@ -13,6 +13,11 @@ const automationSchema = new mongoose.Schema(
       default: "any-post",
     },
 
+    instagramMediaId: {
+  type: String,
+  default: "",
+},
+
     keywords: {
       type: [String],
       default: [],

@@ -61,6 +61,11 @@ console.log(job.data);
 console.log("WORKER USER ID:", userId);
 console.log("WORKER USER ID TYPE:", typeof userId);
 
+      const logQuery = {
+        eventId: commentId,
+        actionType: action.type,
+      };
+
       try {
         console.log("⚡ Executing action:", action);
 
@@ -68,7 +73,7 @@ console.log("WORKER USER ID TYPE:", typeof userId);
         // 1. IDEMPOTENCY CHECK
         // =========================
         const existingSuccess = await ActionLog.findOne({
-          eventId: commentId,
+          ...logQuery,
           status: "success",
         });
 
@@ -78,7 +83,7 @@ console.log("WORKER USER ID TYPE:", typeof userId);
         }
 
         await ActionLog.updateOne(
-          { eventId: commentId },
+          logQuery,
           {
             $setOnInsert: {
               eventId: commentId,
@@ -159,7 +164,7 @@ const result = await ActionService.execute(action, {
         // 4. MARK SUCCESS
         // =========================
         await ActionLog.updateOne(
-          { eventId: commentId },
+          logQuery,
           {
             $set: {
               status: "success",
@@ -172,7 +177,7 @@ const result = await ActionService.execute(action, {
         // 5. UPDATE METRICS
         // =========================
         const log = await ActionLog.findOne({
-          eventId: commentId,
+          ...logQuery,
           metricsUpdated: { $ne: true },
         });
 
@@ -192,7 +197,7 @@ const result = await ActionService.execute(action, {
           );
 
           await ActionLog.updateOne(
-            { eventId: commentId },
+            logQuery,
             {
               $set: {
                 metricsUpdated: true,
@@ -215,7 +220,7 @@ const result = await ActionService.execute(action, {
         // 6. MARK FAILED
         // =========================
         await ActionLog.updateOne(
-          { eventId: commentId },
+          logQuery,
           {
             $set: {
               status: "failed",

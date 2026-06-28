@@ -14,6 +14,25 @@ const campaignSchema = new mongoose.Schema(
       trim: true,
     },
 
+    triggerType: {
+  type: String,
+  enum: ["any-post", "specific-post", "next-post"],
+  default: "any-post",
+},
+
+    instagramMediaId: {
+  type: String,
+  default: "",
+},
+
+    // Keeps the execution configuration associated with the automation that
+    // created this campaign. Existing campaigns continue to work without it.
+    automationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Automation",
+      required: false,
+    },
+
     instagramAccountId: {
       type: String,
       required: false,
@@ -45,6 +64,7 @@ const campaignSchema = new mongoose.Schema(
     settings: {
       enableDM: { type: Boolean, default: true },
       enableReply: { type: Boolean, default: true },
+      dmMessage: { type: String, default: "" },
       minDelaySeconds: { type: Number, default: 10 },
       maxDelaySeconds: { type: Number, default: 40 },
     },

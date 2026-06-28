@@ -31,20 +31,28 @@ const [loadingMedia, setLoadingMedia] = useState(false);
 
 const handleSaveAutomation = async () => {
   try {
+    if (triggerType === "specific-post" && !selectedPostId) {
+  alert("Please select an Instagram post.");
+  return;
+}
     const token = localStorage.getItem("token");
 
-    const automationData = {
-      triggerType,
-      keywords: keywords
-        .split(",")
-        .map((k) => k.trim())
-        .filter(Boolean),
-      matchType,
-      dmMessage,
-      commentReplyEnabled,
-      commentReplyMessage,
-      followGate,
-    };
+ const automationData = {
+  triggerType,
+  instagramMediaId: selectedPostId,
+  keywords: keywords
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean),
+  matchType,
+  dmMessage,
+  commentReplyEnabled,
+  commentReplyMessage,
+  followGate,
+};
+
+console.log("Automation Data:", automationData);
+console.log("Selected Post ID:", selectedPostId);
 
     let res;
 
@@ -100,6 +108,7 @@ fetchAutomations();
 const fetchAutomations = async () => {
   try {
     const res = await API.get("/automations");
+    console.log("Automations:", res.data);
     setAutomations(res.data);
   } catch (err) {
     console.error(err);
@@ -125,6 +134,8 @@ const handleEditAutomation = (automation) => {
   setEditingId(automation._id);
 
   setTriggerType(automation.triggerType);
+  setSelectedPostId(automation.instagramMediaId || "");
+  console.log("Saved Media ID:", automation.instagramMediaId);
   setKeywords(automation.keywords.join(", "));
   setMatchType(automation.matchType);
   setDmMessage(automation.dmMessage);
@@ -144,6 +155,8 @@ useEffect(() => {
 }, []);
 
 useEffect(() => {
+  console.log("Media useEffect triggered");
+
   const fetchInstagramMedia = async () => {
     if (triggerType !== "specific-post") return;
 
@@ -160,7 +173,11 @@ useEffect(() => {
 
       console.log("Instagram Media:", res.data);
 
-      setMedia(res.data.media || []);
+      setMedia(res.data.data || []);
+
+      setMedia(res.data.data || []);
+
+console.log("Media Length:", res.data.data.length);
     } catch (err) {
       console.error("Failed to load Instagram media:", err);
     } finally {
@@ -231,6 +248,102 @@ console.log({
 </select>
 
 <h3>2. Keywords</h3>
+
+{triggerType === "specific-post" && (
+  <>
+    <h3>Select Instagram Post</h3>
+
+    {loadingMedia ? (
+      <p>Loading posts...</p>
+    ) : (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
+          gap: "12px",
+          marginBottom: "20px",
+        }}
+      >
+        {media.map((post) => (
+<div
+  key={post.id}
+  onClick={() => setSelectedPostId(post.id)}
+  style={{
+    cursor: "pointer",
+    border:
+      selectedPostId === post.id
+        ? "3px solid #E1306C"
+        : "2px solid #e5e7eb",
+    borderRadius: "12px",
+    overflow: "hidden",
+    position: "relative",
+    transition: "all 0.2s ease",
+    transform:
+      selectedPostId === post.id
+        ? "scale(1.03)"
+        : "scale(1)",
+    boxShadow:
+      selectedPostId === post.id
+        ? "0 8px 20px rgba(225,48,108,0.25)"
+        : "0 2px 8px rgba(0,0,0,0.08)",
+  }}
+>
+  <img
+    src={post.thumbnail_url || post.media_url}
+    alt={post.caption || "Instagram Post"}
+    style={{
+      width: "100%",
+      height: "150px",
+      objectFit: "cover",
+      display: "block",
+    }}
+  />
+
+  {/* Media Type Badge */}
+  <div
+    style={{
+      position: "absolute",
+      top: "10px",
+      left: "10px",
+      background: "rgba(0,0,0,0.65)",
+      color: "#fff",
+      padding: "4px 8px",
+      borderRadius: "20px",
+      fontSize: "12px",
+      fontWeight: "600",
+    }}
+  >
+    {post.media_type === "VIDEO"
+      ? "🎥 Reel"
+      : post.media_type === "CAROUSEL_ALBUM"
+      ? "📚 Carousel"
+      : "🖼️ Post"}
+  </div>
+
+  {/* Selected Badge */}
+  {selectedPostId === post.id && (
+    <div
+      style={{
+        position: "absolute",
+        top: "10px",
+        right: "10px",
+        background: "#E1306C",
+        color: "#fff",
+        padding: "5px 10px",
+        borderRadius: "20px",
+        fontSize: "12px",
+        fontWeight: "bold",
+      }}
+    >
+      ✓ Selected
+    </div>
+  )}
+</div>
+        ))}
+      </div>
+    )}
+  </>
+)}
 
 <input
   value={keywords}

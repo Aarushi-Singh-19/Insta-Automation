@@ -113,50 +113,7 @@ useEffect(() => {
     </div>
   ))}
 
-  <h2 style={{ marginTop: "40px" }}>Instagram Posts</h2>
-
- <div
-  style={{
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-    gap: "20px",
-    marginTop: "20px",
-  }}
->
-  {media.map((post) => (
-    <div
-      key={post.id}
-      style={{
-        border: "1px solid #e5e7eb",
-        borderRadius: "12px",
-        overflow: "hidden",
-        background: "#fff",
-      }}
-    >
-      <img
-        src={post.thumbnail_url || post.media_url}
-        alt={post.caption || "Instagram Post"}
-        style={{
-          width: "100%",
-          height: "250px",
-          objectFit: "cover",
-        }}
-      />
-
-      <div style={{ padding: "15px" }}>
-        <p style={{ fontWeight: "bold" }}>
-          {post.media_type}
-        </p>
-
-        <p>
-          {post.caption
-            ? post.caption.substring(0, 100)
-            : "No caption"}
-        </p>
-      </div>
-    </div>
-  ))}
-</div>
+ 
 </>
   )}
 
