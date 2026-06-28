@@ -595,7 +595,8 @@ console.log(
   );
 }
 
-return res.redirect("https://triggerdm.in/accounts");
+// return res.redirect("https://triggerdm.in/accounts");
+return res.redirect("http://localhost:5173/accounts");
   } catch (error) {
     console.error(
       "V2 TOKEN ERROR:",
@@ -683,6 +684,39 @@ console.log({
   instagramCallbackV2,
   
 });
+
+const disconnectInstagram = async (req, res) => {
+  try {
+    const { accountId } = req.params;
+
+    const account = await InstagramAccount.findOne({
+      _id: accountId,
+      userId: req.user.id,
+    });
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: "Instagram account not found",
+      });
+    }
+
+    await InstagramAccount.findByIdAndDelete(accountId);
+
+    return res.json({
+      success: true,
+      message: "Instagram account disconnected successfully",
+    });
+  } catch (error) {
+    console.error("DISCONNECT ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to disconnect Instagram account",
+    });
+  }
+};
+
 module.exports = {
   connectInstagram,
   instagramCallback,
@@ -690,4 +724,6 @@ module.exports = {
   instagramCallbackV2,
   getConnectedAccounts,
   getInstagramMedia,
+  disconnectInstagram,
 };
+

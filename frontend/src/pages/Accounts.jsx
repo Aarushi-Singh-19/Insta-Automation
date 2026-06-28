@@ -20,6 +20,31 @@ const connectInstagram = async () => {
     alert("Failed to connect Instagram.");
   }
 };
+
+
+const disconnectInstagram = async (accountId) => {
+  const confirmDisconnect = window.confirm(
+    "Are you sure you want to disconnect this Instagram account?"
+  );
+
+  if (!confirmDisconnect) return;
+
+  try {
+    await api.delete(`/instagram/disconnect/${accountId}`);
+
+    // Remove the account from UI immediately
+    setAccounts((prev) =>
+      prev.filter((account) => account._id !== accountId)
+    );
+
+    alert("Instagram account disconnected successfully.");
+  } catch (err) {
+    console.error(err);
+    alert("Failed to disconnect Instagram.");
+  }
+};
+
+
   const [accounts, setAccounts] = useState([]);
 const [loading, setLoading] = useState(true);
 
@@ -99,17 +124,19 @@ useEffect(() => {
         {new Date(account.connectedAt).toLocaleDateString()}
       </p>
 
-      <button
-        style={{
-          padding: "10px 18px",
-          border: "none",
-          borderRadius: "10px",
-          color: "white",
-          background: "#ef4444",
-        }}
-      >
-        Disconnect
-      </button>
+<button
+  onClick={() => disconnectInstagram(account._id)}
+  style={{
+    padding: "10px 18px",
+    border: "none",
+    borderRadius: "10px",
+    color: "white",
+    background: "#ef4444",
+    cursor: "pointer",
+  }}
+>
+  Disconnect
+</button>
     </div>
   ))}
 

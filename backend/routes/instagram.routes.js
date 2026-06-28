@@ -8,6 +8,7 @@ const {
   instagramCallbackV2,
   getConnectedAccounts,
   getInstagramMedia,
+  disconnectInstagram,
 } = require("../controllers/instagram.controller");
 
 const authMiddleware = require("../middleware/authMiddleware");
@@ -46,6 +47,12 @@ router.get(
   "/media",
   authMiddleware,
   getInstagramMedia
+);
+
+router.delete(
+  "/disconnect/:accountId",
+  authMiddleware,
+  disconnectInstagram
 );
 
 module.exports = router;
