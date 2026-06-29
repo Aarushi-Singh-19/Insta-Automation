@@ -71,81 +71,167 @@ useEffect(() => {
 }, []);
 
 
-  return (
-    <DashboardLayout>
-  <h1>Instagram Accounts</h1>
-
-  {loading ? (
-    <p>Loading...</p>
-  ) : accounts.length === 0 ? (
+ return (
+  <DashboardLayout>
     <div
       style={{
-        border: "1px solid #e5e7eb",
-        padding: "20px",
-        borderRadius: "12px",
-        marginTop: "20px",
+        maxWidth: "900px",
+        margin: "0 auto",
       }}
     >
-      <h3>No Instagram Account Connected</h3>
+      <h1
+        style={{
+          marginBottom: "25px",
+          fontSize: "32px",
+          fontWeight: "700",
+        }}
+      >
+        Instagram Accounts
+      </h1>
 
-<button
-  onClick={connectInstagram}
-  style={{
-    padding: "12px 20px",
-    border: "none",
-    borderRadius: "10px",
-    color: "white",
-    background:
-      "linear-gradient(135deg, #E1306C, #833AB4)",
-    cursor: "pointer",
-  }}
->
-  Connect Instagram
-</button>
+      {loading ? (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            height: "250px",
+            color: "#6b7280",
+            fontSize: "18px",
+          }}
+        >
+          Connecting to Instagram...
+        </div>
+      ) : accounts.length === 0 ? (
+        <div
+          style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: "16px",
+            padding: "40px",
+            textAlign: "center",
+            background: "#fff",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "55px",
+              marginBottom: "15px",
+            }}
+          >
+            📷
+          </div>
+
+          <h2
+            style={{
+              marginBottom: "10px",
+            }}
+          >
+            Connect your Instagram Account
+          </h2>
+
+          <p
+            style={{
+              color: "#6b7280",
+              marginBottom: "25px",
+              lineHeight: "1.6",
+            }}
+          >
+            Connect your Instagram Business account to start
+            automating comment replies and direct messages.
+          </p>
+
+          <button
+            onClick={connectInstagram}
+            style={{
+              padding: "14px 24px",
+              border: "none",
+              borderRadius: "12px",
+              color: "#fff",
+              fontWeight: "600",
+              fontSize: "15px",
+              cursor: "pointer",
+              background:
+                "linear-gradient(135deg,#E1306C,#833AB4)",
+            }}
+          >
+            Connect Instagram
+          </button>
+        </div>
+      ) : (
+        accounts.map((account) => (
+          <div
+            key={account._id}
+            style={{
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              borderRadius: "16px",
+              padding: "24px",
+              marginBottom: "20px",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "22px",
+                  }}
+                >
+                  📸 @{account.username}
+                </h2>
+
+                <p
+                  style={{
+                    marginTop: "10px",
+                    color: "#16a34a",
+                    fontWeight: "600",
+                  }}
+                >
+                  ● {account.status}
+                </p>
+
+                <p
+                  style={{
+                    color: "#6b7280",
+                  }}
+                >
+                  Connected on{" "}
+                  {new Date(
+                    account.connectedAt
+                  ).toLocaleDateString()}
+                </p>
+              </div>
+
+              <button
+                onClick={() =>
+                  disconnectInstagram(account._id)
+                }
+                style={{
+                  padding: "12px 20px",
+                  border: "none",
+                  borderRadius: "10px",
+                  background: "#ef4444",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                }}
+              >
+                Disconnect
+              </button>
+            </div>
+          </div>
+        ))
+      )}
     </div>
-  ) : (
-<>
-  {accounts.map((account) => (
-    <div
-      key={account._id}
-      style={{
-        border: "1px solid #e5e7eb",
-        padding: "20px",
-        borderRadius: "12px",
-        marginTop: "20px",
-      }}
-    >
-      <h3>@{account.username}</h3>
-
-      <p>Status: {account.status}</p>
-
-      <p>
-        Connected:{" "}
-        {new Date(account.connectedAt).toLocaleDateString()}
-      </p>
-
-<button
-  onClick={() => disconnectInstagram(account._id)}
-  style={{
-    padding: "10px 18px",
-    border: "none",
-    borderRadius: "10px",
-    color: "white",
-    background: "#ef4444",
-    cursor: "pointer",
-  }}
->
-  Disconnect
-</button>
-    </div>
-  ))}
-
- 
-</>
-  )}
-
-    </DashboardLayout>
-  );
+  </DashboardLayout>
+);
 }
 
 export default Accounts;
