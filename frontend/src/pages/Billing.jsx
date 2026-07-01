@@ -1,4 +1,5 @@
 import DashboardLayout from "../components/DashboardLayout";
+import PageHeader from "../components/ui/PageHeader";
 import { useNavigate } from "react-router-dom";
 
 import { useEffect, useState } from "react";
@@ -55,11 +56,13 @@ const daysRemaining = user?.trialEndDate
 
   return (
     <DashboardLayout>
-      <h1>Billing & Subscription</h1>
+<PageHeader
+  title="Billing & Subscription"
+  subtitle="Manage your TriggerDM subscription."
+/>
 
-      <p style={{ color: "#6b7280" }}>
-        Manage your TriggerDM subscription.
-      </p>
+
+
 
       <div
         style={{
@@ -69,201 +72,300 @@ const daysRemaining = user?.trialEndDate
           marginTop: "30px",
         }}
       >
-        {/* Current Plan */}
-        <div
-          style={{
-            border: "1px solid #e5e7eb",
-            padding: "24px",
-            borderRadius: "16px",
-            background: "#ffffff",
-          }}
-        >
-          <h2>Current Plan</h2>
+       {/* Current Subscription */}
 
-          <div
-            style={{
-              display: "inline-block",
-              padding: "6px 12px",
-              background: "#F59E0B",
-              color: "white",
-              borderRadius: "999px",
-              fontSize: "12px",
-              marginTop: "10px",
-            }}
-          >
-            {user?.currentPlan}
-          </div>
-
-{user?.subscriptionStatus === "trial" && (
-  <p style={{ marginTop: "20px" }}>
-    You are currently on the free trial.
-  </p>
-)}
-
-{user?.subscriptionStatus === "active" && (
-  <p style={{ marginTop: "20px", color: "green" }}>
-    Subscription Active ✅
-  </p>
-)}
-
-{user?.subscriptionStatus === "expired" && (
-  <p style={{ marginTop: "20px", color: "red" }}>
-    Subscription Expired
-  </p>
-)}
-
-{user?.subscriptionStatus === "trial" && (
-  <p>
-    <strong>Days Remaining:</strong> {daysRemaining}
-  </p>
-)}
-
-{user?.subscriptionStatus === "active" && (
-  <p>
-    <strong>Valid Until:</strong>{" "}
-    {new Date(user.planEndDate).toLocaleDateString("en-IN", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-})}
-  </p>
-)}
-        </div>
-
-        {/* Starter Plan */}
-        <div
-          style={{
-            border: "2px solid #E1306C",
-            padding: "24px",
-            borderRadius: "16px",
-            background: "#ffffff",
-          }}
-        >
-          <h2>Starter Plan</h2>
-
-<h1
+<div
   style={{
-    marginTop: "10px",
-    marginBottom: "20px",
+    border: "1px solid #E5E7EB",
+    borderRadius: "20px",
+    padding: "32px",
+    background: "#fff",
+    boxShadow: "0 4px 18px rgba(0,0,0,.05)",
   }}
 >
-  ₹199/month
-</h1>
-
-          <ul
-            style={{
-              lineHeight: "2",
-              paddingLeft: "20px",
-            }}
-          >
-            <li>1 Instagram Account</li>
-            <li>Unlimited Campaigns</li>
-            <li>Unlimited Rules</li>
-            <li>Comment Automation</li>
-            <li>DM Automation</li>
-          </ul>
-{user?.subscriptionStatus !== "active" && (
-  <button
-    onClick={async () => {
-      try {
-        const res = await API.post("/billing/create-order");
-
-        const order = res.data.order;
-
-        const options = {
-          key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-
-          amount: order.amount,
-          currency: order.currency,
-
-          name: "TriggerDM",
-
-          description: "Starter Plan",
-
-          order_id: order.id,
-
-          handler: async function (response) {
-            try {
-              const verifyRes = await API.post(
-                "/billing/verify-payment",
-                {
-                  razorpay_order_id:
-                    response.razorpay_order_id,
-                  razorpay_payment_id:
-                    response.razorpay_payment_id,
-                  razorpay_signature:
-                    response.razorpay_signature,
-                }
-              );
-
-              console.log(
-                "Verify Response:",
-                verifyRes.data
-              );
-
-              const userRes = await API.get("/auth/me");
-
-              setUser(userRes.data.user);
-
-              alert(
-                "Subscription Activated Successfully"
-              );
-            } catch (error) {
-              console.log(error);
-            }
-          },
-
-          theme: {
-            color: "#E1306C",
-          },
-        };
-
-        const razorpay = new window.Razorpay(options);
-
-        razorpay.open();
-      } catch (error) {
-        console.log(error);
-      }
-    }}
+  <h2
     style={{
-      marginTop: "20px",
-      padding: "12px 20px",
-      border: "none",
-      borderRadius: "10px",
-      color: "white",
-      cursor: "pointer",
-      background:
-        "linear-gradient(135deg, #E1306C, #833AB4)",
+      margin: 0,
+      marginBottom: "28px",
+      fontSize: "24px",
+      fontWeight: "700",
     }}
   >
-    Upgrade Now
-  </button>
-)}
+    Current Subscription
+  </h2>
 
-{user?.subscriptionStatus === "active" && (
+  <span
+    style={{
+      display: "inline-block",
+      padding: "8px 14px",
+      borderRadius: "999px",
+      fontSize: "13px",
+      fontWeight: "600",
+      marginBottom: "28px",
+      background:
+        user?.subscriptionStatus === "active"
+          ? "#DCFCE7"
+          : "#FEF3C7",
+      color:
+        user?.subscriptionStatus === "active"
+          ? "#166534"
+          : "#92400E",
+    }}
+  >
+    {user?.subscriptionStatus === "active"
+      ? "✓ Active Subscription"
+      : "● Trial"}
+  </span>
+
+  <div style={{ marginBottom: "24px" }}>
+    <div
+      style={{
+        color: "#6B7280",
+        fontSize: "13px",
+        marginBottom: "6px",
+      }}
+    >
+      Current Plan
+    </div>
+
+    <div
+      style={{
+        fontSize: "28px",
+        fontWeight: "700",
+      }}
+    >
+      {user?.currentPlan
+  ? user.currentPlan.charAt(0).toUpperCase() +
+    user.currentPlan.slice(1)
+  : "Starter"}
+    </div>
+  </div>
+
+  {user?.subscriptionStatus === "trial" && (
+    <div>
+      <div
+        style={{
+          color: "#6B7280",
+          fontSize: "13px",
+          marginBottom: "6px",
+        }}
+      >
+        Days Remaining
+      </div>
+
+      <div
+        style={{
+          fontSize: "24px",
+          fontWeight: "700",
+        }}
+      >
+        {daysRemaining} days
+      </div>
+    </div>
+  )}
+
+  {user?.subscriptionStatus === "active" && (
+    <div>
+      <div
+        style={{
+          color: "#6B7280",
+          fontSize: "13px",
+          marginBottom: "6px",
+        }}
+      >
+        Valid Until
+      </div>
+
+      <div
+        style={{
+          fontSize: "18px",
+          fontWeight: "600",
+        }}
+      >
+        {new Date(user.planEndDate).toLocaleDateString(
+          "en-IN",
+          {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          }
+        )}
+      </div>
+    </div>
+  )}
+</div>
+
+{/* Starter Plan */}
+
+<div
+  style={{
+    border: "1px solid #E5E7EB",
+    borderRadius: "20px",
+    padding: "32px",
+    background: "#fff",
+    boxShadow: "0 4px 18px rgba(0,0,0,.05)",
+    display: "flex",
+    flexDirection: "column",
+  }}
+>
   <div
     style={{
-      marginTop: "20px",
-      padding: "12px",
-      borderRadius: "10px",
-      background: "#DCFCE7",
-      color: "#166534",
-      fontWeight: "600",
-      textAlign: "center",
+      marginBottom: "28px",
     }}
   >
-    Current Plan Active ✅
-  </div>
-)}
+    <div
+      style={{
+        color: "#6B7280",
+        fontSize: "13px",
+        textTransform: "uppercase",
+        fontWeight: "600",
+        letterSpacing: ".5px",
+      }}
+    >
+      Pricing
+    </div>
 
-        </div> {/* Starter Plan card */}
+    <h2
+      style={{
+        margin: "8px 0",
+        fontSize: "28px",
+        fontWeight: "700",
+      }}
+    >
+      Starter Plan
+    </h2>
+
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-end",
+        gap: "6px",
+      }}
+    >
+      <span
+        style={{
+          fontSize: "46px",
+          fontWeight: "700",
+          color: "#111827",
+        }}
+      >
+        ₹199
+      </span>
+
+      <span
+        style={{
+          color: "#6B7280",
+          marginBottom: "8px",
+          fontSize: "16px",
+        }}
+      >
+        /month
+      </span>
+    </div>
+  </div>
+
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: "16px",
+      marginBottom: "32px",
+      color: "#374151",
+      fontSize: "15px",
+    }}
+  >
+    <div>✅ 1 Instagram Business Account</div>
+    <div>✅ Unlimited Campaigns</div>
+    <div>✅ Unlimited Automation Rules</div>
+    <div>✅ Automatic Comment Replies</div>
+    <div>✅ Instagram DM Automation</div>
+  </div>
+
+  <div style={{ marginTop: "auto" }}>
+    {user?.subscriptionStatus !== "active" ? (
+      <button
+        onClick={async () => {
+          try {
+            const res = await API.post("/billing/create-order");
+
+            const order = res.data.order;
+
+            const options = {
+              key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+              amount: order.amount,
+              currency: order.currency,
+              name: "TriggerDM",
+              description: "Starter Plan",
+              order_id: order.id,
+
+              handler: async function (response) {
+                try {
+                  await API.post("/billing/verify-payment", {
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature,
+                  });
+
+                  const userRes = await API.get("/auth/me");
+                  setUser(userRes.data.user);
+
+                  alert("Subscription Activated Successfully");
+                } catch (error) {
+                  console.log(error);
+                }
+              },
+
+              theme: {
+                color: "#E1306C",
+              },
+            };
+
+            new window.Razorpay(options).open();
+          } catch (error) {
+            console.log(error);
+          }
+        }}
+        style={{
+          width: "100%",
+          padding: "15px",
+          border: "none",
+          borderRadius: "14px",
+          background: "linear-gradient(135deg,#E1306C,#833AB4)",
+          color: "#fff",
+          fontWeight: "700",
+          fontSize: "15px",
+          cursor: "pointer",
+        }}
+      >
+        Upgrade Now
+      </button>
+    ) : (
+      <div
+        style={{
+          background: "#F3F4F6",
+          color: "#374151",
+          textAlign: "center",
+          padding: "14px",
+          borderRadius: "12px",
+          fontWeight: "600",
+        }}
+      >
+        ✓ You're on this plan
+      </div>
+    )}
+  </div>
+</div>
+
+        {/* Starter Plan card */}
 
       </div> {/* Grid */}
 
-      <h2
+<h2
   style={{
-    marginTop: "40px",
-    marginBottom: "20px",
+    marginTop: "56px",
+    marginBottom: "24px",
+    fontSize: "30px",
+    fontWeight: "700",
   }}
 >
   Payment History

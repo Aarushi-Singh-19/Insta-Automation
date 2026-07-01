@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import API from "../services/api";
 import DashboardLayout from "../components/DashboardLayout";
+import AutomationCard from "../components/automation/AutomationCard";
+import PageHeader from "../components/ui/PageHeader";
 
 
 function Automations() {
@@ -202,252 +204,404 @@ console.log({
 
   return (
     <DashboardLayout>
-      <h1>Automations</h1>
-
-
-<button
-  onClick={() => setShowForm(true)}
-  style={{
-    padding: "12px 20px",
-    border: "none",
-    borderRadius: "10px",
-    color: "white",
-    background:
-      "linear-gradient(135deg, #E1306C, #833AB4)",
-  }}
->
-  + Create Automation
-</button>
-
-{showForm && (
-  
-  <div
-    style={{
-      border: "1px solid #e5e7eb",
-      borderRadius: "12px",
-      padding: "20px",
-      marginTop: "20px",
-    }}
-  >
-    <h3>Create Automation</h3>
-
-<h3>1. Trigger</h3>
-
-<select
-  value={triggerType}
-  onChange={(e) => setTriggerType(e.target.value)}
-  style={{
-    width: "100%",
-    padding: "10px",
-    marginBottom: "20px",
-  }}
->
-  <option value="any-post">Any Post</option>
-  <option value="specific-post">Specific Post</option>
-  <option value="next-post">Next Post</option>
-</select>
-
-<h3>2. Keywords</h3>
-
-{triggerType === "specific-post" && (
-  <>
-    <h3>Select Instagram Post</h3>
-
-    {loadingMedia ? (
-      <p>Loading posts...</p>
-    ) : (
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
-          gap: "12px",
-          marginBottom: "20px",
-        }}
-      >
-        {media.map((post) => (
-<div
-  key={post.id}
-  onClick={() => setSelectedPostId(post.id)}
-  style={{
-    cursor: "pointer",
-    border:
-      selectedPostId === post.id
-        ? "3px solid #E1306C"
-        : "2px solid #e5e7eb",
-    borderRadius: "12px",
-    overflow: "hidden",
-    position: "relative",
-    transition: "all 0.2s ease",
-    transform:
-      selectedPostId === post.id
-        ? "scale(1.03)"
-        : "scale(1)",
-    boxShadow:
-      selectedPostId === post.id
-        ? "0 8px 20px rgba(225,48,108,0.25)"
-        : "0 2px 8px rgba(0,0,0,0.08)",
-  }}
->
-  <img
-    src={post.thumbnail_url || post.media_url}
-    alt={post.caption || "Instagram Post"}
-    style={{
-      width: "100%",
-      height: "150px",
-      objectFit: "cover",
-      display: "block",
-    }}
-  />
-
-  {/* Media Type Badge */}
-  <div
-    style={{
-      position: "absolute",
-      top: "10px",
-      left: "10px",
-      background: "rgba(0,0,0,0.65)",
-      color: "#fff",
-      padding: "4px 8px",
-      borderRadius: "20px",
-      fontSize: "12px",
-      fontWeight: "600",
-    }}
-  >
-    {post.media_type === "VIDEO"
-      ? "🎥 Reel"
-      : post.media_type === "CAROUSEL_ALBUM"
-      ? "📚 Carousel"
-      : "🖼️ Post"}
-  </div>
-
-  {/* Selected Badge */}
-  {selectedPostId === post.id && (
-    <div
+      <PageHeader
+  title="Automations"
+  subtitle="Manage your Instagram comment-to-DM automations."
+  action={
+    <button
+      onClick={() => setShowForm(true)}
       style={{
-        position: "absolute",
-        top: "10px",
-        right: "10px",
-        background: "#E1306C",
+        padding: "12px 20px",
+        border: "none",
+        borderRadius: "10px",
         color: "#fff",
-        padding: "5px 10px",
-        borderRadius: "20px",
-        fontSize: "12px",
-        fontWeight: "bold",
+        cursor: "pointer",
+        background: "linear-gradient(135deg,#E1306C,#833AB4)",
+        fontWeight: "600",
       }}
     >
-      ✓ Selected
-    </div>
-  )}
-</div>
-        ))}
+      + Create Automation
+    </button>
+  }
+/>
+
+{showForm && (
+  <div
+    onClick={() => setShowForm(false)}
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(17,24,39,0.55)",
+      backdropFilter: "blur(4px)",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: "32px",
+      zIndex: 1000,
+    }}
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        width: "100%",
+        maxWidth: "900px",
+        maxHeight: "90vh",
+        overflowY: "auto",
+        background: "#fff",
+        borderRadius: "22px",
+        boxShadow: "0 25px 70px rgba(0,0,0,0.22)",
+      }}
+    >
+      {/* Header */}
+
+      <div
+        style={{
+          padding: "24px 30px",
+          borderBottom: "1px solid #E5E7EB",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          position: "sticky",
+          top: 0,
+          background: "#fff",
+          zIndex: 10,
+        }}
+      >
+        <div>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: "24px",
+              fontWeight: "700",
+            }}
+          >
+            {editingId
+              ? "Edit Automation"
+              : "Create Automation"}
+          </h2>
+
+          <p
+            style={{
+              marginTop: "6px",
+              color: "#6B7280",
+              fontSize: "14px",
+            }}
+          >
+            Configure your Instagram comment automation.
+          </p>
+        </div>
+
+        <button
+          onClick={() => setShowForm(false)}
+          style={{
+            width: "42px",
+            height: "42px",
+            border: "none",
+            borderRadius: "12px",
+            background: "#F3F4F6",
+            cursor: "pointer",
+            fontSize: "18px",
+          }}
+        >
+          ✕
+        </button>
       </div>
-    )}
-  </>
-)}
 
-<input
-  value={keywords}
-  onChange={(e) => setKeywords(e.target.value)}
-  placeholder="Enter keyword"
-  style={{
-    width: "100%",
-    padding: "10px",
-    marginBottom: "10px",
-  }}
-/>
+      {/* Body */}
 
-<select
-  value={matchType}
-  onChange={(e) => setMatchType(e.target.value)}
-  style={{
-    width: "100%",
-    padding: "10px",
-    marginBottom: "20px",
-  }}
->
-  <option value="any">Any Keyword</option>
-  <option value="all">All Keywords</option>
-</select>
+      <div
+        style={{
+          padding: "32px",
+        }}
+      >
+        <h3>Create Automation</h3>
 
-<h3>3. DM Message</h3>
+        <h3>1. Trigger</h3>
 
-<textarea
-  value={dmMessage}
-  onChange={(e) => setDmMessage(e.target.value)}
-  placeholder="Enter the DM message users will receive..."
-  style={{
-    width: "100%",
-    minHeight: "150px",
-    padding: "10px",
-    marginBottom: "20px",
-  }}
-/>
+        <select
+          value={triggerType}
+          onChange={(e) => setTriggerType(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "14px 16px",
+            border: "1px solid #D1D5DB",
+            borderRadius: "12px",
+            fontSize: "15px",
+            background: "#fff",
+            marginBottom: "20px",
+            boxSizing: "border-box",
+          }}
+        >
+          <option value="any-post">Any Post</option>
+          <option value="specific-post">Specific Post</option>
+          <option value="next-post">Next Post</option>
+        </select>
 
-<h3>4. Comment Reply</h3>
+        <h3>2. Keywords</h3>
 
-<label
-  style={{
-    display: "block",
-    marginBottom: "10px",
-  }}
->
-  <input
-  type="checkbox"
-  checked={commentReplyEnabled}
-  onChange={(e) =>
-    setCommentReplyEnabled(e.target.checked)
-  }
-/>
-  {" "}Reply to comment
-</label>
+        {triggerType === "specific-post" && (
+          <>
+            <h3>Select Instagram Post</h3>
 
-<textarea
-  value={commentReplyMessage}
-  onChange={(e) =>
-    setCommentReplyMessage(e.target.value)
-  }
-  disabled={!commentReplyEnabled}
-  placeholder="Example: Check your DMs 👋"
-  style={{
-    width: "100%",
-    minHeight: "80px",
-    padding: "10px",
-    marginBottom: "20px",
-  }}
-/>
+            {loadingMedia ? (
+              <p>Loading posts...</p>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fill, minmax(170px, 1fr))",
+                  gap: "12px",
+                  marginBottom: "20px",
+                }}
+              >
+                {media.map((post) => (
+                  <div
+                    key={post.id}
+                    onClick={() => setSelectedPostId(post.id)}
+                    style={{
+                      cursor: "pointer",
+                      border:
+                        selectedPostId === post.id
+                          ? "3px solid #E1306C"
+                          : "2px solid #E5E7EB",
+                      borderRadius: "12px",
+                      overflow: "hidden",
+                      position: "relative",
+                      transition: "0.2s",
+                      transform:
+                        selectedPostId === post.id
+                          ? "scale(1.03)"
+                          : "scale(1)",
+                      boxShadow:
+                        selectedPostId === post.id
+                          ? "0 8px 20px rgba(225,48,108,.25)"
+                          : "0 2px 8px rgba(0,0,0,.08)",
+                    }}
+                  >
+                    <img
+                      src={
+                        post.thumbnail_url ||
+                        post.media_url
+                      }
+                      alt="Instagram"
+                      style={{
+                        width: "100%",
+                        height: "150px",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                    />
 
-<h3>5. Advanced</h3>
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "10px",
+                        left: "10px",
+                        background: "rgba(0,0,0,.65)",
+                        color: "#fff",
+                        padding: "4px 8px",
+                        borderRadius: "20px",
+                        fontSize: "12px",
+                        fontWeight: "600",
+                      }}
+                    >
+                      {post.media_type === "VIDEO"
+                        ? "🎥 Reel"
+                        : post.media_type ===
+                          "CAROUSEL_ALBUM"
+                        ? "📚 Carousel"
+                        : "🖼️ Post"}
+                    </div>
 
-<label
-  style={{
-    display: "block",
-    marginBottom: "20px",
-  }}
->
+                    {selectedPostId === post.id && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "10px",
+                          right: "10px",
+                          background: "#E1306C",
+                          color: "#fff",
+                          padding: "5px 10px",
+                          borderRadius: "20px",
+                          fontSize: "12px",
+                          fontWeight: "700",
+                        }}
+                      >
+                        ✓ Selected
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
-<input
-  type="checkbox"
-  checked={followGate}
-  onChange={(e) => setFollowGate(e.target.checked)}
-/>
-  {" "}Ask user to follow before DM
-</label>
+        <input
+          value={keywords}
+          onChange={(e) =>
+            setKeywords(e.target.value)
+          }
+          placeholder="Enter keyword"
+          style={{
+            width: "100%",
+            padding: "14px 16px",
+            border: "1px solid #D1D5DB",
+            borderRadius: "12px",
+            fontSize: "15px",
+            outline: "none",
+            marginBottom: "18px",
+            boxSizing: "border-box",
+          }}
+        />
 
-<button
-  onClick={handleSaveAutomation}
-  style={{
-    padding: "12px 20px",
-    border: "none",
-    borderRadius: "10px",
-    color: "white",
-    cursor: "pointer",
-    background:
-      "linear-gradient(135deg, #E1306C, #833AB4)",
-  }}
->
-  Save Automation
-</button>
+        <select
+          value={matchType}
+          onChange={(e) =>
+            setMatchType(e.target.value)
+          }
+          style={{
+            width: "100%",
+            padding: "14px 16px",
+            border: "1px solid #D1D5DB",
+            borderRadius: "12px",
+            fontSize: "15px",
+            marginBottom: "20px",
+            boxSizing: "border-box",
+          }}
+        >
+          <option value="any">
+            Any Keyword
+          </option>
+          <option value="all">
+            All Keywords
+          </option>
+        </select>
 
+        <h3>3. DM Message</h3>
+
+        <textarea
+          value={dmMessage}
+          onChange={(e) =>
+            setDmMessage(e.target.value)
+          }
+          placeholder="Enter the DM message users will receive..."
+          style={{
+            width: "100%",
+            minHeight: "140px",
+            padding: "14px 16px",
+            border: "1px solid #D1D5DB",
+            borderRadius: "12px",
+            fontSize: "15px",
+            resize: "vertical",
+            marginBottom: "20px",
+            boxSizing: "border-box",
+          }}
+        />
+        <h3>4. Comment Reply</h3>
+
+        <label
+          style={{
+            display: "block",
+            marginBottom: "10px",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={commentReplyEnabled}
+            onChange={(e) =>
+              setCommentReplyEnabled(e.target.checked)
+            }
+          />{" "}
+          Reply to comment
+        </label>
+
+        <textarea
+          value={commentReplyMessage}
+          onChange={(e) =>
+            setCommentReplyMessage(e.target.value)
+          }
+          disabled={!commentReplyEnabled}
+          placeholder="Example: Check your DMs 👋"
+          style={{
+            width: "100%",
+            minHeight: "80px",
+            padding: "14px 16px",
+            border: "1px solid #D1D5DB",
+            borderRadius: "12px",
+            fontSize: "15px",
+            resize: "vertical",
+            marginBottom: "20px",
+            boxSizing: "border-box",
+          }}
+        />
+
+        <h3>5. Advanced</h3>
+
+        <label
+          style={{
+            display: "block",
+            marginBottom: "30px",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={followGate}
+            onChange={(e) =>
+              setFollowGate(e.target.checked)
+            }
+          />{" "}
+          Ask user to follow before DM
+        </label>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "12px",
+            paddingTop: "24px",
+            borderTop: "1px solid #E5E7EB",
+          }}
+        >
+          <button
+            onClick={() => {
+              setEditingId(null);
+              setShowForm(false);
+            }}
+            style={{
+              padding: "14px 22px",
+              borderRadius: "12px",
+              border: "1px solid #D1D5DB",
+              background: "#fff",
+              cursor: "pointer",
+              fontWeight: "600",
+            }}
+          >
+            Cancel
+          </button>
+
+          <button
+            onClick={handleSaveAutomation}
+            style={{
+              padding: "14px 26px",
+              border: "none",
+              borderRadius: "12px",
+              background:
+                "linear-gradient(135deg,#E1306C,#833AB4)",
+              color: "#fff",
+              fontWeight: "600",
+              cursor: "pointer",
+              fontSize: "15px",
+            }}
+          >
+            {editingId
+              ? "Update Automation"
+              : "Save Automation"}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 )}
 
@@ -458,54 +612,23 @@ console.log({
 {automations.length === 0 ? (
   <p>No automations yet.</p>
 ) : (
-  automations.map((automation) => (
-    <div
-      key={automation._id}
-      style={{
-        border: "1px solid #e5e7eb",
-        borderRadius: "12px",
-        padding: "16px",
-        marginTop: "12px",
-      }}
-    >
-      <p>
-        <strong>Keywords:</strong>{" "}
-        {automation.keywords.join(", ")}
-      </p>
-
-      <p>
-        <strong>Match Type:</strong>{" "}
-        {automation.matchType}
-      </p>
-
-      <p>
-        <strong>Status:</strong>{" "}
-        {automation.status}
-      </p>
-
-      <button
-  onClick={() =>
-    handleDeleteAutomation(automation._id)
-  }
-  style={{
-    marginTop: "10px",
-    padding: "8px 12px",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-  }}
->
-  Delete
-</button>
-
-<button
-  onClick={() => handleEditAutomation(automation)}
->
-  Edit
-</button>
-
-    </div>
-  ))
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))",
+      gap: "20px",
+      marginTop: "20px",
+    }}
+  >
+    {automations.map((automation) => (
+      <AutomationCard
+        key={automation._id}
+        automation={automation}
+        onEdit={handleEditAutomation}
+        onDelete={handleDeleteAutomation}
+      />
+    ))}
+  </div>
 )}
     </DashboardLayout>
   );
