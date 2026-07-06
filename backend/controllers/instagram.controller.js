@@ -595,8 +595,7 @@ console.log(
   );
 }
 
-// return res.redirect("https://triggerdm.in/accounts");
-return res.redirect("http://localhost:5173/accounts");
+return res.redirect(`${process.env.FRONTEND_URL}/accounts`);
   } catch (error) {
     console.error(
       "V2 TOKEN ERROR:",
