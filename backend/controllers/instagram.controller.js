@@ -188,10 +188,9 @@ console.log(
       // -----------------------------
       // 4. Save / Upsert in DB
       // -----------------------------
-savedAccount = await InstagramAccount.findOneAndUpdate(
+savedAccount =await InstagramAccount.findOneAndUpdate(
   {
-    userId,
-    instagramBusinessId: igId,
+    userId: decodedState.userId,
   },
   {
     userId,
@@ -398,6 +397,10 @@ console.log(
 );
     const accessToken = tokenResponse.data.access_token;
 
+    const instagramUserId = tokenResponse.data.user_id;
+
+console.log("TOKEN USER ID:", instagramUserId);
+
     const longLivedTokenResponse = await axios.get(
   "https://graph.instagram.com/access_token",
   {
@@ -413,7 +416,7 @@ console.log(
   "LONG LIVED TOKEN:",
   JSON.stringify(longLivedTokenResponse.data, null, 2)
 );
-const instagramUserId = tokenResponse.data.user_id;
+
 console.log("TOKEN USER ID:", instagramUserId);
 
 let mediaResponse;
@@ -431,6 +434,11 @@ try {
       },
     }
   );
+
+  const graphUserId = profileResponse.data.id;
+
+console.log("GRAPH USER ID:", graphUserId);
+console.log("TOKEN USER ID:", instagramUserId);
 
   console.log(
   "PROFILE USER ID:",
@@ -451,8 +459,8 @@ console.log(
 
 console.log("ABOUT TO SAVE INSTAGRAM ACCOUNT", {
   userId: decodedState.userId,
-  instagramBusinessId:
-    instagramUserId.toString(),
+ instagramBusinessId:
+    graphUserId.toString(),
   username:
     profileResponse.data.username,
 });
@@ -461,17 +469,17 @@ const savedAccount =
   await InstagramAccount.findOneAndUpdate(
     {
       userId: decodedState.userId,
-      instagramBusinessId:
-        instagramUserId.toString(),
+   instagramBusinessId:
+    graphUserId.toString(),
     },
     {
       userId: decodedState.userId,
 
-      instagramBusinessId:
-        instagramUserId.toString(),
+     instagramBusinessId:
+    graphUserId.toString(),
 
       pageId:
-        instagramUserId.toString(),
+    graphUserId.toString(),
 
       username:
         profileResponse.data.username,
