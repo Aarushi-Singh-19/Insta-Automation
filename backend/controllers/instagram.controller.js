@@ -308,36 +308,36 @@ console.log("AUTH URL:", authUrl);
 };
 
 //helper funciton
-const subscribeInstagramAccount = async (instagramUserId, accessToken) => {
-  try {
-    const response = await axios.post(
-      `https://graph.instagram.com/v25.0/${instagramUserId}/subscribed_apps`,
-      new URLSearchParams({
-        subscribed_fields: "comments,messages",
-      }),
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      }
-    );
+// const subscribeInstagramAccount = async (instagramUserId, accessToken) => {
+//   try {
+//     const response = await axios.post(
+//       `https://graph.instagram.com/v25.0/${instagramUserId}/subscribed_apps`,
+//       new URLSearchParams({
+//         subscribed_fields: "comments,messages",
+//       }),
+//       {
+//         headers: {
+//           Authorization: `Bearer ${accessToken}`,
+//           "Content-Type": "application/x-www-form-urlencoded",
+//         },
+//       }
+//     );
 
-    console.log(
-      "SUBSCRIBE RESPONSE:",
-      JSON.stringify(response.data, null, 2)
-    );
+//     console.log(
+//       "SUBSCRIBE RESPONSE:",
+//       JSON.stringify(response.data, null, 2)
+//     );
 
-    return response.data;
-  } catch (error) {
-    console.error(
-      "SUBSCRIBE ERROR:",
-      error.response?.data || error.message
-    );
+//     return response.data;
+//   } catch (error) {
+//     console.error(
+//       "SUBSCRIBE ERROR:",
+//       error.response?.data || error.message
+//     );
 
-    throw error;
-  }
-};
+//     throw error;
+//   }
+// };
 
 
 const instagramCallbackV2 = async (req, res) => {
@@ -414,6 +414,7 @@ console.log(
   JSON.stringify(longLivedTokenResponse.data, null, 2)
 );
 const instagramUserId = tokenResponse.data.user_id;
+console.log("TOKEN USER ID:", instagramUserId);
 
 let mediaResponse;
 
@@ -431,11 +432,22 @@ try {
     }
   );
 
-
-  await subscribeInstagramAccount(
-  instagramUserId,
-  longLivedTokenResponse.data.access_token
+  console.log(
+  "PROFILE USER ID:",
+  profileResponse.data.id
 );
+
+console.log(
+  "PROFILE USERNAME:",
+  profileResponse.data.username
+);
+
+
+//temprorayry removing
+//   await subscribeInstagramAccount(
+//   instagramUserId,
+//   longLivedTokenResponse.data.access_token
+// );
 
 console.log("ABOUT TO SAVE INSTAGRAM ACCOUNT", {
   userId: decodedState.userId,
@@ -497,6 +509,9 @@ console.log(
       2
     )
   );
+
+  console.log("REACHED ACCOUNT INFO");
+
   const accountInfo = await axios.get(
   "https://graph.instagram.com/me",
   {
@@ -517,24 +532,28 @@ console.log(
   )
 );
 
-const mediaDebug = await axios.get(
-  `https://graph.instagram.com/${profileResponse.data.id}/media`,
-  {
-    params: {
-      fields: "id,caption,comments_count",
-      access_token: accessToken,
-    },
-  }
-);
+// console.log("REACHED MEDIA DEBUG");
 
-console.log(
-  "MEDIA DEBUG:",
-  JSON.stringify(
-    mediaDebug.data,
-    null,
-    2
-  )
-);
+// const mediaDebug = await axios.get(
+//   `https://graph.instagram.com/${profileResponse.data.id}/media`,
+//   {
+//     params: {
+//       fields: "id,caption,comments_count",
+//       access_token: accessToken,
+//     },
+//   }
+// );
+
+// console.log(
+//   "MEDIA DEBUG:",
+//   JSON.stringify(
+//     mediaDebug.data,
+//     null,
+//     2
+//   )
+// );
+
+console.log("REACHED ME MEDIA");
  
   try {
   mediaResponse = await axios.get(
@@ -634,17 +653,28 @@ console.log(
 
 return res.redirect(`${process.env.FRONTEND_URL}/accounts`);
   } catch (error) {
-    console.error(
-      "V2 TOKEN ERROR:",
-      error.response?.data || error.message
-    );
+  console.error("========== CALLBACK FAILED ==========");
 
-    return res.status(500).json({
-      success: false,
-      error:
-        error.response?.data || error.message,
-    });
-  }
+  console.error("Message:", error.message);
+
+  console.error("Status:", error.response?.status);
+
+  console.error(
+    "Response:",
+    JSON.stringify(error.response?.data, null, 2)
+  );
+
+  console.error("Request URL:", error.config?.url);
+
+  console.error("Request Params:", error.config?.params);
+
+  console.error(error.stack);
+
+  return res.status(500).json({
+    success: false,
+    error: error.response?.data || error.message,
+  });
+}
 };
 
   const getConnectedAccounts = async (req, res) => {
