@@ -307,6 +307,38 @@ console.log("AUTH URL:", authUrl);
   }
 };
 
+//helper funciton
+const subscribeInstagramAccount = async (instagramUserId, accessToken) => {
+  try {
+    const response = await axios.post(
+      `https://graph.instagram.com/v25.0/${instagramUserId}/subscribed_apps`,
+      new URLSearchParams({
+        subscribed_fields: "comments,messages",
+      }),
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      }
+    );
+
+    console.log(
+      "SUBSCRIBE RESPONSE:",
+      JSON.stringify(response.data, null, 2)
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "SUBSCRIBE ERROR:",
+      error.response?.data || error.message
+    );
+
+    throw error;
+  }
+};
+
 
 const instagramCallbackV2 = async (req, res) => {
   try {
@@ -399,6 +431,11 @@ try {
     }
   );
 
+
+  await subscribeInstagramAccount(
+  instagramUserId,
+  longLivedTokenResponse.data.access_token
+);
 
 console.log("ABOUT TO SAVE INSTAGRAM ACCOUNT", {
   userId: decodedState.userId,
