@@ -60,7 +60,10 @@ const receiveWebhook = async (req, res) => {
   const change = changeObj.value;
 
         const eventId = change?.id;
-        const postId = change?.media?.id;
+        const postId =
+  change?.media?.id ||
+  change?.media_id ||
+  null;
         console.log(
   "WEBHOOK MEDIA ID:",
   postId

@@ -10,31 +10,9 @@ async function executeInstagramAction(job) {
   const { type, payload, account } = job.data;
 
   const accessToken =
-  tokenResponse.data.access_token;
+    account.pageAccessToken || account.accessToken;
 
-const instagramUserId =
-  tokenResponse.data.user_id;
-
-  const profileResponse = await axios.get(
-  `https://graph.instagram.com/v23.0/${instagramUserId}`,
-  {
-    params: {
-      fields: "id,username",
-      access_token: accessToken,
-    },
-  }
-);
-
-console.log(
-  "INSTAGRAM PROFILE:",
-  JSON.stringify(
-    profileResponse.data,
-    null,
-    2
-  )
-);
-
-  await rateLimit(accountId);
+  await rateLimit(account._id.toString());
 
   if (type === "REPLY_COMMENT") {
     return await withRetry(() =>
@@ -50,7 +28,9 @@ console.log(
     return await withRetry(() =>
       sendDM({
         accessToken,
-        igUserId: payload.igUserId,
+        instagramBusinessId: account.instagramBusinessId,
+        commentId: payload.commentId,
+        recipientId: payload.recipientId,
         message: payload.message,
       })
     );

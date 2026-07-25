@@ -77,7 +77,7 @@ console.log("OAuth User ID:", userId);
 
     const accessToken = tokenRes.data.access_token;
 
-    const permissionsRes = await axios.get(
+  const permissionsRes = await axios.get(
   "https://graph.facebook.com/v19.0/me/permissions",
   {
     params: {
@@ -91,7 +91,7 @@ console.log(
   "PERMISSIONS:",
   JSON.stringify(permissionsRes.data, null, 2)
 );
-    const meRes = await axios.get(
+const meRes = await axios.get(
   "https://graph.facebook.com/v19.0/me",
   {
     params: {
@@ -306,7 +306,38 @@ console.log("AUTH URL:", authUrl);
   }
 };
 
-//helper funciton
+// helper funciton
+
+
+const subscribeInstagramAccount = async (instagramUserId, accessToken) => {
+  console.log("===== ENTERED subscribeInstagramAccount =====");
+  console.log("IG USER:", instagramUserId);
+
+  try {
+    const response = await axios.post(
+      `https://graph.instagram.com/v25.0/${instagramUserId}/subscribed_apps`,
+      new URLSearchParams({
+        subscribed_fields: "comments,messages",
+      }),
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      }
+    );
+
+    console.log("SUBSCRIBE RESPONSE:");
+    console.log(JSON.stringify(response.data, null, 2));
+
+    return response.data;
+  } catch (err) {
+    console.log("SUBSCRIBE FAILED:");
+    console.log(err.response?.data || err.message);
+    throw err;
+  }
+};
+
 // const subscribeInstagramAccount = async (instagramUserId, accessToken) => {
 //   try {
 //     const response = await axios.post(
@@ -337,6 +368,8 @@ console.log("AUTH URL:", authUrl);
 //     throw error;
 //   }
 // };
+
+
 
 
 const instagramCallbackV2 = async (req, res) => {
@@ -401,7 +434,7 @@ console.log(
 
 console.log("TOKEN USER ID:", instagramUserId);
 
-    const longLivedTokenResponse = await axios.get(
+const longLivedTokenResponse = await axios.get(
   "https://graph.instagram.com/access_token",
   {
     params: {
@@ -411,6 +444,9 @@ console.log("TOKEN USER ID:", instagramUserId);
     },
   }
 );
+
+const longLivedAccessToken =
+  longLivedTokenResponse.data.access_token;
 
 console.log(
   "LONG LIVED TOKEN:",
@@ -430,7 +466,7 @@ try {
     {
       params: {
         fields: "id,username",
-        access_token: accessToken,
+        access_token: longLivedAccessToken,
       },
     }
   );
@@ -450,11 +486,14 @@ console.log(
   profileResponse.data.username
 );
 
+console.log("CALLING subscribeInstagramAccount");
+
 await subscribeInstagramAccount(
-    graphUserId,
-    longLivedTokenResponse.data.access_token
+  graphUserId,
+  longLivedAccessToken
 );
 
+console.log("FINISHED subscribeInstagramAccount");
 
 //temprorayry removing
 // await subscribeInstagramAccount(
@@ -489,8 +528,8 @@ const savedAccount =
       username:
         profileResponse.data.username,
 
-accessToken: longLivedTokenResponse.data.access_token,
-pageAccessToken: longLivedTokenResponse.data.access_token,
+accessToken: longLivedAccessToken,
+pageAccessToken: longLivedAccessToken,
 tokenExpiresAt: new Date(
   Date.now() + longLivedTokenResponse.data.expires_in * 1000
 ),
@@ -531,7 +570,7 @@ console.log(
     params: {
       fields:
         "id,username,account_type",
-      access_token: accessToken,
+     access_token: longLivedAccessToken,
     },
   }
 );
@@ -552,7 +591,7 @@ console.log(
 //   {
 //     params: {
 //       fields: "id,caption,comments_count",
-//       access_token: accessToken,
+//       access_token: longLivedAccessToken,
 //     },
 //   }
 // );
@@ -574,7 +613,7 @@ console.log("REACHED ME MEDIA");
     {
       params: {
         fields: "id,caption,permalink",
-        access_token: accessToken,
+        access_token: longLivedAccessToken,
       },
     }
   );
@@ -608,7 +647,7 @@ try {
 //   mediaResponse?.data?.data?.[0]?.id;
 //temp change
 const firstMediaId =
-  "18339826036216462";
+  mediaResponse?.data?.data?.[0]?.id;
 
   console.log(
     "TEST MEDIA ID:",
@@ -637,7 +676,7 @@ const commentsResponse = await axios.get(
   commentsUrl,
   {
     params: {
-      access_token: accessToken,
+      access_token: longLivedAccessToken,
       limit: 100,
     },
   }

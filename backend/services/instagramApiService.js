@@ -11,10 +11,10 @@ async function replyToComment({ accessToken, commentId, message }) {
     const url = `https://graph.instagram.com/${GRAPH_VERSION}/${commentId}/replies`;
 
     const res = await axios.post(url, null, {
-      params: {
-        message,
-        access_token: accessToken,
-      },
+ params: {
+    message,
+    access_token: accessToken,
+},
     });
 
     console.log("REPLY SUCCESS:", res.data);
@@ -59,9 +59,9 @@ async function sendDM({
         message: { text: message },
       },
       {
-        params: {
-          access_token: accessToken,
-        },
+  params: {
+    access_token: accessToken,
+},
       }
     );
 
