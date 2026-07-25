@@ -633,19 +633,11 @@ console.log("REACHED ME MEDIA");
   );
 }
 
-} } catch (profileError) {
-  console.error("========== PROFILE ERROR ==========");
-  console.error(profileError);
-  console.error("Message:", profileError.message);
-  console.error("Stack:", profileError.stack);
-
-  if (profileError.response) {
-    console.error("Status:", profileError.response.status);
-    console.error(
-      "Response:",
-      JSON.stringify(profileError.response.data, null, 2)
-    );
-  }
+} catch (profileError) {
+  console.error(
+    "PROFILE/SAVE ERROR:",
+    profileError.response?.data || profileError
+  );
 
   throw profileError;
 }
