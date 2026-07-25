@@ -450,11 +450,16 @@ console.log(
   profileResponse.data.username
 );
 
+await subscribeInstagramAccount(
+    graphUserId,
+    longLivedTokenResponse.data.access_token
+);
+
 
 //temprorayry removing
-//   await subscribeInstagramAccount(
-//   instagramUserId,
-//   longLivedTokenResponse.data.access_token
+// await subscribeInstagramAccount(
+//     graphUserId,
+//     longLivedTokenResponse.data.access_token
 // );
 
 console.log("ABOUT TO SAVE INSTAGRAM ACCOUNT", {

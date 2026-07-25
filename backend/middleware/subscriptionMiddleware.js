@@ -11,7 +11,17 @@ const subscriptionMiddleware = async (req, res, next) => {
       });
     }
 
-    const today = new Date();
+const today = new Date();
+
+console.log("========== SUBSCRIPTION CHECK ==========");
+
+console.log({
+  userId: user._id.toString(),
+  subscriptionStatus: user.subscriptionStatus,
+  trialEndDate: user.trialEndDate,
+  planEndDate: user.planEndDate,
+  today,
+});
 
 const trialActive =
   user.subscriptionStatus === "trial" &&
