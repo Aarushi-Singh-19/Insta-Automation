@@ -310,7 +310,7 @@ console.log("AUTH URL:", authUrl);
 
 
 const subscribeInstagramAccount = async (instagramUserId, accessToken) => {
-  console.log("===== ENTERED subscribeInstagramAccount =====");
+console.log("🔥🔥🔥 HELPER ENTERED 🔥🔥🔥");
   console.log("IG USER:", instagramUserId);
 
   try {
@@ -486,15 +486,14 @@ console.log(
   profileResponse.data.username
 );
 
-console.log("CALLING subscribeInstagramAccount");
+console.log("🔥🔥🔥 VERSION 25 JULY - CALLING SUBSCRIBE 🔥🔥🔥");
 
 await subscribeInstagramAccount(
   graphUserId,
   longLivedAccessToken
 );
 
-console.log("FINISHED subscribeInstagramAccount");
-
+console.log("🔥🔥🔥 VERSION 25 JULY - FINISHED SUBSCRIBE 🔥🔥🔥");
 //temprorayry removing
 // await subscribeInstagramAccount(
 //     graphUserId,
