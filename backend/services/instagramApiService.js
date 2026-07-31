@@ -48,9 +48,13 @@ async function sendDM({
       throw new Error("DM_RECIPIENT_REQUIRED");
     }
 
+    // const url =  // temproray removing 
+    //   `https://graph.facebook.com/${GRAPH_VERSION}/` +
+    //   `${instagramBusinessId}/messages`;
+
     const url =
-      `https://graph.facebook.com/${GRAPH_VERSION}/` +
-      `${instagramBusinessId}/messages`;
+  `https://graph.instagram.com/${GRAPH_VERSION}/` +
+  `${instagramBusinessId}/messages`;
 
     const res = await axios.post(
       url,
