@@ -4,34 +4,14 @@ function PageHeader({
   action,
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: "32px",
-      }}
-    >
+    <div className="flex items-center justify-between mb-8">
       <div>
-        <h1
-          style={{
-            margin: 0,
-            fontSize: "32px",
-            fontWeight: "700",
-            color: "#111827",
-          }}
-        >
+        <h1 className="text-4xl font-bold text-gray-900">
           {title}
         </h1>
 
         {subtitle && (
-          <p
-            style={{
-              marginTop: "8px",
-              color: "#6B7280",
-              fontSize: "16px",
-            }}
-          >
+          <p className="mt-2 text-gray-500 text-lg">
             {subtitle}
           </p>
         )}

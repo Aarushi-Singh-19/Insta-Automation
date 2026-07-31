@@ -2,52 +2,20 @@ import { ArrowRight } from "lucide-react";
 
 function TrialBanner({ daysRemaining, onUpgrade }) {
   return (
-    <div
-      style={{
-        marginBottom: "32px",
-        padding: "24px",
-        borderRadius: "16px",
-        background: "#FEF3C7",
-        border: "1px solid #F59E0B",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}
-    >
+    <div className="mb-8 rounded-2xl border border-amber-300 bg-amber-50 p-6 flex items-center justify-between">
       <div>
-        <h3
-          style={{
-            margin: 0,
-            color: "#92400E",
-          }}
-        >
+        <h3 className="text-lg font-semibold text-amber-900">
           🚀 Free Trial Active
         </h3>
 
-        <p
-          style={{
-            marginTop: "8px",
-            color: "#92400E",
-          }}
-        >
+        <p className="mt-2 text-amber-700">
           {daysRemaining} day(s) remaining in your free trial.
         </p>
       </div>
 
       <button
         onClick={onUpgrade}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          padding: "12px 18px",
-          border: "none",
-          borderRadius: "10px",
-          cursor: "pointer",
-          background: "#F59E0B",
-          color: "white",
-          fontWeight: "600",
-        }}
+        className="flex items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 transition px-5 py-3 font-semibold text-white"
       >
         Upgrade
         <ArrowRight size={18} />

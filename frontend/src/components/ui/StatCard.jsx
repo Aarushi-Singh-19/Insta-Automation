@@ -1,52 +1,19 @@
 function StatCard({ title, value, icon, color = "#7C3AED" }) {
   return (
-    <div
-      style={{
-        background: "#FFFFFF",
-        border: "1px solid #E5E7EB",
-        borderRadius: "16px",
-        padding: "24px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "16px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-        transition: "all 0.2s ease",
-      }}
-    >
+    <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-200">
       <div
-        style={{
-          width: "48px",
-          height: "48px",
-          borderRadius: "12px",
-          background: "#F3E8FF",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color,
-        }}
+        className="w-12 h-12 rounded-xl flex items-center justify-center bg-purple-100"
+        style={{ color }}
       >
         {icon}
       </div>
 
-      <div>
-        <h2
-          style={{
-            margin: 0,
-            fontSize: "30px",
-            fontWeight: "700",
-            color: "#111827",
-          }}
-        >
+      <div className="mt-5">
+        <h2 className="text-4xl font-bold text-gray-900">
           {value}
         </h2>
 
-        <p
-          style={{
-            marginTop: "6px",
-            color: "#6B7280",
-            fontSize: "15px",
-          }}
-        >
+        <p className="mt-2 text-gray-500">
           {title}
         </p>
       </div>

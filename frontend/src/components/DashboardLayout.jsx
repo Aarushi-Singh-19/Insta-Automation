@@ -17,120 +17,61 @@ function DashboardLayout({ children }) {
     navigate("/login");
   };
 
-  const navItemStyle = (path) => ({
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    padding: "12px 16px",
-    borderRadius: "12px",
-    textDecoration: "none",
-    fontWeight: 600,
-    color: location.pathname === path ? "#7C3AED" : "#374151",
-    background:
-      location.pathname === path ? "#F3E8FF" : "transparent",
-    transition: "all 0.2s ease",
-  });
+  const navItemClass = (path) =>
+    `flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${
+      location.pathname === path
+        ? "bg-purple-100 text-purple-700"
+        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+    }`;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        background: "#F8FAFC",
-      }}
-    >
+    <div className="flex min-h-screen bg-slate-50">
       {/* Sidebar */}
-      <aside
-        style={{
-          width: "260px",
-          background: "#fff",
-          borderRight: "1px solid #E5E7EB",
-          padding: "28px 22px",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <h1
-          style={{
-            margin: 0,
-            marginBottom: "40px",
-            fontSize: "30px",
-            fontWeight: "800",
-            background:
-              "linear-gradient(135deg,#E1306C,#833AB4)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-        >
+      <aside className="w-72 bg-white border-r border-gray-200 flex flex-col px-6 py-8 shadow-sm">
+        <h1 className="mb-10 text-4xl font-extrabold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
           TriggerDM
         </h1>
 
-        <nav
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "12px",
-          }}
-        >
-          <Link to="/dashboard" style={navItemStyle("/dashboard")}>
-            <LayoutDashboard size={18} />
-            <span>Dashboard</span>
+        <nav className="space-y-3">
+          <Link to="/dashboard" className={navItemClass("/dashboard")}>
+            <LayoutDashboard size={20} />
+            Dashboard
           </Link>
 
-          <Link to="/automations" style={navItemStyle("/automations")}>
-            <Bot size={18} />
-            <span>Automations</span>
+          <Link to="/automations" className={navItemClass("/automations")}>
+            <Bot size={20} />
+            Automations
           </Link>
 
-          <Link to="/accounts" style={navItemStyle("/accounts")}>
-            <CircleUserRound size={18} />
-            <span>Instagram Accounts</span>
+          <Link to="/accounts" className={navItemClass("/accounts")}>
+            <CircleUserRound size={20} />
+            Instagram Accounts
           </Link>
 
-          <Link to="/billing" style={navItemStyle("/billing")}>
-            <CreditCard size={18} />
-            <span>Billing</span>
+          <Link to="/billing" className={navItemClass("/billing")}>
+            <CreditCard size={20} />
+            Billing
           </Link>
 
-          <Link to="/settings" style={navItemStyle("/settings")}>
-            <Settings size={18} />
-            <span>Settings</span>
+          <Link to="/settings" className={navItemClass("/settings")}>
+            <Settings size={20} />
+            Settings
           </Link>
         </nav>
 
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
 
         <button
           onClick={handleLogout}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "8px",
-            padding: "12px",
-            border: "none",
-            borderRadius: "12px",
-            background:
-              "linear-gradient(135deg,#E1306C,#833AB4)",
-            color: "#fff",
-            cursor: "pointer",
-            fontWeight: "600",
-            transition: "all 0.2s ease",
-          }}
+          className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 py-3 font-semibold text-white transition hover:opacity-90"
         >
           <LogOut size={18} />
-          <span>Logout</span>
+          Logout
         </button>
       </aside>
 
       {/* Main Content */}
-      <main
-        style={{
-          flex: 1,
-          padding: "40px",
-          overflowY: "auto",
-        }}
-      >
+      <main className="flex-1 overflow-y-auto p-10">
         {children}
       </main>
     </div>

@@ -74,21 +74,15 @@ function Dashboard() {
       <PageHeader
         title="Welcome back 👋"
         subtitle="Manage your Instagram comment-to-DM automations."
-        action={
-          <button
-            style={{
-              padding: "12px 20px",
-              border: "none",
-              borderRadius: "10px",
-              background: "linear-gradient(135deg,#E1306C,#833AB4)",
-              color: "#fff",
-              cursor: "pointer",
-              fontWeight: "600",
-            }}
-          >
-            + Create Automation
-          </button>
-        }
+action={
+  <button
+    onClick={() => navigate("/automations")}
+    className="rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 px-5 py-3 font-semibold text-white transition hover:opacity-90"
+  >
+    + Create Automation
+  </button>
+
+}
       />
 
       {user?.subscriptionStatus === "trial" && (
