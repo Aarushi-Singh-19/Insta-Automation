@@ -1,11 +1,13 @@
 {
   "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "axios": "^1.17.0",
     "bullmq": "^5.78.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "ioredis": "^5.11.0",
     "lucide-react": "^1.22.0",
-    "razorpay": "^2.9.6"
+    "razorpay": "^2.9.6",
+    "tailwindcss": "^4.3.3"
   }
 }
