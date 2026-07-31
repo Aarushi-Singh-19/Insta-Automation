@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useState } from "react";
 import API from "../services/api";
 
 function Signup() {
@@ -8,101 +8,149 @@ function Signup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   const handleSignup = async (e) => {
     e.preventDefault();
 
-    setError("");
+    if (loading) return;
 
-    if (!name || !email || !password) {
-      setError("Please fill all fields.");
-      return;
-    }
+    setLoading(true);
 
     try {
-      setLoading(true);
-
-      const res = await API.post("/auth/signup", {
+      await API.post("/auth/signup", {
         name,
         email,
         password,
       });
 
-      console.log(res.data);
+      alert("Account created successfully!");
 
-      // If backend returns JWT
-      if (res.data.token) {
-        localStorage.setItem("token", res.data.token);
-        navigate("/dashboard");
-      } else {
-        // Otherwise send user to login
-        alert("Signup successful! Please login.");
-        navigate("/login");
-      }
+      navigate("/login");
     } catch (err) {
-      console.log(err);
-
-      setError(
+      alert(
         err.response?.data?.message ||
-        "Signup failed. Please try again."
+          "Signup failed. Please try again."
       );
-    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>Signup</h2>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-6">
+      <div className="w-full max-w-md rounded-3xl bg-white shadow-xl border border-gray-200 p-8">
 
-      {error && (
-        <p style={{ color: "red" }}>
-          {error}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
+            TriggerDM
+          </h1>
+
+          <p className="mt-3 text-2xl font-semibold text-gray-900">
+            Create Account 🚀
+          </p>
+
+          <p className="mt-2 text-gray-500">
+            Start automating your Instagram comment-to-DM workflows.
+          </p>
+        </div>
+
+        <form
+          onSubmit={handleSignup}
+          className="space-y-5"
+        >
+          <div>
+            <label className="block mb-2 text-sm font-medium text-gray-700">
+              Full Name
+            </label>
+
+            <input
+              type="text"
+              required
+              placeholder="Enter your full name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          <div>
+            <label className="block mb-2 text-sm font-medium text-gray-700">
+              Email
+            </label>
+
+            <input
+              type="email"
+              required
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          <div>
+            <label className="block mb-2 text-sm font-medium text-gray-700">
+              Password
+            </label>
+
+            <input
+              type="password"
+              required
+              placeholder="Create a password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full h-12 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-semibold transition hover:opacity-90 disabled:opacity-60 flex items-center justify-center"
+          >
+            {loading ? (
+              <>
+                <svg
+                  className="mr-3 h-5 w-5 animate-spin"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                  />
+                </svg>
+
+                Creating Account...
+              </>
+            ) : (
+              "Create Account"
+            )}
+          </button>
+        </form>
+
+        <p className="mt-6 text-center text-gray-500">
+          Already have an account?{" "}
+          <Link
+            to="/login"
+            className="font-semibold text-purple-600 hover:text-purple-700"
+          >
+            Login
+          </Link>
         </p>
-      )}
 
-      <form onSubmit={handleSignup}>
-        <input
-          type="text"
-          placeholder="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-
-        <br /><br />
-
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-
-        <br /><br />
-
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-
-        <br /><br />
-
-        <button type="submit" disabled={loading}>
-          {loading ? "Creating Account..." : "Signup"}
-        </button>
-      </form>
-
-      <br />
-
-      <p>
-        Already have an account?{" "}
-        <Link to="/login">Login</Link>
-      </p>
+      </div>
     </div>
   );
 }
