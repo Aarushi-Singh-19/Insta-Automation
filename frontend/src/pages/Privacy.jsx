@@ -1,31 +1,47 @@
+import LegalLayout from "../components/LegalLayout";
+
 function Privacy() {
   return (
-    <div style={{ padding: "40px", maxWidth: "900px", margin: "auto" }}>
-      <h1>Privacy Policy</h1>
-
-      <p>Last Updated: June 2026</p>
-
+    <LegalLayout
+      title="Privacy Policy"
+      updated="July 2026"
+    >
       <h2>Information We Collect</h2>
+
       <p>
-        We may collect your name, email address, Instagram account information,
-        automation settings, and usage data.
+        We may collect your name, email address, Instagram account
+        information, automation settings, and usage data necessary to
+        provide TriggerDM.
       </p>
 
-      <h2>How We Use Information</h2>
+      <h2>How We Use Your Information</h2>
+
       <p>
-        We use information to provide and improve TriggerDM services, enable
-        Instagram automation features, and provide customer support.
+        Your information is used to authenticate your account, enable
+        Instagram automations, improve our services, and provide customer
+        support.
       </p>
 
       <h2>Data Sharing</h2>
+
       <p>
-        We do not sell personal information. Data may only be shared with
-        necessary service providers or when required by law.
+        We do not sell your personal information. Data is only shared with
+        trusted infrastructure providers or when legally required.
+      </p>
+
+      <h2>Data Security</h2>
+
+      <p>
+        We use industry-standard security practices to protect your account
+        and access tokens.
       </p>
 
       <h2>Contact</h2>
-      <p>Email: aarushisingh19102005@gmail.com</p>
-    </div>
+
+      <p>
+        Email: aarushisingh19102005@gmail.com
+      </p>
+    </LegalLayout>
   );
 }
 

@@ -1,18 +1,35 @@
+import LegalLayout from "../components/LegalLayout";
+
 function Contact() {
   return (
-    <div style={{ padding: "40px", maxWidth: "900px", margin: "auto" }}>
-      <h1>Contact Us</h1>
+    <LegalLayout
+      title="Contact Us"
+      updated="July 2026"
+    >
+      <p>
+        We'd love to hear from you.
+      </p>
 
-      <p>TriggerDM Support</p>
-      <p>Business Name: TriggerDM</p>
-      <p>Website: https://triggerdm.in</p>
+      <h2>Support</h2>
 
-      <p>Email: aarushisingh19102005@gmail.com</p>
+      <p>
+        Email: aarushisingh19102005@gmail.com
+      </p>
 
-      <p>For support, business inquiries, or verification-related questions, please contact us via email.
+      <h2>Business</h2>
 
-We aim to respond within 48 hours.We aim to respond within 48 hours.</p>
-    </div>
+      <p>
+        TriggerDM
+        <br />
+        https://triggerdm.in
+      </p>
+
+      <h2>Response Time</h2>
+
+      <p>
+        We typically respond within 24–48 business hours.
+      </p>
+    </LegalLayout>
   );
 }
 

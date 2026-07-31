@@ -1,31 +1,47 @@
+import LegalLayout from "../components/LegalLayout";
+
 function Terms() {
   return (
-    <div style={{ padding: "40px", maxWidth: "900px", margin: "auto" }}>
-      <h1>Terms of Service</h1>
+    <LegalLayout
+      title="Terms of Service"
+      updated="July 2026"
+    >
+      <h2>Service</h2>
 
-      <p>Last Updated: June 2026</p>
-
-      <h2>Service Description</h2>
       <p>
-        TriggerDM provides Instagram automation tools including automated DMs,
-        comment replies, and lead generation workflows.
+        TriggerDM provides Instagram comment-to-DM automation,
+        keyword triggers, auto replies, and workflow automation tools.
       </p>
 
       <h2>User Responsibilities</h2>
+
       <p>
-        Users must comply with Instagram and Meta Platform Policies and must
-        not use TriggerDM for spam or illegal activities.
+        Users must comply with Meta Platform Policies and Instagram Terms
+        of Use. TriggerDM must not be used for spam, abuse, or unlawful
+        activities.
       </p>
 
       <h2>Subscriptions</h2>
+
       <p>
-        Certain features may require a paid subscription. Pricing and limits
-        may change over time.
+        TriggerDM offers a 7-day free trial followed by a ₹99/month
+        subscription unless cancelled.
+      </p>
+
+      <h2>Limitation of Liability</h2>
+
+      <p>
+        TriggerDM is provided on an "as is" basis. We are not responsible
+        for service interruptions caused by Instagram or Meta platform
+        changes.
       </p>
 
       <h2>Contact</h2>
-      <p>Email: aarushisingh19102005@gmail.com</p>
-    </div>
+
+      <p>
+        Email: aarushisingh19102005@gmail.com
+      </p>
+    </LegalLayout>
   );
 }
 
