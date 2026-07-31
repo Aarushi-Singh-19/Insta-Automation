@@ -21,6 +21,8 @@ const webhookRoutes = require("./routes/webhookRoutes");
 const billingRoutes = require("./routes/billing");
 
 
+const testDmRoutes = require("./routes/testDm.routes");
+
 // require("./workers/bullmq/commentWorker");
 
 
@@ -46,6 +48,11 @@ app.use(cors({
   app.use(express.urlencoded({ extended: true }));
   
   // Routes
+
+  app.use("/api/test-dm", testDmRoutes);
+
+
+  
   app.use("/api/billing", billingRoutes);
 app.use("/api/webhook", webhookRoutes);
 app.use("/api/instagram", instagramRoutes);
