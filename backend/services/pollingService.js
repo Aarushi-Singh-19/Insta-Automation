@@ -1,8 +1,8 @@
 const InstagramAccount = require("../models/InstagramAccount");
-const PollingState = require("../models/PollingState");
+const PollingState = require("../models/pollingState.js");
 const axios = require("axios");
 
-const commentProcessor = require("./commentProcessor");
+const commentProcessor = require("./commentProcessor.js");
 
 const ProcessedEvent = require("../models/processedEvent.model.js");
 
