@@ -10,6 +10,8 @@ const webhookDebugRoutes = require(
 );
 
 
+const pollingService = require("./services/pollingService.js");
+
 const analyticsRoutes = require("./routes/analyticsRoutes");
 
 const connectDB = require("./config/db");
@@ -80,9 +82,11 @@ const start = async () => {
     // Start BullMQ worker only after DB connection
     require("./workers/action.worker");
 
-    app.listen(PORT, () => {
-      console.log(`✅ Server running on port ${PORT}`);
-    });
+app.listen(PORT, async () => {
+  console.log(`✅ Server running on port ${PORT}`);
+
+  await pollingService.startPolling();
+});
 
   } catch (err) {
     console.error(err);
