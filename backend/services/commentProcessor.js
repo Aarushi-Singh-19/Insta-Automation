@@ -7,6 +7,8 @@ const { findActiveCampaignByPost } = require("../utils/campaignResolver");
 const actionBuilder = require("./actionBuilder.service");
 const actionQueue = require("../queues/action.queue");
 
+const { processGate } = require("../services/gate.engine");
+
 const processComment = async ({
   eventId,
   postId,
@@ -88,6 +90,23 @@ if (!matchedRule) {
 console.log("RULE MATCHED:", {
   ruleId: matchedRule._id,
 });
+
+const gateResult = await processGate({
+  campaign,
+  rule: matchedRule,
+  comment: {
+    eventId,
+    postId,
+    commentText,
+    username,
+    recipientId,
+  },
+});
+
+if (!gateResult.continueWorkflow) {
+  console.log("Workflow paused by Gate Engine");
+  return;
+}
 
   // ===============================
   // BUILD ACTIONS
