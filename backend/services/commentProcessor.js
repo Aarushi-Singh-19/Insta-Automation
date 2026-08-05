@@ -64,22 +64,30 @@ const processComment = async ({
     return;
   }
 
-  // ===============================
-  // MATCH RULE
-  // ===============================
-  const matchedRule = findMatchingRule(
-    commentText,
-    activeRules
-  );
+  /// ===============================
+// MATCH RULE
+// ===============================
 
-  if (!matchedRule) {
-    console.log("NO RULE MATCHED FOR COMMENT:", commentText);
-    return;
-  }
+console.log("COMMENT:", JSON.stringify(commentText));
 
-  console.log("RULE MATCHED:", {
-    ruleId: matchedRule._id,
-  });
+console.log(
+  "ACTIVE RULES:",
+  JSON.stringify(activeRules, null, 2)
+);
+
+const matchedRule = findMatchingRule(
+  commentText,
+  activeRules
+);
+
+if (!matchedRule) {
+  console.log("NO RULE MATCHED FOR COMMENT:", commentText);
+  return;
+}
+
+console.log("RULE MATCHED:", {
+  ruleId: matchedRule._id,
+});
 
   // ===============================
   // BUILD ACTIONS

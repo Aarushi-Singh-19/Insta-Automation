@@ -18,11 +18,18 @@ const findMatchingRule = (comment, rules) => {
     for (let kw of keywords) {
       if (!kw) continue;
 
-      const cleanKw = String(kw).toLowerCase().trim();
+  const cleanKw = String(kw).toLowerCase().trim();
 
-      if (cleanKw && text.includes(cleanKw)) {
-        return rule;
-      }
+console.log({
+  comment: text,
+  keyword: cleanKw,
+  matched: text.includes(cleanKw),
+});
+
+if (cleanKw && text.includes(cleanKw)) {
+  console.log("RULE MATCH FOUND");
+  return rule;
+}
     }
   }
 
