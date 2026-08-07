@@ -13,7 +13,8 @@ async function processGate({ campaign, rule, comment }) {
 };
 
 switch (gate.gateType) {
-    case "FOLLOW":
+
+    case "FOLLOW": {
 
         if (gate.status !== "enabled") {
             return {
@@ -24,10 +25,33 @@ switch (gate.gateType) {
 
         console.log("Follow Gate detected.");
 
+        console.log("Comment Object:", comment);
+
+        const gateSession = await GateSession.create({
+            campaignId: campaign._id,
+
+            instagramAccountId: campaign.instagramAccountId,
+
+            commentId: comment.commentId,
+
+            commenterId: comment.commenterId,
+
+            recipientId: campaign.instagramAccountId,
+
+            username: comment.username,
+
+            gateType: "FOLLOW",
+
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        });
+
+        console.log("GateSession Created:", gateSession._id);
+
         return {
-            continueWorkflow: true,
-            gate: null,
+            continueWorkflow: false,
+            gate: gateSession,
         };
+    }
 
     case "NONE":
     default:

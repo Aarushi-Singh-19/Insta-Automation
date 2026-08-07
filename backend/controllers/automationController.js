@@ -109,15 +109,15 @@ const campaignData = {
   },
 };
 
-console.log("========== CAMPAIGN DATA ==========");
-console.dir(campaignData, { depth: null });
-console.log("===================================");
+// console.log("========== CAMPAIGN DATA ==========");
+// console.dir(campaignData, { depth: null });
+// console.log("===================================");
 
 const campaign = await Campaign.create(campaignData);
 
-console.log("========== SAVED CAMPAIGN ==========");
-console.dir(campaign.toObject(), { depth: null });
-console.log("====================================");
+// console.log("========== SAVED CAMPAIGN ==========");
+// console.dir(campaign.toObject(), { depth: null });
+// console.log("====================================");
 
     // =========================
     // 4. Return Response
