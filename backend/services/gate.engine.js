@@ -1,11 +1,11 @@
 const GateSession = require("../models/GateSession.js");
 
 async function processGate({ campaign, rule, comment }) {
-    
-    console.log("Campaign:", campaign._id.toString());
-    console.log("Rule:", rule._id.toString());
-    console.log("Comment:", comment.commentText);
-    console.log("================================");
+
+ console.log("========== GATE ENGINE ==========");
+console.log("Campaign Gate:", campaign.gate);
+console.log("Comment:", comment);
+console.log("=================================");;
 
    const gate = campaign.gate || {
     gateType: "NONE",
@@ -16,6 +16,8 @@ switch (gate.gateType) {
 
     case "FOLLOW": {
 
+        console.log("🔥 ENTERED FOLLOW CASE");
+
         if (gate.status !== "enabled") {
             return {
                 continueWorkflow: true,
@@ -23,7 +25,7 @@ switch (gate.gateType) {
             };
         }
 
-        console.log("Follow Gate detected.");
+       console.log("🔥 FOLLOW GATE DETECTED");
 
         console.log("Comment Object:", comment);
 
