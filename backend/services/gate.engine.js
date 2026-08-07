@@ -1,30 +1,41 @@
-/**
- * Gate Engine
- *
- * Decides whether an automation should continue
- * immediately or pause at a premium gate.
- *
- * Currently:
- * - NONE -> Continue
- *
- * Future:
- * - FOLLOW
- * - EMAIL
- * - QUIZ
- * - etc.
- */
+const GateSession = require("../models/GateSession.js");
 
 async function processGate({ campaign, rule, comment }) {
-    const gate = campaign.gate || { type: "NONE" };
+    
+    console.log("Campaign:", campaign._id.toString());
+    console.log("Rule:", rule._id.toString());
+    console.log("Comment:", comment.commentText);
+    console.log("================================");
 
-    switch (gate.type) {
-        case "NONE":
-        default:
+   const gate = campaign.gate || {
+    gateType: "NONE",
+    status: "disabled",
+};
+
+switch (gate.gateType) {
+    case "FOLLOW":
+
+        if (gate.status !== "enabled") {
             return {
                 continueWorkflow: true,
                 gate: null,
             };
-    }
+        }
+
+        console.log("Follow Gate detected.");
+
+        return {
+            continueWorkflow: true,
+            gate: null,
+        };
+
+    case "NONE":
+    default:
+        return {
+            continueWorkflow: true,
+            gate: null,
+        };
+}
 }
 
 module.exports = {

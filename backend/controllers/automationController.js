@@ -68,39 +68,56 @@ const createAutomation = async (req, res) => {
     // =========================
     // 3. Create Campaign
     // =========================
-    const campaign = await Campaign.create({
-      userId: req.user.id,
+const campaignData = {
+  userId: req.user.id,
 
-      automationId: automation._id,
+  automationId: automation._id,
 
-      name: `Automation - ${automation._id}`,
+  name: `Automation - ${automation._id}`,
 
-      triggerType,
+  triggerType,
 
-      instagramMediaId,
+  instagramMediaId,
 
-      instagramAccountId: "",
+  instagramAccountId: "",
 
-      postIds:
-        triggerType === "specific-post"
-          ? [instagramMediaId]
-          : [],
+  postIds:
+    triggerType === "specific-post"
+      ? [instagramMediaId]
+      : [],
 
-      status:
-        automation.status === "active"
-          ? "active"
-          : "draft",
+  status:
+    automation.status === "active"
+      ? "active"
+      : "draft",
 
-      ruleIds: [rule._id],
+  ruleIds: [rule._id],
 
-      settings: {
-        enableDM: Boolean(dmMessage && dmMessage.trim()),
-        enableReply: Boolean(commentReplyEnabled && commentReplyMessage),
-        dmMessage: dmMessage || "",
-      },
-    });
+  settings: {
+    enableDM: Boolean(dmMessage && dmMessage.trim()),
+    enableReply: Boolean(commentReplyEnabled && commentReplyMessage),
+    dmMessage: dmMessage || "",
+  },
 
-    console.log("✅ Campaign Created:", campaign._id);
+  gate: {
+    gateType: followGate ? "FOLLOW" : "NONE",
+    status: followGate ? "enabled" : "disabled",
+    openingMessage: followGate
+      ? "Follow us to unlock your DM."
+      : "",
+    buttonText: "I'm Following",
+  },
+};
+
+console.log("========== CAMPAIGN DATA ==========");
+console.dir(campaignData, { depth: null });
+console.log("===================================");
+
+const campaign = await Campaign.create(campaignData);
+
+console.log("========== SAVED CAMPAIGN ==========");
+console.dir(campaign.toObject(), { depth: null });
+console.log("====================================");
 
     // =========================
     // 4. Return Response

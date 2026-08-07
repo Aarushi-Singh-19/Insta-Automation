@@ -9,7 +9,10 @@ const actionQueue = require("../queues/action.queue");
 
 const { processGate } = require("../services/gate.engine");
 
+
+
 const processComment = async ({
+  
   eventId,
   postId,
   commentText,
@@ -22,8 +25,9 @@ const processComment = async ({
   const existing = await ProcessedEvent.findOne({
     eventId,
   });
-
+  
   if (existing) {
+    console.log("🚨 COMMENT PROCESSOR EXECUTED");
     console.log("Duplicate event ignored:", eventId);
     return;
   }

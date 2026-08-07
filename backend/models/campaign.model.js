@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 
 const campaignSchema = new mongoose.Schema(
   {
+
+    
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -69,6 +71,31 @@ const campaignSchema = new mongoose.Schema(
       maxDelaySeconds: { type: Number, default: 40 },
     },
 
+
+    gate: {
+  gateType: {
+    type: String,
+    enum: ["NONE", "FOLLOW"],
+    default: "NONE",
+  },
+
+  status: {
+    type: String,
+    enum: ["enabled", "disabled"],
+    default: "disabled",
+  },
+
+  openingMessage: {
+    type: String,
+    default: "",
+  },
+
+  buttonText: {
+    type: String,
+    default: "I'm Following",
+  },
+},
+
     metrics: {
       commentsProcessed: { type: Number, default: 0 },
       repliesSent: { type: Number, default: 0 },
@@ -78,6 +105,8 @@ const campaignSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+
 
 // =========================
 // BACKWARD COMPATIBILITY
