@@ -4,20 +4,18 @@ const Campaign = require("../models/campaign.model");
 const findActiveCampaignByPost = async (postId) => {
   console.log("SEARCHING CAMPAIGN FOR:", postId);
 
-  const result = await Campaign.findOne({
+const result = await Campaign.findOne({
   status: "active",
   $or: [
-    {
-      triggerType: "any-post",
-    },
+    { triggerType: "any-post" },
     {
       triggerType: "specific-post",
-      postIds: {
-        $in: [postId],
-      },
+      postIds: { $in: [postId] },
     },
   ],
-  }).populate("ruleIds");
+})
+  .sort({ createdAt: -1 })
+  .populate("ruleIds");
 
   if (result) {
     console.log("FOUND:", result._id);

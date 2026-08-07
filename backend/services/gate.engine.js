@@ -34,11 +34,11 @@ switch (gate.gateType) {
 
             instagramAccountId: campaign.instagramAccountId,
 
-            commentId: comment.commentId,
+            commentId: comment.eventId,
 
-            commenterId: comment.commenterId,
+           commenterId: comment.recipientId,
 
-            recipientId: campaign.instagramAccountId,
+           recipientId: comment.recipientId,
 
             username: comment.username,
 

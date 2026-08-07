@@ -9,12 +9,12 @@ const gateSessionSchema = new mongoose.Schema(
       index: true,
     },
 
-    instagramAccountId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "InstagramAccount",
-      required: true,
-      index: true,
-    },
+instagramAccountId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "InstagramAccount",
+    required: false,
+    default: null,
+},
 
     commentId: {
       type: String,
