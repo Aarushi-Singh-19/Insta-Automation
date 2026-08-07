@@ -32,7 +32,7 @@ switch (gate.gateType) {
         const gateSession = await GateSession.create({
             campaignId: campaign._id,
 
-            instagramAccountId: campaign.instagramAccountId,
+           instagramAccountId: null,
 
             commentId: comment.eventId,
 
