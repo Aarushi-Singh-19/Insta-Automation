@@ -81,8 +81,40 @@ async function sendDM({
     throw err;
   }
 }
+  async function getUserProfile({
+  accessToken,
+  instagramScopedUserId,
+}) {
+  try {
+    const url =
+      `https://graph.instagram.com/${GRAPH_VERSION}/` +
+      instagramScopedUserId;
+
+    const res = await axios.get(url, {
+      params: {
+        fields:
+          "id,name,username,profile_pic,follower_count,is_user_follow_business,is_business_follow_user",
+        access_token: accessToken,
+      },
+    });
+
+    console.log("USER PROFILE RESPONSE:");
+    console.dir(res.data, { depth: null });
+
+    return res.data;
+  } catch (err) {
+    console.log(
+      "USER PROFILE ERROR:",
+      JSON.stringify(err.response?.data || err.message, null, 2)
+    );
+
+    throw err;
+  }
+}
+
 
 module.exports = {
   replyToComment,
   sendDM,
+  getUserProfile,
 };

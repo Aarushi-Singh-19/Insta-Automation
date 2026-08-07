@@ -9,6 +9,7 @@ const webhookDebugRoutes = require(
   "./routes/webhookDebug.routes"
 );
 
+const testRoutes = require("./routes/test.routes.js");
 
 const pollingService = require("./services/pollingService.js");
 
@@ -50,6 +51,9 @@ app.use(cors({
   app.use(express.urlencoded({ extended: true }));
   
   // Routes
+
+  app.use("/api/test", testRoutes);
+  
 
   app.use("/api/test-dm", testDmRoutes);
 
