@@ -7,6 +7,8 @@ const { findActiveCampaignByPost } = require("../utils/campaignResolver");
 const actionBuilder = require("./actionBuilder.service");
 const actionQueue = require("../queues/action.queue");
 
+const InstagramAccount = require("../models/InstagramAccount");
+
 const { processGate } = require("../services/gate.engine");
 
 const FollowGateMessageService = require("./followGateMessage.service");
@@ -48,6 +50,25 @@ const processComment = async ({
     console.log("NO ACTIVE CAMPAIGN FOR POST:", postId);
     return;
   }
+
+  const instagramAccount = await InstagramAccount.findOne({
+  userId: campaign.userId,
+  status: "active",
+});
+
+if (!instagramAccount) {
+  console.log(
+    "NO ACTIVE INSTAGRAM ACCOUNT FOR CAMPAIGN USER:",
+    campaign.userId
+  );
+
+  return;
+}
+
+console.log("INSTAGRAM ACCOUNT FOUND:", {
+  accountId: instagramAccount._id,
+  username: instagramAccount.username,
+});
 
   console.log("CAMPAIGN FOUND:", {
     campaignId: campaign._id,
@@ -115,14 +136,14 @@ const processComment = async ({
 const gateResult = await processGate({
   campaign,
   rule: matchedRule,
-  comment: {
-    eventId,
-    postId,
-    commentText,
-    username,
-    recipientId,
-    instagramAccountId: campaign.instagramAccountId || null,
-  },
+comment: {
+  eventId,
+  postId,
+  commentText,
+  username,
+  recipientId,
+  instagramAccountId: instagramAccount._id,
+},
   actions,
 });
 
