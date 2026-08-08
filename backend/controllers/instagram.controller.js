@@ -317,7 +317,8 @@ console.log("🔥🔥🔥 HELPER ENTERED 🔥🔥🔥");
     const response = await axios.post(
       `https://graph.instagram.com/v25.0/${instagramUserId}/subscribed_apps`,
       new URLSearchParams({
-        subscribed_fields: "comments,messages",
+        subscribed_fields:
+  "comments,messages,messaging_postbacks",
       }),
       {
         headers: {

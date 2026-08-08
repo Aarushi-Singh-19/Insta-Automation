@@ -50,6 +50,57 @@ const receiveWebhook = async (req, res) => {
     const entries = req.body.entry || [];
 
     for (const entry of entries) {
+      // ===============================
+// INSTAGRAM MESSAGING EVENTS
+// ===============================
+const messagingEvents = entry.messaging || [];
+
+for (const messagingEvent of messagingEvents) {
+  console.log(
+    "📩 INSTAGRAM MESSAGING EVENT:",
+    JSON.stringify(messagingEvent, null, 2)
+  );
+
+  // ===============================
+  // POSTBACK
+  // ===============================
+  if (messagingEvent.postback) {
+    const payload =
+      messagingEvent.postback.payload;
+
+    console.log(
+      "🔘 POSTBACK RECEIVED:",
+      {
+        title:
+          messagingEvent.postback.title,
+        payload,
+        senderId:
+          messagingEvent.sender?.id,
+        recipientId:
+          messagingEvent.recipient?.id,
+      }
+    );
+
+    if (
+      payload &&
+      payload.startsWith("FOLLOW_VERIFY:")
+    ) {
+      const verificationToken =
+        payload.replace(
+          "FOLLOW_VERIFY:",
+          ""
+        );
+
+      console.log(
+        "🔐 FOLLOW VERIFICATION TOKEN RECEIVED:",
+        verificationToken
+      );
+
+      // We will connect the verification
+      // service here in the next step.
+    }
+  }
+}
       const changes = entry.changes || [];
 
       const instagramAccount = await InstagramAccount.findOne({
