@@ -42,79 +42,63 @@ const verifyWebhook = (req, res) => {
 // ===============================
 const receiveWebhook = async (req, res) => {
   try {
+    console.log("========================================");
+    console.log("📩 WEBHOOK RECEIVED");
+    console.log("========================================");
+
     console.log(
-      "WEBHOOK RECEIVED:",
+      "WEBHOOK BODY:",
       JSON.stringify(req.body, null, 2)
     );
+
+    const body = req.body;
+
+    // ==========================================
+    // INSTAGRAM MESSAGING / POSTBACK DEBUG
+    // ==========================================
+
+    if (body.object === "instagram") {
+      const messagingEntries = body.entry || [];
+
+      for (const entry of messagingEntries) {
+        if (entry.messaging) {
+          console.log("📨 MESSAGING EVENT DETECTED");
+
+          for (const messagingEvent of entry.messaging) {
+            console.log(
+              "MESSAGING EVENT:",
+              JSON.stringify(
+                messagingEvent,
+                null,
+                2
+              )
+            );
+
+            if (messagingEvent.postback) {
+              console.log("🔘 POSTBACK RECEIVED");
+
+              console.log(
+                "POSTBACK:",
+                JSON.stringify(
+                  messagingEvent.postback,
+                  null,
+                  2
+                )
+              );
+            }
+          }
+        }
+      }
+    }
+
+    // ==========================================
+    // EXISTING COMMENT WEBHOOK LOGIC
+    // ==========================================
 
     const entries = req.body.entry || [];
 
     for (const entry of entries) {
-      // ===============================
-// INSTAGRAM MESSAGING EVENTS
-// ===============================
-const messagingEvents = entry.messaging || [];
-
-for (const messagingEvent of messagingEvents) {
-  console.log(
-    "📩 INSTAGRAM MESSAGING EVENT:",
-    JSON.stringify(messagingEvent, null, 2)
-  );
-
-  // ===============================
-  // POSTBACK
-  // ===============================
-  if (messagingEvent.postback) {
-    const payload =
-      messagingEvent.postback.payload;
-
-    console.log(
-      "🔘 POSTBACK RECEIVED:",
-      {
-        title:
-          messagingEvent.postback.title,
-        payload,
-        senderId:
-          messagingEvent.sender?.id,
-        recipientId:
-          messagingEvent.recipient?.id,
-      }
-    );
-
-    if (
-      payload &&
-      payload.startsWith("FOLLOW_VERIFY:")
-    ) {
-      const verificationToken =
-        payload.replace(
-          "FOLLOW_VERIFY:",
-          ""
-        );
-
-      console.log(
-        "🔐 FOLLOW VERIFICATION TOKEN RECEIVED:",
-        verificationToken
-      );
-
-      // We will connect the verification
-      // service here in the next step.
-    }
-  }
-}
       const changes = entry.changes || [];
-
-      const instagramAccount = await InstagramAccount.findOne({
-  instagramBusinessId: entry.id,
-  status: "active",
-});
-
-if (!instagramAccount) {
-  console.error(
-    "No active Instagram account found for webhook entry:",
-    entry.id
-  );
-  continue;
-}
 
       for (const changeObj of changes) {
         console.log(
@@ -135,48 +119,41 @@ if (!instagramAccount) {
           change?.media_id ||
           null;
 
-        console.log(
-          "WEBHOOK MEDIA ID:",
-          postId
-        );
-
-        const commentText = change?.text || "";
+        const commentText =
+          change?.text || "";
 
         const username =
-          change?.from?.username || "unknown";
+          change?.from?.username ||
+          "unknown";
 
         const recipientId =
-          change?.from?.id || null;
-
-          const commentTimestamp =
-  change?.timestamp || null;
+          change?.from?.id ||
+          null;
 
         console.log("COMMENT EVENT:", {
           eventId,
           postId,
           commentText,
           username,
+          recipientId,
         });
 
         if (!eventId) {
           continue;
         }
 
-        
-
-await commentProcessor.processComment({
-  eventId,
-  postId,
-  commentText,
-  username,
-  recipientId,
-  commentTimestamp,
-  instagramAccountId: instagramAccount._id,
-});
+        await commentProcessor.processComment({
+          eventId,
+          postId,
+          commentText,
+          username,
+          recipientId,
+        });
       }
     }
 
     return res.sendStatus(200);
+
   } catch (error) {
     console.error(
       "Webhook error:",
@@ -186,7 +163,6 @@ await commentProcessor.processComment({
     return res.sendStatus(500);
   }
 };
-
 
 
 // ===============================
