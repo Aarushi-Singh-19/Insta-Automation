@@ -72,7 +72,7 @@ class FollowGateMessageService {
   }
 
   async getCampaign(campaignId) {
-    const Campaign = require("../models/Campaign");
+    const Campaign = require("../models/campaign.model");
 
     const campaign = await Campaign.findById(campaignId);
 
