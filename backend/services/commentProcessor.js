@@ -9,15 +9,13 @@ const actionQueue = require("../queues/action.queue");
 
 const { processGate } = require("../services/gate.engine");
 
-
-
 const processComment = async ({
-  
   eventId,
   postId,
   commentText,
   username,
   recipientId,
+  instagramAccountId,
 }) => {
   // ===============================
   // DUPLICATE CHECK
@@ -25,7 +23,7 @@ const processComment = async ({
   const existing = await ProcessedEvent.findOne({
     eventId,
   });
-  
+
   if (existing) {
     console.log("🚨 COMMENT PROCESSOR EXECUTED");
     console.log("Duplicate event ignored:", eventId);
@@ -66,51 +64,39 @@ const processComment = async ({
   }).lean();
 
   if (!activeRules.length) {
-    console.log("NO ACTIVE RULES FOR CAMPAIGN:", campaign._id);
+    console.log(
+      "NO ACTIVE RULES FOR CAMPAIGN:",
+      campaign._id
+    );
     return;
   }
 
-  /// ===============================
-// MATCH RULE
-// ===============================
+  // ===============================
+  // MATCH RULE
+  // ===============================
+  console.log("COMMENT:", JSON.stringify(commentText));
 
-console.log("COMMENT:", JSON.stringify(commentText));
+  console.log(
+    "ACTIVE RULES:",
+    JSON.stringify(activeRules, null, 2)
+  );
 
-console.log(
-  "ACTIVE RULES:",
-  JSON.stringify(activeRules, null, 2)
-);
-
-const matchedRule = findMatchingRule(
-  commentText,
-  activeRules
-);
-
-if (!matchedRule) {
-  console.log("NO RULE MATCHED FOR COMMENT:", commentText);
-  return;
-}
-
-console.log("RULE MATCHED:", {
-  ruleId: matchedRule._id,
-});
-
-const gateResult = await processGate({
-  campaign,
-  rule: matchedRule,
-  comment: {
-    eventId,
-    postId,
+  const matchedRule = findMatchingRule(
     commentText,
-    username,
-    recipientId,
-  },
-});
+    activeRules
+  );
 
-if (!gateResult.continueWorkflow) {
-  console.log("Workflow paused by Gate Engine");
-  return;
-}
+  if (!matchedRule) {
+    console.log(
+      "NO RULE MATCHED FOR COMMENT:",
+      commentText
+    );
+    return;
+  }
+
+  console.log("RULE MATCHED:", {
+    ruleId: matchedRule._id,
+  });
 
   // ===============================
   // BUILD ACTIONS
@@ -122,12 +108,41 @@ if (!gateResult.continueWorkflow) {
     campaign
   );
 
+  // ===============================
+  // GATE ENGINE
+  // ===============================
+  const gateResult = await processGate({
+    campaign,
+    rule: matchedRule,
+    comment: {
+      eventId,
+      postId,
+      commentText,
+      username,
+      recipientId,
+      instagramAccountId,
+    },
+    actions,
+  });
+
+  if (!gateResult.continueWorkflow) {
+    console.log("Workflow paused by Gate Engine");
+    return;
+  }
+
+  // ===============================
+  // NO ACTIONS
+  // ===============================
   if (!actions.length) {
-    console.log("NO ACTIONS BUILT FOR RULE:", matchedRule._id);
+    console.log(
+      "NO ACTIONS BUILT FOR RULE:",
+      matchedRule._id
+    );
     return;
   }
 
   console.log("QUEUE COMMENT ID:", eventId);
+
   console.log(
     "ACTIONS BUILT:",
     JSON.stringify(actions, null, 2)
@@ -171,6 +186,7 @@ if (!gateResult.continueWorkflow) {
         },
 
         removeOnComplete: 1000,
+
         removeOnFail: 5000,
       }
     );

@@ -9,6 +9,10 @@ const webhookDebugRoutes = require(
   "./routes/webhookDebug.routes"
 );
 
+
+const followVerificationRoutes = require("./routes/followVerification.routes");
+
+
 const testRoutes = require("./routes/test.routes.js");
 
 const pollingService = require("./services/pollingService.js");
@@ -32,6 +36,11 @@ const testDmRoutes = require("./routes/testDm.routes");
 
 
 const app = express();
+
+app.use(
+    "/api/follow",
+    followVerificationRoutes
+);
 
 
 app.use(

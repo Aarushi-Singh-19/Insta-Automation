@@ -1,5 +1,33 @@
 const mongoose = require("mongoose");
 
+const actionSnapshotSchema = new mongoose.Schema(
+  {
+    type: {
+      type: String,
+      required: true,
+    },
+
+    username: String,
+
+    recipientId: String,
+
+    message: String,
+
+    campaignId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Campaign",
+    },
+
+    ruleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Rule",
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
 const gateSessionSchema = new mongoose.Schema(
   {
     campaignId: {
@@ -9,12 +37,33 @@ const gateSessionSchema = new mongoose.Schema(
       index: true,
     },
 
-instagramAccountId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "InstagramAccount",
-    required: false,
-    default: null,
+
+    verificationToken: {
+  type: String,
+  required: true,
+  unique: true,
+  index: true,
 },
+
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+
+    ruleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Rule",
+      required: true,
+      index: true,
+    },
+
+    instagramAccountId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "InstagramAccount",
+      default: null,
+    },
 
     commentId: {
       type: String,
@@ -46,9 +95,19 @@ instagramAccountId: {
       required: true,
     },
 
+    // Snapshot of actions waiting to resume
+    actions: {
+  type: [actionSnapshotSchema],
+  default: [],
+},
     status: {
       type: String,
-      enum: ["WAITING", "COMPLETED", "EXPIRED"],
+      enum: [
+        "WAITING",
+        "PROCESSING",
+        "COMPLETED",
+        "EXPIRED",
+      ],
       default: "WAITING",
       index: true,
     },
@@ -61,6 +120,7 @@ instagramAccountId: {
     expiresAt: {
       type: Date,
       required: true,
+      index: true,
     },
   },
   {

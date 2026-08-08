@@ -169,20 +169,13 @@ const pollComments = async (account, post) => {
 if (alreadyProcessed) {
   continue;
 }
-      await commentProcessor.processComment({
-        eventId: comment.id,
-        postId: post.id,
-        commentText: comment.text,
-        username: comment.from?.username,
-        recipientId: comment.from?.id,
-      });
-
 await commentProcessor.processComment({
   eventId: comment.id,
   postId: post.id,
   commentText: comment.text,
   username: comment.from?.username,
   recipientId: comment.from?.id,
+  instagramAccountId: account._id,
 });
     }
   } catch (error) {

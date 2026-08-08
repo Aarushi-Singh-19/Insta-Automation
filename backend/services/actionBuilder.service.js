@@ -1,4 +1,36 @@
 class ActionBuilderService {
+
+
+//   buildActionsFromSession(session) {
+//   const actions = [];
+
+//  const replyMessage = session.replyMessage?.trim();
+
+// if (replyMessage) {
+//     actions.push({
+//       type: "reply",
+//       username: session.username,
+//       message: replyMessage,
+//       campaignId: session.campaignId,
+//       ruleId: session.ruleId,
+//     });
+//   }
+
+// const dmMessage = session.dmMessage?.trim();
+
+// if (dmMessage) {
+//     actions.push({
+//       type: "send_dm",
+//       username: session.username,
+//       recipientId: session.recipientId,
+//       message: dmMessage,
+//       campaignId: session.campaignId,
+//       ruleId: session.ruleId,
+//     });
+//   }
+
+//   return actions;
+// }
   buildActionsFromRule(rule, username, recipientId, campaign) {
     const actions = [];
     const replyEnabled = campaign.settings?.enableReply !== false;
@@ -34,5 +66,7 @@ class ActionBuilderService {
     return this.buildActionsFromRule(rule, username, undefined, campaign)[0] || null;
   }
 }
+
+
 
 module.exports = new ActionBuilderService();

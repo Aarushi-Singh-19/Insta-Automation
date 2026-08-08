@@ -2,6 +2,7 @@ const ProcessedEvent = require("../models/processedEvent.model");
 // const LogService = require("../services/log.service");
 const Rule = require('../models/Rule');
 
+const InstagramAccount = require("../models/InstagramAccount");
 
 const commentProcessor = require("../services/commentProcessor.js");
 
@@ -51,6 +52,19 @@ const receiveWebhook = async (req, res) => {
     for (const entry of entries) {
       const changes = entry.changes || [];
 
+      const instagramAccount = await InstagramAccount.findOne({
+  instagramBusinessId: entry.id,
+  status: "active",
+});
+
+if (!instagramAccount) {
+  console.error(
+    "No active Instagram account found for webhook entry:",
+    entry.id
+  );
+  continue;
+}
+
       for (const changeObj of changes) {
         console.log(
           "WEBHOOK FIELD:",
@@ -96,13 +110,14 @@ const receiveWebhook = async (req, res) => {
 
         
 
-        await commentProcessor.processComment({
-          eventId,
-          postId,
-          commentText,
-          username,
-          recipientId,
-        });
+await commentProcessor.processComment({
+  eventId,
+  postId,
+  commentText,
+  username,
+  recipientId,
+  instagramAccountId: instagramAccount._id,
+});
       }
     }
 
