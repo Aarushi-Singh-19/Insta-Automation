@@ -81,6 +81,93 @@ async function sendDM({
     throw err;
   }
 }
+
+async function sendFollowGateMessage({
+  accessToken,
+  instagramBusinessId,
+  recipientId,
+  openingMessage,
+  buttonText,
+  profileUrl,
+  verificationToken,
+}) {
+  try {
+    if (!recipientId) {
+      throw new Error("FOLLOW_GATE_RECIPIENT_REQUIRED");
+    }
+
+    if (!verificationToken) {
+      throw new Error("FOLLOW_GATE_TOKEN_REQUIRED");
+    }
+
+    const url =
+      `https://graph.instagram.com/${GRAPH_VERSION}/` +
+      `${instagramBusinessId}/messages`;
+
+    const payload = {
+      recipient: {
+        id: recipientId,
+      },
+
+      message: {
+        attachment: {
+          type: "template",
+
+          payload: {
+            template_type: "button",
+
+            text:
+              openingMessage ||
+              "Follow us to unlock your DM.",
+
+            buttons: [
+              {
+                type: "web_url",
+                url: profileUrl,
+                title: "Visit Profile",
+              },
+
+    {
+  type: "postback",
+  title: buttonText || "I'm Following",
+  payload: `FOLLOW_VERIFY:${verificationToken}`,
+},
+            ],
+          },
+        },
+      },
+    };
+
+    const res = await axios.post(
+      url,
+      payload,
+      {
+        params: {
+          access_token: accessToken,
+        },
+      }
+    );
+
+    console.log(
+      "FOLLOW GATE DM SUCCESS:",
+      res.data
+    );
+
+    return res.data;
+  } catch (err) {
+    console.log(
+      "FOLLOW GATE DM ERROR:",
+      JSON.stringify(
+        err.response?.data || err.message,
+        null,
+        2
+      )
+    );
+
+    throw err;
+  }
+}
+
   async function getUserProfile({
   accessToken,
   instagramScopedUserId,
@@ -116,5 +203,6 @@ async function sendDM({
 module.exports = {
   replyToComment,
   sendDM,
+  sendFollowGateMessage,
   getUserProfile,
 };

@@ -37,16 +37,6 @@ const testDmRoutes = require("./routes/testDm.routes");
 
 const app = express();
 
-app.use(
-    "/api/follow",
-    followVerificationRoutes
-);
-
-
-app.use(
-  "/api/webhook-debug",
-  webhookDebugRoutes
-);
 // Middleware
 app.use(cors({
   origin:["http://localhost:5173",
@@ -58,8 +48,18 @@ app.use(cors({
   
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
-  
   // Routes
+app.use(
+    "/api/follow",
+    followVerificationRoutes
+);
+
+
+app.use(
+  "/api/webhook-debug",
+  webhookDebugRoutes
+);
+  
 
   app.use("/api/test", testRoutes);
   

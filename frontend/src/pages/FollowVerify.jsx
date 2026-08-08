@@ -24,8 +24,9 @@ function FollowVerify() {
 
     const verifyFollow = async () => {
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/follow/verify-follow`,
+        
+          const response = await fetch(
+  `${API_BASE_URL}/follow/verify-follow`,
           {
             method: "POST",
             headers: {

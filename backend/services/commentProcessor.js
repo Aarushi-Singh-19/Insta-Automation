@@ -9,6 +9,7 @@ const actionQueue = require("../queues/action.queue");
 
 const { processGate } = require("../services/gate.engine");
 
+const FollowGateMessageService = require("./followGateMessage.service");
 const processComment = async ({
   eventId,
   postId,
@@ -111,35 +112,41 @@ const processComment = async ({
   // ===============================
   // GATE ENGINE
   // ===============================
-  const gateResult = await processGate({
-    campaign,
-    rule: matchedRule,
-    comment: {
-      eventId,
-      postId,
-      commentText,
-      username,
-      recipientId,
-      instagramAccountId,
-    },
-    actions,
-  });
+const gateResult = await processGate({
+  campaign,
+  rule: matchedRule,
+  comment: {
+    eventId,
+    postId,
+    commentText,
+    username,
+    recipientId,
+    instagramAccountId: campaign.instagramAccountId || null,
+  },
+  actions,
+});
 
-  if (!gateResult.continueWorkflow) {
-    console.log("Workflow paused by Gate Engine");
-    return;
-  }
+if (!gateResult.continueWorkflow) {
+  console.log("Workflow paused by Gate Engine");
 
-  // ===============================
-  // NO ACTIONS
-  // ===============================
-  if (!actions.length) {
+  if (gateResult.gate) {
     console.log(
-      "NO ACTIONS BUILT FOR RULE:",
-      matchedRule._id
+      "📨 Sending Follow Gate message for session:",
+      gateResult.gate._id
     );
-    return;
+
+    await FollowGateMessageService.send(
+      gateResult.gate
+    );
+
+    console.log(
+      "✅ Follow Gate message sent:",
+      gateResult.gate._id
+    );
   }
+
+  return;
+}
 
   console.log("QUEUE COMMENT ID:", eventId);
 
