@@ -11,7 +11,7 @@ import Home from "./pages/Home";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Contact from "./pages/Contact";
-
+import FollowVerify from "./pages/FollowVerify";
 import {
   BrowserRouter,
   Routes,
@@ -97,6 +97,10 @@ function App() {
 <Route
   path="/contact"
   element={<Contact />}
+/>
+<Route
+  path="/follow/verify"
+  element={<FollowVerify />}
 />
 
 <Route
