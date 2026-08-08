@@ -18,8 +18,46 @@ const processComment = async ({
   commentText,
   username,
   recipientId,
-  instagramAccountId,
+  commentTimestamp,
 }) => {
+
+  // ===============================
+// COMMENT FRESHNESS CHECK
+// ===============================
+if (commentTimestamp) {
+  const commentDate = new Date(commentTimestamp);
+
+  if (Number.isNaN(commentDate.getTime())) {
+    console.log(
+      "⚠️ INVALID COMMENT TIMESTAMP:",
+      commentTimestamp
+    );
+    return;
+  }
+
+  const ageMs = Date.now() - commentDate.getTime();
+
+  // Instagram's comment-triggered messaging window
+  // should not be approached at the boundary.
+  const MAX_COMMENT_AGE_MS =
+    6 * 24 * 60 * 60 * 1000;
+
+  if (ageMs > MAX_COMMENT_AGE_MS) {
+    console.log(
+      "⏭️ OLD COMMENT SKIPPED:",
+      {
+        eventId,
+        commentTimestamp,
+        ageHours: Math.round(
+          ageMs / (60 * 60 * 1000)
+        ),
+      }
+    );
+
+    return;
+  }
+}
+
   // ===============================
   // DUPLICATE CHECK
   // ===============================

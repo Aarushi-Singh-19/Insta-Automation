@@ -97,6 +97,9 @@ if (!instagramAccount) {
         const recipientId =
           change?.from?.id || null;
 
+          const commentTimestamp =
+  change?.timestamp || null;
+
         console.log("COMMENT EVENT:", {
           eventId,
           postId,
@@ -116,6 +119,7 @@ await commentProcessor.processComment({
   commentText,
   username,
   recipientId,
+  commentTimestamp,
   instagramAccountId: instagramAccount._id,
 });
       }

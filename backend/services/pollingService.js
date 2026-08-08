@@ -175,7 +175,7 @@ await commentProcessor.processComment({
   commentText: comment.text,
   username: comment.from?.username,
   recipientId: comment.from?.id,
-  instagramAccountId: account._id,
+  commentTimestamp: comment.timestamp,
 });
     }
   } catch (error) {
