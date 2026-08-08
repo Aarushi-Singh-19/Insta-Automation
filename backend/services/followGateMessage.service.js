@@ -58,7 +58,9 @@ class FollowGateMessageService {
       instagramBusinessId:
         account.instagramBusinessId,
 
-      recipientId: session.recipientId,
+ commentId: session.commentId,
+
+recipientId: session.recipientId,
 
       openingMessage,
 

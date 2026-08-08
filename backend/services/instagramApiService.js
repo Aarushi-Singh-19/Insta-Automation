@@ -85,6 +85,7 @@ async function sendDM({
 async function sendFollowGateMessage({
   accessToken,
   instagramBusinessId,
+  commentId,
   recipientId,
   openingMessage,
   buttonText,
@@ -92,7 +93,7 @@ async function sendFollowGateMessage({
   verificationToken,
 }) {
   try {
-    if (!recipientId) {
+    if (!commentId && !recipientId) {
       throw new Error("FOLLOW_GATE_RECIPIENT_REQUIRED");
     }
 
@@ -104,10 +105,16 @@ async function sendFollowGateMessage({
       `https://graph.instagram.com/${GRAPH_VERSION}/` +
       `${instagramBusinessId}/messages`;
 
+    const recipient = commentId
+      ? {
+          comment_id: commentId,
+        }
+      : {
+          id: recipientId,
+        };
+
     const payload = {
-      recipient: {
-        id: recipientId,
-      },
+      recipient,
 
       message: {
         attachment: {
@@ -127,17 +134,40 @@ async function sendFollowGateMessage({
                 title: "Visit Profile",
               },
 
-    {
-  type: "postback",
-  title: buttonText || "I'm Following",
-  payload: `FOLLOW_VERIFY:${verificationToken}`,
-},
+              {
+                type: "postback",
+                title:
+                  buttonText ||
+                  "I'm Following",
+                payload:
+                  `FOLLOW_VERIFY:${verificationToken}`,
+              },
             ],
           },
         },
       },
     };
 
+    // ===============================
+    // DEBUG RECIPIENT
+    // ===============================
+    console.log(
+      "FOLLOW GATE RECIPIENT:",
+      {
+        commentId,
+        recipientId,
+        usingCommentId: Boolean(commentId),
+      }
+    );
+
+    console.log(
+      "FOLLOW GATE PAYLOAD:",
+      JSON.stringify(payload, null, 2)
+    );
+
+    // ===============================
+    // SEND MESSAGE
+    // ===============================
     const res = await axios.post(
       url,
       payload,
@@ -167,7 +197,6 @@ async function sendFollowGateMessage({
     throw err;
   }
 }
-
   async function getUserProfile({
   accessToken,
   instagramScopedUserId,
