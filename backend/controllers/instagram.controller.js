@@ -338,7 +338,38 @@ console.log("🔥🔥🔥 HELPER ENTERED 🔥🔥🔥");
     throw err;
   }
 };
+const getInstagramSubscriptions = async (
+  instagramUserId,
+  accessToken
+) => {
+  console.log("🔎 CHECKING INSTAGRAM SUBSCRIPTIONS");
+  console.log("IG USER:", instagramUserId);
 
+  try {
+    const response = await axios.get(
+      `https://graph.instagram.com/v25.0/${instagramUserId}/subscribed_apps`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    console.log(
+      "🔎 INSTAGRAM SUBSCRIPTIONS:",
+      JSON.stringify(response.data, null, 2)
+    );
+
+    return response.data;
+  } catch (err) {
+    console.log("❌ SUBSCRIPTION CHECK FAILED:");
+    console.log(
+      err.response?.data || err.message
+    );
+
+    throw err;
+  }
+};
 // const subscribeInstagramAccount = async (instagramUserId, accessToken) => {
 //   try {
 //     const response = await axios.post(
@@ -494,7 +525,14 @@ await subscribeInstagramAccount(
   longLivedAccessToken
 );
 
-console.log("🔥🔥🔥 VERSION 25 JULY - FINISHED SUBSCRIBE 🔥🔥🔥");
+console.log(
+  "🔥🔥🔥 VERSION 25 JULY - FINISHED SUBSCRIBE 🔥🔥🔥"
+);
+
+await getInstagramSubscriptions(
+  graphUserId,
+  longLivedAccessToken
+);
 //temprorayry removing
 // await subscribeInstagramAccount(
 //     graphUserId,
