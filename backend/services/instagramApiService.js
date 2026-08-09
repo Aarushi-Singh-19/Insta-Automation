@@ -134,14 +134,16 @@ async function sendFollowGateMessage({
                 title: "Visit Profile",
               },
 
-              {
-                type: "postback",
-                title:
-                  buttonText ||
-                  "I'm Following",
-                payload:
-                  `FOLLOW_VERIFY:${verificationToken}`,
-              },
+       {
+  type: "web_url",
+  title:
+    buttonText ||
+    "I'm Following",
+  url:
+    `https://triggerdm.in/follow/verify?token=${encodeURIComponent(
+      verificationToken
+    )}`,
+},
             ],
           },
         },
