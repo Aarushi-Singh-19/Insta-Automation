@@ -69,35 +69,66 @@ console.log("WORKER USER ID TYPE:", typeof userId);
       try {
         console.log("⚡ Executing action:", action);
 
-        // =========================
-        // 1. IDEMPOTENCY CHECK
-        // =========================
-        const existingSuccess = await ActionLog.findOne({
-          ...logQuery,
-          status: "success",
-        });
+// =========================
+// 1. ATOMIC IDEMPOTENCY CLAIM
+// =========================
 
-        if (existingSuccess) {
-          console.log("🔁 Already processed:", commentId);
-          return { skipped: true };
-        }
+let claimedLog;
 
-        await ActionLog.updateOne(
-          logQuery,
-          {
-            $setOnInsert: {
-              eventId: commentId,
-              campaignId,
-              ruleId,
-              userId,
-              actionType: action.type,
-              status: "queued",
-              metricsUpdated: false,
-              createdAt: new Date(),
-            },
-          },
-          { upsert: true }
-        );
+try {
+  claimedLog = await ActionLog.findOneAndUpdate(
+    {
+      ...logQuery,
+      status: "queued",
+    },
+    {
+      $set: {
+        status: "processing",
+        updatedAt: new Date(),
+      },
+      $setOnInsert: {
+        eventId: commentId,
+        campaignId,
+        ruleId,
+        userId,
+        actionType: action.type,
+        metricsUpdated: false,
+        createdAt: new Date(),
+      },
+    },
+    {
+      upsert: true,
+      new: true,
+    }
+  );
+} catch (err) {
+  if (err.code === 11000) {
+    console.log(
+      `🔁 Duplicate action prevented: ${commentId} / ${action.type}`
+    );
+
+    return {
+      skipped: true,
+      duplicate: true,
+    };
+  }
+
+  throw err;
+}
+
+if (claimedLog.status !== "processing") {
+  console.log(
+    `🔁 Action already handled: ${commentId} / ${action.type}`
+  );
+
+  return {
+    skipped: true,
+  };
+}
+
+console.log(
+  `🔒 Action claimed: ${commentId} / ${action.type}`
+);
 
         // =========================
         // 2. GET INSTAGRAM ACCOUNT (FIXED)
@@ -156,55 +187,75 @@ const result = await ActionService.execute(action, {
   instagramAccount: igAccount,
   isSimulation: job.data.isSimulation,
 });
-        console.log(
-          `✅ Action executed for event ${commentId}`
-        );
+       console.log(
+  `✅ Action executed for event ${commentId}`
+);
 
-        // =========================
-        // 4. MARK SUCCESS
-        // =========================
-        await ActionLog.updateOne(
-          logQuery,
-          {
-            $set: {
-              status: "success",
-              updatedAt: new Date(),
-            },
-          }
-        );
+// =========================
+// 4. MARK ACTION SUCCESS
+// =========================
 
-        // =========================
-        // 5. UPDATE METRICS
-        // =========================
-        const log = await ActionLog.findOne({
-          ...logQuery,
-          metricsUpdated: { $ne: true },
-        });
+await ActionLog.updateOne(
+  {
+    ...logQuery,
+    status: "processing",
+  },
+  {
+    $set: {
+      status: "success",
+      updatedAt: new Date(),
+    },
+  }
+);
 
-        if (log) {
-          const metricField = metricMap[action.type];
+console.log(
+  `✅ Action permanently marked SUCCESS: ${commentId} / ${action.type}`
+);
 
-          if (metricField) {
-            await MetricsService.increment(
-              campaignId,
-              metricField
-            );
-          }
+// =========================
+// 5. UPDATE METRICS
+// =========================
 
-          await MetricsService.increment(
-            campaignId,
-            "commentsProcessed"
-          );
+try {
+  const log = await ActionLog.findOne({
+    ...logQuery,
+    status: "success",
+    metricsUpdated: { $ne: true },
+  });
 
-          await ActionLog.updateOne(
-            logQuery,
-            {
-              $set: {
-                metricsUpdated: true,
-              },
-            }
-          );
-        }
+  if (log) {
+    const metricField = metricMap[action.type];
+
+    if (metricField) {
+      await MetricsService.increment(
+        campaignId,
+        metricField
+      );
+    }
+
+    await MetricsService.increment(
+      campaignId,
+      "commentsProcessed"
+    );
+
+    await ActionLog.updateOne(
+      {
+        ...logQuery,
+        status: "success",
+      },
+      {
+        $set: {
+          metricsUpdated: true,
+        },
+      }
+    );
+  }
+} catch (metricError) {
+  console.error(
+    "⚠️ Metrics update failed after successful action:",
+    metricError.message
+  );
+}
 
         return result;
       } catch (error) {
@@ -219,17 +270,20 @@ const result = await ActionService.execute(action, {
         // =========================
         // 6. MARK FAILED
         // =========================
-        await ActionLog.updateOne(
-          logQuery,
-          {
-            $set: {
-              status: "failed",
-              error: error.message,
-              errorType,
-              updatedAt: new Date(),
-            },
-          }
-        );
+   await ActionLog.updateOne(
+  {
+    ...logQuery,
+    status: "processing",
+  },
+  {
+    $set: {
+      status: "failed",
+      error: error.message,
+      errorType,
+      updatedAt: new Date(),
+    },
+  }
+);
 
         // =========================
         // 7. STORE FAILED JOB

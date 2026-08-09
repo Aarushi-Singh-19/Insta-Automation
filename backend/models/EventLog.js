@@ -26,11 +26,11 @@ campaignId: {
       type: String,
     },
 
-    status: {
-      type: String,
-      enum: ["queued", "success", "failed"],
-      default: "queued",
-    },
+status: {
+  type: String,
+  enum: ["queued", "processing", "success", "failed"],
+  default: "queued",
+},
 
     error: String,
     errorType: String,
@@ -44,6 +44,11 @@ campaignId: {
     },
   },
   { timestamps: true }
+);
+
+actionLogSchema.index(
+  { eventId: 1, actionType: 1 },
+  { unique: true }
 );
 
 const ActionLog = mongoose.model("ActionLog", actionLogSchema);
