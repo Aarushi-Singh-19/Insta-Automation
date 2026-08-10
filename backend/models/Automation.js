@@ -17,17 +17,24 @@ const automationSchema = new mongoose.Schema(
   type: String,
   default: "",
 },
+keywords: {
+  type: [String],
+  default: [],
+},
 
-    keywords: {
-      type: [String],
-      default: [],
-    },
+commentTriggerType: {
+  type: String,
+  enum: ["keyword", "any_comment"],
+  default: "keyword",
+},
 
-    matchType: {
-      type: String,
-      enum: ["any", "all"],
-      default: "any",
-    },
+// Keep this temporarily for backward compatibility.
+// It is no longer used by the new UI.
+matchType: {
+  type: String,
+  enum: ["any", "all"],
+  default: "any",
+},
 
     dmMessage: {
       type: String,

@@ -4,31 +4,31 @@ const Rule = require("../models/Rule");
 
 const createAutomation = async (req, res) => {
   try {
-    const {
-      triggerType,
-      instagramMediaId,
-      keywords,
-      matchType,
-      dmMessage,
-      commentReplyEnabled,
-      commentReplyMessage,
-      followGate,
-    } = req.body;
+ const {
+  triggerType,
+  instagramMediaId,
+  commentTriggerType,
+  keywords,
+  dmMessage,
+  commentReplyEnabled,
+  commentReplyMessage,
+  followGate,
+} = req.body;
 
     // =========================
     // 1. Save Automation
     // =========================
-    const automation = await Automation.create({
-      user: req.user.id,
-      triggerType,
-      instagramMediaId,
-      keywords,
-      matchType,
-      dmMessage,
-      commentReplyEnabled,
-      commentReplyMessage,
-      followGate,
-    });
+const automation = await Automation.create({
+  user: req.user.id,
+  triggerType,
+  instagramMediaId,
+  commentTriggerType,
+  keywords,
+  dmMessage,
+  commentReplyEnabled,
+  commentReplyMessage,
+  followGate,
+});
 
     console.log("✅ Automation Saved:", automation._id);
 
@@ -45,10 +45,7 @@ const createAutomation = async (req, res) => {
           ? instagramMediaId
           : "",
 
-      triggerType:
-        keywords && keywords.length > 0
-          ? "keyword"
-          : "any_comment",
+    triggerType: commentTriggerType,
 
       triggerKeywords: keywords || [],
 

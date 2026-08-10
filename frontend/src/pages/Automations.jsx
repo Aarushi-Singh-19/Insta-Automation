@@ -12,7 +12,8 @@ function Automations() {
 
 const [keywords, setKeywords] = useState("");
 
-const [matchType, setMatchType] = useState("any");
+const [commentTriggerType, setCommentTriggerType] =
+  useState("keyword");
 
 const [dmMessage, setDmMessage] = useState("");
 
@@ -33,20 +34,33 @@ const [loadingMedia, setLoadingMedia] = useState(false);
 
 const handleSaveAutomation = async () => {
   try {
+    if (
+  commentTriggerType === "keyword" &&
+  !keywords.trim()
+) {
+  alert("Please enter a keyword.");
+  return;
+}
     if (triggerType === "specific-post" && !selectedPostId) {
   alert("Please select an Instagram post.");
   return;
 }
     const token = localStorage.getItem("token");
 
- const automationData = {
+const automationData = {
   triggerType,
   instagramMediaId: selectedPostId,
-  keywords: keywords
-    .split(",")
-    .map((k) => k.trim())
-    .filter(Boolean),
-  matchType,
+
+  commentTriggerType,
+
+  keywords:
+    commentTriggerType === "keyword"
+      ? keywords
+          .split(",")
+          .map((k) => k.trim())
+          .filter(Boolean)
+      : [],
+
   dmMessage,
   commentReplyEnabled,
   commentReplyMessage,
@@ -93,7 +107,7 @@ setShowForm(false);
 
 setTriggerType("any-post");
 setKeywords("");
-setMatchType("any");
+setCommentTriggerType("keyword");
 setDmMessage("");
 setCommentReplyEnabled(false);
 setCommentReplyMessage("");
@@ -135,11 +149,23 @@ const handleDeleteAutomation = async (id) => {
 const handleEditAutomation = (automation) => {
   setEditingId(automation._id);
 
-  setTriggerType(automation.triggerType);
-  setSelectedPostId(automation.instagramMediaId || "");
-  console.log("Saved Media ID:", automation.instagramMediaId);
-  setKeywords(automation.keywords.join(", "));
-  setMatchType(automation.matchType);
+ setTriggerType(automation.triggerType);
+setSelectedPostId(
+  automation.instagramMediaId || ""
+);
+
+setCommentTriggerType(
+  automation.commentTriggerType ||
+  (automation.keywords?.length > 0
+    ? "keyword"
+    : "any_comment")
+);
+
+setKeywords(
+  automation.keywords
+    ? automation.keywords.join(", ")
+    : ""
+);
   setDmMessage(automation.dmMessage);
   setCommentReplyEnabled(
     automation.commentReplyEnabled
@@ -177,7 +203,6 @@ useEffect(() => {
 
       setMedia(res.data.data || []);
 
-      setMedia(res.data.data || []);
 
 console.log("Media Length:", res.data.data.length);
     } catch (err) {
@@ -192,14 +217,13 @@ console.log("Media Length:", res.data.data.length);
 
 console.log({
   triggerType,
+  commentTriggerType,
   keywords,
-  matchType,
   dmMessage,
   commentReplyEnabled,
   commentReplyMessage,
   followGate,
 });
-
 
 
   return (
@@ -337,7 +361,83 @@ console.log({
           <option value="next-post">Next Post</option>
         </select>
 
-        <h3>2. Keywords</h3>
+       <h3>2. Comment Trigger</h3>
+
+<select
+  value={commentTriggerType}
+  onChange={(e) =>
+    setCommentTriggerType(e.target.value)
+  }
+  style={{
+    width: "100%",
+    padding: "14px 16px",
+    border: "1px solid #D1D5DB",
+    borderRadius: "12px",
+    fontSize: "15px",
+    background: "#fff",
+    marginBottom: "18px",
+    boxSizing: "border-box",
+  }}
+>
+  <option value="keyword">
+    Specific Keyword
+  </option>
+
+  <option value="any_comment">
+    All Comments
+  </option>
+</select>
+
+{commentTriggerType === "keyword" && (
+  <>
+    <input
+      value={keywords}
+      onChange={(e) =>
+        setKeywords(e.target.value)
+      }
+      placeholder="Enter keyword"
+      style={{
+        width: "100%",
+        padding: "14px 16px",
+        border: "1px solid #D1D5DB",
+        borderRadius: "12px",
+        fontSize: "15px",
+        outline: "none",
+        marginBottom: "8px",
+        boxSizing: "border-box",
+      }}
+    />
+
+    <p
+      style={{
+        marginTop: "0",
+        marginBottom: "20px",
+        color: "#6B7280",
+        fontSize: "13px",
+      }}
+    >
+      Only comments containing this keyword will
+      trigger the automation.
+    </p>
+  </>
+)}
+
+{commentTriggerType === "any_comment" && (
+  <div
+    style={{
+      padding: "14px 16px",
+      marginBottom: "20px",
+      background: "#F9FAFB",
+      border: "1px solid #E5E7EB",
+      borderRadius: "12px",
+      color: "#4B5563",
+      fontSize: "14px",
+    }}
+  >
+    Every comment on the selected post or reel will
+    trigger this automation.
+  </div>
+)}
 
         {triggerType === "specific-post" && (
           <>
@@ -438,7 +538,7 @@ console.log({
           </>
         )}
 
-        <input
+        {/* <input
           value={keywords}
           onChange={(e) =>
             setKeywords(e.target.value)
@@ -477,7 +577,7 @@ console.log({
           <option value="all">
             All Keywords
           </option>
-        </select>
+        </select> */}
 
         <h3>3. DM Message</h3>
 
