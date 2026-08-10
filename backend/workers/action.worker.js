@@ -47,13 +47,14 @@ const startWorker = async () => {
     "action-queue",
     async (job) => {
       console.log("🔥 JOB PICKED:", job.id);
-      const {
-        action,
-        campaignId,
-        commentId,
-        ruleId,
-        userId,
-      } = job.data;
+   const {
+  action,
+  campaignId,
+  commentId,
+  ruleId,
+  userId,
+  isGateResume,
+} = job.data;
 
       console.log("JOB DATA RECEIVED:");
 console.log(job.data);
@@ -146,10 +147,12 @@ igAccount = await InstagramAccount.findOne({
   status: "active",
 });
 
-console.log(
-  "LOOKUP RESULT:",
-  igAccount
-);
+console.log("LOOKUP RESULT:", igAccount ? {
+  id: igAccount._id,
+  instagramBusinessId: igAccount.instagramBusinessId,
+  username: igAccount.username,
+  status: igAccount.status,
+} : null);
         } catch (err) {
           console.error("IG lookup failed:", err.message);
           throw new Error("IG_DB_ERROR");
@@ -186,6 +189,7 @@ const result = await ActionService.execute(action, {
   userId,
   instagramAccount: igAccount,
   isSimulation: job.data.isSimulation,
+  isGateResume,
 });
        console.log(
   `✅ Action executed for event ${commentId}`

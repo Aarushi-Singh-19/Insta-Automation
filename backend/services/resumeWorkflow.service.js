@@ -68,6 +68,8 @@ class ResumeWorkflowService {
 
             recipientId: session.recipientId,
 
+            isGateResume: true,
+
             receivedAt: new Date(),
           },
           {

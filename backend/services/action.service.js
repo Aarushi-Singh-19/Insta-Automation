@@ -51,44 +51,70 @@ class ActionService {
     });
   }
 
-  async sendDM(action, context = {}) {
-    const { username, message } = action;
-    const { commentId, userId, instagramAccount } = context;
+async sendDM(action, context = {}) {
+  const { username, message } = action;
 
-    console.log(`Sending DM to @${username}: ${message}`);
+  const {
+    commentId,
+    userId,
+    instagramAccount,
+    isGateResume,
+  } = context;
 
-    if (context.isSimulation) {
-      return {
-        success: true,
-        simulated: true,
-      };
-    }
+  console.log(`Sending DM to @${username}: ${message}`);
 
-    if (!commentId) {
-      throw new Error("COMMENT_ID_REQUIRED_FOR_DM");
-    }
-
-    const account =
-      instagramAccount ||
-      (await InstagramAccount.findOne({
-        userId,
-        status: "active",
-      }));
-
-    if (!account) {
-      throw new Error("No active Instagram account connected");
-    }
-
-    return await instagramApiService.sendDM({
-      accessToken:
-        account.pageAccessToken || account.accessToken,
-      instagramBusinessId:
-        account.instagramBusinessId,
-      commentId,
-      recipientId: action.recipientId,
-      message,
-    });
+  if (context.isSimulation) {
+    return {
+      success: true,
+      simulated: true,
+    };
   }
+
+  // ==========================================
+  // NORMAL COMMENT-TRIGGERED DM
+  // ==========================================
+  if (!isGateResume && !commentId) {
+    throw new Error("COMMENT_ID_REQUIRED_FOR_DM");
+  }
+
+  // ==========================================
+  // FOLLOW-GATE RESUMED DM
+  // ==========================================
+  if (isGateResume && !action.recipientId) {
+    throw new Error("RECIPIENT_ID_REQUIRED_FOR_GATE_RESUME");
+  }
+
+  const account =
+    instagramAccount ||
+    (await InstagramAccount.findOne({
+      userId,
+      status: "active",
+    }));
+
+  if (!account) {
+    throw new Error(
+      "No active Instagram account connected"
+    );
+  }
+
+  return await instagramApiService.sendDM({
+    accessToken:
+      account.pageAccessToken || account.accessToken,
+
+    instagramBusinessId:
+      account.instagramBusinessId,
+
+    // Normal automation uses comment_id.
+    // Follow Gate resume uses recipient id.
+    commentId: isGateResume
+      ? null
+      : commentId,
+
+    recipientId: action.recipientId,
+
+    message,
+  });
+}
 }
 
 module.exports = new ActionService();
