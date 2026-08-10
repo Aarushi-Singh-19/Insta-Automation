@@ -29,9 +29,16 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
-    subscriptionStatus: {
+subscriptionStatus: {
   type: String,
-  enum: ["trial", "active", "expired"],
+  enum: [
+    "trial",
+    "active",
+    "expired",
+    "past_due",
+    "cancelled",
+    "halted",
+  ],
   default: "trial",
 },
 
@@ -50,6 +57,27 @@ trialEndDate: {
 
 planEndDate: {
   type: Date,
+},
+
+razorpaySubscriptionId: {
+  type: String,
+  default: null,
+  index: true,
+},
+
+razorpayCustomerId: {
+  type: String,
+  default: null,
+},
+
+subscriptionCurrentStart: {
+  type: Date,
+  default: null,
+},
+
+subscriptionCurrentEnd: {
+  type: Date,
+  default: null,
 },
 
     facebookPageId: {

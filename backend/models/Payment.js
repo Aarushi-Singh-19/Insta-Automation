@@ -6,27 +6,57 @@ const paymentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
 
-    orderId: {
+    razorpaySubscriptionId: {
       type: String,
-      required: true,
+      index: true,
     },
 
- paymentId: {
-  type: String,
-  required: true,
-  unique: true,
-},
+    razorpayPaymentId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+
+    razorpayPlanId: {
+      type: String,
+    },
 
     amount: {
       type: Number,
       required: true,
     },
 
+    currency: {
+      type: String,
+      default: "INR",
+    },
+
     status: {
       type: String,
+      enum: [
+        "authorized",
+        "success",
+        "failed",
+        "refunded",
+      ],
       default: "success",
+    },
+
+    paymentType: {
+      type: String,
+      enum: ["subscription"],
+      default: "subscription",
+    },
+
+    billingPeriodStart: {
+      type: Date,
+    },
+
+    billingPeriodEnd: {
+      type: Date,
     },
   },
   {
@@ -34,7 +64,4 @@ const paymentSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model(
-  "Payment",
-  paymentSchema
-);
+module.exports = mongoose.model("Payment", paymentSchema);

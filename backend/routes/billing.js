@@ -1,106 +1,67 @@
-const crypto = require("crypto")
 const razorpay = require("../services/razorpayService");
 const express = require("express");
 const router = express.Router();
 
 const authMiddleware = require("../middleware/authMiddleware");
 const User = require("../models/User");
-
 const Payment = require("../models/Payment");
 
-// Temporary placeholder for future Razorpay integration
-const createOrder = async (req, res) => {
+const createSubscription = async (req, res) => {
   try {
-const options = {
-  amount: 19900,
-  currency: "INR",
-  receipt: `receipt_${Date.now()}`,
-  notes: {
-    userId: req.user.id,
-  },
-};
-    const order = await razorpay.orders.create(options);
+    const user = await User.findById(req.user.id);
 
-    res.json({
-      success: true,
-      order,
-    });
-  } catch (err) {
-    console.error("Razorpay Order Error:", err);
-
-    res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-};
-
-const verifyPayment = async (req, res) => {
-  try {
-    const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-    } = req.body;
-
-    const generatedSignature = crypto
-      .createHmac(
-        "sha256",
-        process.env.RAZORPAY_KEY_SECRET
-      )
-      .update(
-        razorpay_order_id + "|" + razorpay_payment_id
-      )
-      .digest("hex");
-
-    if (generatedSignature !== razorpay_signature) {
-      return res.status(400).json({
+    if (!user) {
+      return res.status(404).json({
         success: false,
-        message: "Invalid signature",
+        message: "User not found",
       });
     }
 
+    if (user.subscriptionStatus === "active") {
+      return res.status(400).json({
+        success: false,
+        message: "Subscription already active",
+      });
+    }
 
+    const subscription =
+      await razorpay.subscriptions.create({
+        plan_id:
+          process.env.RAZORPAY_MONTHLY_PLAN_ID,
 
-const user = await User.findById(req.user.id);
+        total_count: 120,
 
-if (!user) {
-  return res.status(404).json({
-    success: false,
-    message: "User not found",
-  });
-}
+        quantity: 1,
 
-const planEndDate = new Date();
-planEndDate.setDate(planEndDate.getDate() + 30);
+        customer_notify: true,
 
-user.subscriptionStatus = "active";
-user.currentPlan = "starter";
-user.planEndDate = planEndDate;
+        notes: {
+          userId: user._id.toString(),
+          email: user.email,
+        },
+      });
 
-await user.save();
+    // Store subscription ID.
+    // User is NOT active yet.
+    user.razorpaySubscriptionId =
+      subscription.id;
 
-const existingPayment = await Payment.findOne({
-  paymentId: razorpay_payment_id,
-});
+    await user.save();
 
-if (!existingPayment) {
-  await Payment.create({
-    userId: user._id,
-    orderId: razorpay_order_id,
-    paymentId: razorpay_payment_id,
-    amount: 199,
-    status: "success",
-  });
-}
-
-res.json({
-  success: true,
-  message: "Payment verified successfully",
-  user,
-});
+    return res.json({
+      success: true,
+      subscription: {
+        id: subscription.id,
+        planId: subscription.plan_id,
+      },
+    });
   } catch (err) {
-    res.status(500).json({
+    console.error(
+      "CREATE SUBSCRIPTION ERROR:",
+      err
+    );
+
+    return res.status(500).json({
       success: false,
       message: err.message,
     });
@@ -126,15 +87,9 @@ const getPaymentHistory = async (req, res) => {
 };
 
 router.post(
-  "/create-order",
+  "/create-subscription",
   authMiddleware,
-  createOrder
-);
-
-router.post(
-  "/verify-payment",
-  authMiddleware,
-  verifyPayment
+  createSubscription
 );
 
 router.get(

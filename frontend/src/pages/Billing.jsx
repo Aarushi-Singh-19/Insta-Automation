@@ -249,7 +249,7 @@ const daysRemaining = user?.trialEndDate
           color: "#111827",
         }}
       >
-        ₹199
+        ₹99
       </span>
 
       <span
