@@ -47,7 +47,10 @@ const automation = await Automation.create({
 
     triggerType: commentTriggerType,
 
-      triggerKeywords: keywords || [],
+      triggerKeywords:
+  commentTriggerType === "keyword"
+    ? keywords || []
+    : [],
 
       replyMode: "single",
 
