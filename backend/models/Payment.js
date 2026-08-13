@@ -9,16 +9,39 @@ const paymentSchema = new mongoose.Schema(
       index: true,
     },
 
+    // ==========================================
+    // RAZORPAY IDENTIFIERS
+    // ==========================================
+
     razorpayPaymentId: {
       type: String,
       unique: true,
       sparse: true,
+      index: true,
     },
 
     razorpaySubscriptionId: {
       type: String,
+      default: null,
       index: true,
     },
+
+    // Legacy field - kept so old payment history
+    // is not unnecessarily broken.
+    paymentId: {
+      type: String,
+      default: null,
+    },
+
+    // Legacy one-time payment field.
+    orderId: {
+      type: String,
+      default: null,
+    },
+
+    // ==========================================
+    // PAYMENT DETAILS
+    // ==========================================
 
     amount: {
       type: Number,
@@ -41,15 +64,22 @@ const paymentSchema = new mongoose.Schema(
       default: "captured",
     },
 
+    // Example:
+    // payment.captured
+    // payment.failed
+    // subscription.charged
     eventType: {
       type: String,
       default: null,
     },
 
+    // Razorpay webhook event ID.
+    // Used for webhook idempotency.
     webhookEventId: {
       type: String,
       unique: true,
       sparse: true,
+      index: true,
     },
 
     paidAt: {
@@ -62,4 +92,5 @@ const paymentSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Payment", paymentSchema);
+module.exports =
+  mongoose.model("Payment", paymentSchema);

@@ -282,155 +282,173 @@ const daysRemaining = user?.trialEndDate
   </div>
 
   <div style={{ marginTop: "auto" }}>
-    {user?.subscriptionStatus !== "active" ? (
-      <button
-onClick={async () => {
-  try {
-    const res = await API.post(
-      "/billing/create-subscription"
-    );
-
-    if (!res.data?.success || !res.data?.subscription?.id) {
-      throw new Error(
-        res.data?.message ||
-          "Unable to create subscription"
-      );
-    }
-
-    const subscription =
-      res.data.subscription;
-
-    console.log(
-      "RAZORPAY SUBSCRIPTION:",
-      subscription
-    );
-
-    if (!window.Razorpay) {
-      throw new Error(
-        "Razorpay Checkout is not loaded. Please refresh the page and try again."
-      );
-    }
-
-    const options = {
-      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-
-      subscription_id: subscription.id,
-
-      name: "TriggerDM",
-
-      description:
-        "TriggerDM Starter - ₹99/month",
-
-      prefill: {
-        name: user?.name || "",
-        email: user?.email || "",
-      },
-
-      theme: {
-        color: "#E1306C",
-      },
-
-      handler: async function (response) {
-        console.log(
-          "RAZORPAY CHECKOUT RESPONSE:",
-          response
+{user?.subscriptionStatus === "trial" ? (
+  <div
+    style={{
+      background: "#F3F4F6",
+      color: "#374151",
+      textAlign: "center",
+      padding: "14px",
+      borderRadius: "12px",
+      fontWeight: "600",
+    }}
+  >
+    ✓ Free trial active
+  </div>
+) : user?.subscriptionStatus === "active" ? (
+  <div
+    style={{
+      background: "#F3F4F6",
+      color: "#374151",
+      textAlign: "center",
+      padding: "14px",
+      borderRadius: "12px",
+      fontWeight: "600",
+    }}
+  >
+    ✓ You're on this plan
+  </div>
+) : (
+  <button
+    onClick={async () => {
+      try {
+        const res = await API.post(
+          "/billing/create-subscription"
         );
 
-        /*
-         * IMPORTANT:
-         * Do NOT mark the user active here.
-         *
-         * Razorpay webhooks are the source of truth.
-         * The backend will update subscriptionStatus
-         * when Razorpay confirms the subscription.
-         */
-
-        alert(
-          "Subscription authorization received. Your subscription status will update shortly."
-        );
-
-        try {
-          const userRes =
-            await API.get("/auth/me");
-
-          setUser(userRes.data.user);
-        } catch (refreshError) {
-          console.error(
-            "USER REFRESH ERROR:",
-            refreshError
+        if (
+          !res.data?.success ||
+          !res.data?.subscription?.id
+        ) {
+          throw new Error(
+            res.data?.message ||
+              "Unable to create subscription"
           );
         }
-      },
 
-      modal: {
-        ondismiss: function () {
-          console.log(
-            "Razorpay Checkout closed by user."
+        const subscription =
+          res.data.subscription;
+
+        console.log(
+          "RAZORPAY SUBSCRIPTION:",
+          subscription
+        );
+
+        if (!window.Razorpay) {
+          throw new Error(
+            "Razorpay Checkout is not loaded. Please refresh the page and try again."
           );
-        },
-      },
-    };
+        }
 
-    const razorpayCheckout =
-      new window.Razorpay(options);
+        const options = {
+          key:
+            import.meta.env
+              .VITE_RAZORPAY_KEY_ID,
 
-    razorpayCheckout.on(
-      "payment.failed",
-      function (response) {
+          subscription_id:
+            subscription.id,
+
+          name: "TriggerDM",
+
+          description:
+            "TriggerDM Starter - ₹99/month",
+
+          prefill: {
+            name: user?.name || "",
+            email: user?.email || "",
+          },
+
+          theme: {
+            color: "#E1306C",
+          },
+
+          handler: async function (response) {
+            console.log(
+              "RAZORPAY CHECKOUT RESPONSE:",
+              response
+            );
+
+            /*
+             * Razorpay webhooks are the source
+             * of truth for subscription status.
+             *
+             * Do NOT mark the user active here.
+             */
+
+            alert(
+              "Subscription authorization received. Your subscription status will update shortly."
+            );
+
+            try {
+              const userRes =
+                await API.get("/auth/me");
+
+              setUser(userRes.data.user);
+            } catch (refreshError) {
+              console.error(
+                "USER REFRESH ERROR:",
+                refreshError
+              );
+            }
+          },
+
+          modal: {
+            ondismiss: function () {
+              console.log(
+                "Razorpay Checkout closed by user."
+              );
+            },
+          },
+        };
+
+        const razorpayCheckout =
+          new window.Razorpay(options);
+
+        razorpayCheckout.on(
+          "payment.failed",
+          function (response) {
+            console.error(
+              "RAZORPAY PAYMENT FAILED:",
+              response
+            );
+
+            alert(
+              response?.error?.description ||
+                "Subscription authorization/payment failed."
+            );
+          }
+        );
+
+        razorpayCheckout.open();
+      } catch (error) {
         console.error(
-          "RAZORPAY PAYMENT FAILED:",
-          response
+          "SUBSCRIPTION ERROR:",
+          error.response?.data || error
         );
 
         alert(
-          response?.error?.description ||
-            "Subscription authorization/payment failed."
+          error.response?.data?.message ||
+            error.message ||
+            "Unable to start subscription"
         );
       }
-    );
-
-    razorpayCheckout.open();
-  } catch (error) {
-    console.error(
-      "SUBSCRIPTION ERROR:",
-      error.response?.data || error
-    );
-
-    alert(
-      error.response?.data?.message ||
-        error.message ||
-        "Unable to start subscription"
-    );
-  }
-}}
-        style={{
-          width: "100%",
-          padding: "15px",
-          border: "none",
-          borderRadius: "14px",
-          background: "linear-gradient(135deg,#E1306C,#833AB4)",
-          color: "#fff",
-          fontWeight: "700",
-          fontSize: "15px",
-          cursor: "pointer",
-        }}
-      >
-        Start Subscription
-      </button>
-    ) : (
-      <div
-        style={{
-          background: "#F3F4F6",
-          color: "#374151",
-          textAlign: "center",
-          padding: "14px",
-          borderRadius: "12px",
-          fontWeight: "600",
-        }}
-      >
-        ✓ You're on this plan
-      </div>
-    )}
+    }}
+    style={{
+      width: "100%",
+      padding: "15px",
+      border: "none",
+      borderRadius: "14px",
+      background:
+        "linear-gradient(135deg,#E1306C,#833AB4)",
+      color: "#fff",
+      fontWeight: "700",
+      fontSize: "15px",
+      cursor: "pointer",
+    }}
+  >
+    Subscribe for ₹99/month
+  </button>
+)}
   </div>
 </div>
 

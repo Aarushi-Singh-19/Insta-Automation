@@ -27,6 +27,9 @@ const webhookRoutes = require("./routes/webhookRoutes");
 
 const billingRoutes = require("./routes/billing");
 
+const razorpayWebhookRoutes = require(
+  "./routes/razorpayWebhook.routes"
+);
 
 const testDmRoutes = require("./routes/testDm.routes");
 
@@ -39,15 +42,42 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin:["http://localhost:5173",
+  origin: [
+    "http://localhost:5173",
     "https://triggerdm.in",
-    "https://www.triggerdm.in"],
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    credentials: true
-  }));
-  
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+    "https://www.triggerdm.in"
+  ],
+  methods: [
+    "GET",
+    "POST",
+    "PUT",
+    "DELETE",
+    "PATCH"
+  ],
+  credentials: true
+}));
+
+// ==========================================
+// RAZORPAY WEBHOOK
+// MUST BE BEFORE express.json()
+// ==========================================
+
+app.use(
+  "/api/billing/razorpay-webhook",
+  razorpayWebhookRoutes
+);
+
+// ==========================================
+// NORMAL BODY PARSERS
+// ==========================================
+
+app.use(express.json());
+
+app.use(
+  express.urlencoded({
+    extended: true
+  })
+);
   // Routes
 app.use(
     "/api/follow",

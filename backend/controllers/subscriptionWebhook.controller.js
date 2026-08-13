@@ -1,29 +1,58 @@
 const crypto = require("crypto");
+
 const User = require("../models/User");
 const Payment = require("../models/Payment");
+const WebhookEvent = require("../models/WebhookEvent");
 
 const handleRazorpayWebhook = async (req, res) => {
   try {
+    // ==========================================
+    // 1. GET RAW BODY + SIGNATURE
+    // ==========================================
+
     const webhookSignature =
       req.headers["x-razorpay-signature"];
 
     if (!webhookSignature) {
       return res.status(400).json({
         success: false,
-        message: "Missing Razorpay webhook signature",
+        message:
+          "Missing Razorpay webhook signature",
       });
     }
+
+    if (!req.body) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing webhook body",
+      });
+    }
+
+    const rawBody = Buffer.isBuffer(req.body)
+      ? req.body
+      : Buffer.from(req.body);
+
+    // ==========================================
+    // 2. VERIFY RAZORPAY SIGNATURE
+    // ==========================================
 
     const expectedSignature = crypto
       .createHmac(
         "sha256",
         process.env.RAZORPAY_WEBHOOK_SECRET
       )
-      .update(req.body)
+      .update(rawBody)
       .digest("hex");
 
-    if (expectedSignature !== webhookSignature) {
-      console.log("❌ Invalid Razorpay webhook signature");
+    if (
+      !crypto.timingSafeEqual(
+        Buffer.from(expectedSignature),
+        Buffer.from(webhookSignature)
+      )
+    ) {
+      console.error(
+        "❌ Invalid Razorpay webhook signature"
+      );
 
       return res.status(400).json({
         success: false,
@@ -31,12 +60,51 @@ const handleRazorpayWebhook = async (req, res) => {
       });
     }
 
-    const event = JSON.parse(req.body.toString());
+    // ==========================================
+    // 3. PARSE WEBHOOK
+    // ==========================================
+
+    const event = JSON.parse(
+      rawBody.toString("utf8")
+    );
+
+    const eventId = event.id;
+    const eventType = event.event;
+
+    if (!eventId || !eventType) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid Razorpay webhook payload",
+      });
+    }
 
     console.log(
       "🔥 RAZORPAY WEBHOOK:",
-      event.event
+      eventType,
+      eventId
     );
+
+    // ==========================================
+    // 4. IDEMPOTENCY CHECK
+    // ==========================================
+
+    const existingEvent =
+      await WebhookEvent.findOne({
+        eventId,
+      });
+
+    if (existingEvent) {
+      console.log(
+        "♻️ Duplicate Razorpay webhook ignored:",
+        eventId
+      );
+
+      return res.status(200).json({
+        success: true,
+        duplicate: true,
+      });
+    }
 
     const subscription =
       event.payload?.subscription?.entity;
@@ -44,12 +112,43 @@ const handleRazorpayWebhook = async (req, res) => {
     const payment =
       event.payload?.payment?.entity;
 
-    // =========================================
-    // SUBSCRIPTION ACTIVATED
-    // =========================================
+    // ==========================================
+    // 5. SUBSCRIPTION AUTHENTICATED
+    // ==========================================
 
     if (
-      event.event ===
+      eventType ===
+        "subscription.authenticated" &&
+      subscription
+    ) {
+      const user = await User.findOne({
+        razorpaySubscriptionId:
+          subscription.id,
+      });
+
+      if (user) {
+        /*
+         * IMPORTANT:
+         *
+         * Authenticated does NOT mean paid/active
+         * for our TriggerDM entitlement.
+         *
+         * The customer has only authorized the
+         * recurring mandate.
+         */
+        console.log(
+          "🔐 SUBSCRIPTION AUTHENTICATED:",
+          subscription.id
+        );
+      }
+    }
+
+    // ==========================================
+    // 6. SUBSCRIPTION ACTIVATED
+    // ==========================================
+
+    if (
+      eventType ===
         "subscription.activated" &&
       subscription
     ) {
@@ -83,17 +182,139 @@ const handleRazorpayWebhook = async (req, res) => {
 
         console.log(
           "✅ SUBSCRIPTION ACTIVATED:",
-          user._id
+          subscription.id
         );
       }
     }
 
-    // =========================================
-    // PAYMENT CAPTURED
-    // =========================================
+    // ==========================================
+    // 7. SUBSCRIPTION CHARGED
+    // ==========================================
 
     if (
-      event.event === "payment.captured" &&
+      eventType === "subscription.charged" &&
+      subscription
+    ) {
+      const user = await User.findOne({
+        razorpaySubscriptionId:
+          subscription.id,
+      });
+
+      if (user) {
+        /*
+         * A successful recurring charge means
+         * the subscription remains active.
+         */
+
+        user.subscriptionStatus = "active";
+        user.currentPlan = "starter";
+
+        if (subscription.current_start) {
+          user.subscriptionCurrentStart =
+            new Date(
+              subscription.current_start * 1000
+            );
+        }
+
+        if (subscription.current_end) {
+          user.subscriptionCurrentEnd =
+            new Date(
+              subscription.current_end * 1000
+            );
+
+          user.planEndDate =
+            user.subscriptionCurrentEnd;
+        }
+
+        await user.save();
+
+        // Razorpay's subscription.charged event
+        // may contain the payment entity.
+        const chargedPayment =
+          event.payload?.payment?.entity;
+
+        if (chargedPayment) {
+          const existingPayment =
+            await Payment.findOne({
+              razorpayPaymentId:
+                chargedPayment.id,
+            });
+
+          if (!existingPayment) {
+            await Payment.create({
+              userId: user._id,
+
+              razorpayPaymentId:
+                chargedPayment.id,
+
+              razorpaySubscriptionId:
+                subscription.id,
+
+              amount:
+                chargedPayment.amount
+                  ? chargedPayment.amount / 100
+                  : 99,
+
+              currency:
+                chargedPayment.currency || "INR",
+
+              status: "captured",
+
+              eventType:
+                "subscription.charged",
+
+              webhookEventId: eventId,
+
+              paidAt: chargedPayment.created_at
+                ? new Date(
+                    chargedPayment.created_at *
+                      1000
+                  )
+                : new Date(),
+            });
+          }
+        }
+
+        console.log(
+          "💰 SUBSCRIPTION CHARGED:",
+          subscription.id
+        );
+      }
+    }
+
+    // ==========================================
+    // 8. SUBSCRIPTION PENDING
+    // ==========================================
+
+    if (
+      eventType ===
+        "subscription.pending" &&
+      subscription
+    ) {
+      const user = await User.findOne({
+        razorpaySubscriptionId:
+          subscription.id,
+      });
+
+      if (user) {
+        user.subscriptionStatus =
+          "past_due";
+
+        await user.save();
+
+        console.log(
+          "⚠️ SUBSCRIPTION PENDING:",
+          subscription.id
+        );
+      }
+    }
+
+    // ==========================================
+    // 9. PAYMENT CAPTURED
+    // ==========================================
+
+    if (
+      eventType === "payment.captured" &&
       payment
     ) {
       const subscriptionId =
@@ -106,43 +327,68 @@ const handleRazorpayWebhook = async (req, res) => {
         });
 
         if (user) {
-          user.subscriptionStatus = "active";
+          /*
+           * Do NOT blindly use payment.captured
+           * to activate the subscription.
+           *
+           * subscription.activated /
+           * subscription.charged are the subscription
+           * lifecycle events we use for entitlement.
+           */
 
-          if (payment.amount) {
-            const existingPayment =
-              await Payment.findOne({
-                paymentId: payment.id,
-              });
+          const existingPayment =
+            await Payment.findOne({
+              razorpayPaymentId:
+                payment.id,
+            });
 
-            if (!existingPayment) {
-              await Payment.create({
-                userId: user._id,
-                orderId:
-                  payment.order_id || subscriptionId,
-                paymentId: payment.id,
-                amount:
-                  payment.amount / 100,
-                status: "success",
-              });
-            }
+          if (!existingPayment) {
+            await Payment.create({
+              userId: user._id,
+
+              razorpayPaymentId:
+                payment.id,
+
+              razorpaySubscriptionId:
+                subscriptionId,
+
+              amount:
+                payment.amount
+                  ? payment.amount / 100
+                  : 0,
+
+              currency:
+                payment.currency || "INR",
+
+              status: "captured",
+
+              eventType:
+                "payment.captured",
+
+              webhookEventId: eventId,
+
+              paidAt: payment.created_at
+                ? new Date(
+                    payment.created_at * 1000
+                  )
+                : new Date(),
+            });
           }
 
-          await user.save();
-
           console.log(
-            "💰 PAYMENT CAPTURED:",
+            "💳 PAYMENT CAPTURED:",
             payment.id
           );
         }
       }
     }
 
-    // =========================================
-    // PAYMENT FAILED
-    // =========================================
+    // ==========================================
+    // 10. PAYMENT FAILED
+    // ==========================================
 
     if (
-      event.event === "payment.failed" &&
+      eventType === "payment.failed" &&
       payment
     ) {
       const subscriptionId =
@@ -160,20 +406,55 @@ const handleRazorpayWebhook = async (req, res) => {
 
           await user.save();
 
+          const existingPayment =
+            await Payment.findOne({
+              razorpayPaymentId:
+                payment.id,
+            });
+
+          if (!existingPayment) {
+            await Payment.create({
+              userId: user._id,
+
+              razorpayPaymentId:
+                payment.id,
+
+              razorpaySubscriptionId:
+                subscriptionId,
+
+              amount:
+                payment.amount
+                  ? payment.amount / 100
+                  : 0,
+
+              currency:
+                payment.currency || "INR",
+
+              status: "failed",
+
+              eventType:
+                "payment.failed",
+
+              webhookEventId: eventId,
+
+              paidAt: null,
+            });
+          }
+
           console.log(
-            "⚠️ PAYMENT FAILED:",
-            user._id
+            "❌ PAYMENT FAILED:",
+            payment.id
           );
         }
       }
     }
 
-    // =========================================
-    // SUBSCRIPTION HALTED
-    // =========================================
+    // ==========================================
+    // 11. SUBSCRIPTION HALTED
+    // ==========================================
 
     if (
-      event.event ===
+      eventType ===
         "subscription.halted" &&
       subscription
     ) {
@@ -183,23 +464,40 @@ const handleRazorpayWebhook = async (req, res) => {
       });
 
       if (user) {
-        user.subscriptionStatus = "halted";
+        user.subscriptionStatus =
+          "halted";
+
+        /*
+         * Keep the current period information.
+         * Entitlement logic will determine whether
+         * access has actually expired.
+         */
+
+        if (subscription.current_end) {
+          user.subscriptionCurrentEnd =
+            new Date(
+              subscription.current_end * 1000
+            );
+
+          user.planEndDate =
+            user.subscriptionCurrentEnd;
+        }
 
         await user.save();
 
         console.log(
           "⛔ SUBSCRIPTION HALTED:",
-          user._id
+          subscription.id
         );
       }
     }
 
-    // =========================================
-    // SUBSCRIPTION CANCELLED
-    // =========================================
+    // ==========================================
+    // 12. SUBSCRIPTION CANCELLED
+    // ==========================================
 
     if (
-      event.event ===
+      eventType ===
         "subscription.cancelled" &&
       subscription
     ) {
@@ -212,12 +510,95 @@ const handleRazorpayWebhook = async (req, res) => {
         user.subscriptionStatus =
           "cancelled";
 
+        /*
+         * IMPORTANT:
+         *
+         * Cancellation does NOT automatically
+         * remove access.
+         *
+         * The user should retain access until
+         * current_end / planEndDate.
+         */
+
+        if (subscription.current_end) {
+          user.subscriptionCurrentEnd =
+            new Date(
+              subscription.current_end * 1000
+            );
+
+          user.planEndDate =
+            user.subscriptionCurrentEnd;
+        }
+
         await user.save();
 
         console.log(
           "🚫 SUBSCRIPTION CANCELLED:",
-          user._id
+          subscription.id
         );
+      }
+    }
+
+    // ==========================================
+    // 13. SUBSCRIPTION COMPLETED
+    // ==========================================
+
+    if (
+      eventType ===
+        "subscription.completed" &&
+      subscription
+    ) {
+      const user = await User.findOne({
+        razorpaySubscriptionId:
+          subscription.id,
+      });
+
+      if (user) {
+        user.subscriptionStatus =
+          "expired";
+
+        if (subscription.current_end) {
+          user.subscriptionCurrentEnd =
+            new Date(
+              subscription.current_end * 1000
+            );
+
+          user.planEndDate =
+            user.subscriptionCurrentEnd;
+        }
+
+        await user.save();
+
+        console.log(
+          "🏁 SUBSCRIPTION COMPLETED:",
+          subscription.id
+        );
+      }
+    }
+
+    // ==========================================
+    // 14. MARK WEBHOOK PROCESSED
+    // ==========================================
+
+    try {
+      await WebhookEvent.create({
+        eventId,
+        eventType,
+      });
+    } catch (idempotencyError) {
+      /*
+       * If another webhook worker/request already
+       * inserted this event, MongoDB's unique index
+       * prevents a duplicate.
+       *
+       * The actual payment record is additionally
+       * protected by razorpayPaymentId.
+       */
+
+      if (
+        idempotencyError.code !== 11000
+      ) {
+        throw idempotencyError;
       }
     }
 
@@ -232,7 +613,8 @@ const handleRazorpayWebhook = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Webhook processing failed",
+      message:
+        "Webhook processing failed",
     });
   }
 };
