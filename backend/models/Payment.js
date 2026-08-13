@@ -9,19 +9,15 @@ const paymentSchema = new mongoose.Schema(
       index: true,
     },
 
-    razorpaySubscriptionId: {
-      type: String,
-      index: true,
-    },
-
     razorpayPaymentId: {
       type: String,
       unique: true,
       sparse: true,
     },
 
-    razorpayPlanId: {
+    razorpaySubscriptionId: {
       type: String,
+      index: true,
     },
 
     amount: {
@@ -38,25 +34,27 @@ const paymentSchema = new mongoose.Schema(
       type: String,
       enum: [
         "authorized",
-        "success",
+        "captured",
         "failed",
         "refunded",
       ],
-      default: "success",
+      default: "captured",
     },
 
-    paymentType: {
+    eventType: {
       type: String,
-      enum: ["subscription"],
-      default: "subscription",
+      default: null,
     },
 
-    billingPeriodStart: {
-      type: Date,
+    webhookEventId: {
+      type: String,
+      unique: true,
+      sparse: true,
     },
 
-    billingPeriodEnd: {
+    paidAt: {
       type: Date,
+      default: null,
     },
   },
   {

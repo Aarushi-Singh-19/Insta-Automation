@@ -3,9 +3,8 @@ const mongoose = require("mongoose");
 const userSchema = new mongoose.Schema(
   {
     name: {
-    name: String,
-    email: { type: String, unique: true },
-    password: String,
+      type: String,
+      default: "",
     },
 
     email: {
@@ -29,56 +28,67 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
-subscriptionStatus: {
-  type: String,
-  enum: [
-    "trial",
-    "active",
-    "expired",
-    "past_due",
-    "cancelled",
-    "halted",
-  ],
-  default: "trial",
-},
+    // =========================
+    // SUBSCRIPTION
+    // =========================
 
-currentPlan: {
-  type: String,
-  default: "trial",
-},
+    subscriptionStatus: {
+      type: String,
+      enum: [
+        "trial",
+        "active",
+        "expired",
+        "past_due",
+        "cancelled",
+        "halted",
+      ],
+      default: "trial",
+    },
 
-trialStartDate: {
-  type: Date,
-},
+    currentPlan: {
+      type: String,
+      default: "trial",
+    },
 
-trialEndDate: {
-  type: Date,
-},
+    trialStartDate: {
+      type: Date,
+      default: null,
+    },
 
-planEndDate: {
-  type: Date,
-},
+    trialEndDate: {
+      type: Date,
+      default: null,
+    },
 
-razorpaySubscriptionId: {
-  type: String,
-  default: null,
-  index: true,
-},
+    planEndDate: {
+      type: Date,
+      default: null,
+    },
 
-razorpayCustomerId: {
-  type: String,
-  default: null,
-},
+    razorpaySubscriptionId: {
+      type: String,
+      default: null,
+      index: true,
+    },
 
-subscriptionCurrentStart: {
-  type: Date,
-  default: null,
-},
+    razorpayCustomerId: {
+      type: String,
+      default: null,
+    },
 
-subscriptionCurrentEnd: {
-  type: Date,
-  default: null,
-},
+    subscriptionCurrentStart: {
+      type: Date,
+      default: null,
+    },
+
+    subscriptionCurrentEnd: {
+      type: Date,
+      default: null,
+    },
+
+    // =========================
+    // INSTAGRAM
+    // =========================
 
     facebookPageId: {
       type: String,
@@ -94,7 +104,5 @@ subscriptionCurrentEnd: {
     timestamps: true,
   }
 );
-
-
 
 module.exports = mongoose.model("User", userSchema);

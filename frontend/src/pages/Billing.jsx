@@ -284,47 +284,125 @@ const daysRemaining = user?.trialEndDate
   <div style={{ marginTop: "auto" }}>
     {user?.subscriptionStatus !== "active" ? (
       <button
-        onClick={async () => {
-          try {
-            const res = await API.post("/billing/create-order");
+onClick={async () => {
+  try {
+    const res = await API.post(
+      "/billing/create-subscription"
+    );
 
-            const order = res.data.order;
+    if (!res.data?.success || !res.data?.subscription?.id) {
+      throw new Error(
+        res.data?.message ||
+          "Unable to create subscription"
+      );
+    }
 
-            const options = {
-              key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-              amount: order.amount,
-              currency: order.currency,
-              name: "TriggerDM",
-              description: "Starter Plan",
-              order_id: order.id,
+    const subscription =
+      res.data.subscription;
 
-              handler: async function (response) {
-                try {
-                  await API.post("/billing/verify-payment", {
-                    razorpay_order_id: response.razorpay_order_id,
-                    razorpay_payment_id: response.razorpay_payment_id,
-                    razorpay_signature: response.razorpay_signature,
-                  });
+    console.log(
+      "RAZORPAY SUBSCRIPTION:",
+      subscription
+    );
 
-                  const userRes = await API.get("/auth/me");
-                  setUser(userRes.data.user);
+    if (!window.Razorpay) {
+      throw new Error(
+        "Razorpay Checkout is not loaded. Please refresh the page and try again."
+      );
+    }
 
-                  alert("Subscription Activated Successfully");
-                } catch (error) {
-                  console.log(error);
-                }
-              },
+    const options = {
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
 
-              theme: {
-                color: "#E1306C",
-              },
-            };
+      subscription_id: subscription.id,
 
-            new window.Razorpay(options).open();
-          } catch (error) {
-            console.log(error);
-          }
-        }}
+      name: "TriggerDM",
+
+      description:
+        "TriggerDM Starter - ₹99/month",
+
+      prefill: {
+        name: user?.name || "",
+        email: user?.email || "",
+      },
+
+      theme: {
+        color: "#E1306C",
+      },
+
+      handler: async function (response) {
+        console.log(
+          "RAZORPAY CHECKOUT RESPONSE:",
+          response
+        );
+
+        /*
+         * IMPORTANT:
+         * Do NOT mark the user active here.
+         *
+         * Razorpay webhooks are the source of truth.
+         * The backend will update subscriptionStatus
+         * when Razorpay confirms the subscription.
+         */
+
+        alert(
+          "Subscription authorization received. Your subscription status will update shortly."
+        );
+
+        try {
+          const userRes =
+            await API.get("/auth/me");
+
+          setUser(userRes.data.user);
+        } catch (refreshError) {
+          console.error(
+            "USER REFRESH ERROR:",
+            refreshError
+          );
+        }
+      },
+
+      modal: {
+        ondismiss: function () {
+          console.log(
+            "Razorpay Checkout closed by user."
+          );
+        },
+      },
+    };
+
+    const razorpayCheckout =
+      new window.Razorpay(options);
+
+    razorpayCheckout.on(
+      "payment.failed",
+      function (response) {
+        console.error(
+          "RAZORPAY PAYMENT FAILED:",
+          response
+        );
+
+        alert(
+          response?.error?.description ||
+            "Subscription authorization/payment failed."
+        );
+      }
+    );
+
+    razorpayCheckout.open();
+  } catch (error) {
+    console.error(
+      "SUBSCRIPTION ERROR:",
+      error.response?.data || error
+    );
+
+    alert(
+      error.response?.data?.message ||
+        error.message ||
+        "Unable to start subscription"
+    );
+  }
+}}
         style={{
           width: "100%",
           padding: "15px",
@@ -337,7 +415,7 @@ const daysRemaining = user?.trialEndDate
           cursor: "pointer",
         }}
       >
-        Upgrade Now
+        Start Subscription
       </button>
     ) : (
       <div
