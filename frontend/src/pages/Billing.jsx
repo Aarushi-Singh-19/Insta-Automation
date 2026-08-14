@@ -523,65 +523,83 @@ const daysRemaining = user?.trialEndDate
       </thead>
 
       <tbody>
-        {payments.map((payment) => (
-          <tr
-  key={payment._id}
-  style={{
-    borderBottom: "1px solid #e5e7eb",
-  }}
->
-            <td style={{ padding: "12px" }}>
-              {new Date(payment.createdAt).toLocaleDateString("en-IN", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-})}
-            </td>
+  {payments.map((payment) => (
+    <tr
+      key={payment._id}
+      style={{
+        borderBottom: "1px solid #e5e7eb",
+      }}
+    >
+      <td style={{ padding: "12px" }}>
+        {new Date(payment.createdAt).toLocaleDateString(
+          "en-IN",
+          {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          }
+        )}
+      </td>
 
-            <td style={{ padding: "12px" }}>
-              ₹{payment.amount.toFixed(2)}
-            </td>
+      <td style={{ padding: "12px" }}>
+        ₹{Number(payment.amount || 0).toFixed(2)}
+      </td>
 
-            <td style={{ padding: "12px" }}>
-              {payment.status === "success" ? (
-<span
-  style={{
-    background: "#DCFCE7",
-    color: "#166534",
-    padding: "6px 12px",
-    borderRadius: "999px",
-    fontWeight: "600",
-    fontSize: "13px",
-  }}
->
-  Success
-</span>
-              ) : (
- <span
-  style={{
-    background: "#FEE2E2",
-    color: "#991B1B",
-    padding: "6px 12px",
-    borderRadius: "999px",
-    fontWeight: "600",
-    fontSize: "13px",
-  }}
->
-  Failed
-</span>
-              )}
-            </td>
+      <td style={{ padding: "12px" }}>
+        {payment.status === "captured" ? (
+          <span
+            style={{
+              background: "#DCFCE7",
+              color: "#166534",
+              padding: "6px 12px",
+              borderRadius: "999px",
+              fontWeight: "600",
+              fontSize: "13px",
+            }}
+          >
+            Success
+          </span>
+        ) : payment.status === "failed" ? (
+          <span
+            style={{
+              background: "#FEE2E2",
+              color: "#991B1B",
+              padding: "6px 12px",
+              borderRadius: "999px",
+              fontWeight: "600",
+              fontSize: "13px",
+            }}
+          >
+            Failed
+          </span>
+        ) : (
+          <span
+            style={{
+              background: "#FEF3C7",
+              color: "#92400E",
+              padding: "6px 12px",
+              borderRadius: "999px",
+              fontWeight: "600",
+              fontSize: "13px",
+            }}
+          >
+            {payment.status}
+          </span>
+        )}
+      </td>
 
-            <td style={{ padding: "12px" }}>
-              <span title={payment.orderId}>
-  {payment.orderId.length > 18
-  ? payment.orderId.slice(0, 18) + "..."
-  : payment.orderId}
-</span>
-            </td>
-          </tr>
-        ))}
-      </tbody>
+      <td style={{ padding: "12px" }}>
+        <span title={payment.razorpayPaymentId || ""}>
+          {payment.razorpayPaymentId
+            ? payment.razorpayPaymentId.length > 18
+              ? payment.razorpayPaymentId.slice(0, 18) + "..."
+              : payment.razorpayPaymentId
+            : "-"}
+        </span>
+      </td>
+    </tr>
+  ))}
+</tbody>
 </table>
 </div>
 )}

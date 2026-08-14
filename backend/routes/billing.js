@@ -17,48 +17,25 @@ const createSubscription = async (req, res) => {
       });
     }
 
-    const now = new Date();
-
-    // ==========================================
-    // USER IS STILL IN FREE TRIAL
-    // ==========================================
+    // =========================================
+    // BLOCK SUBSCRIPTION DURING FREE TRIAL
+    // =========================================
 
     if (
       user.subscriptionStatus === "trial" &&
       user.trialEndDate &&
-      new Date(user.trialEndDate) > now
+      new Date(user.trialEndDate) > new Date()
     ) {
-      const trialEnd = new Date(user.trialEndDate);
-
-      const daysRemaining = Math.ceil(
-        (trialEnd.getTime() - now.getTime()) /
-          (1000 * 60 * 60 * 24)
-      );
-
       return res.status(400).json({
         success: false,
-        message: `Your free trial is still active. You can subscribe after your trial ends.`,
-        trialEndDate: trialEnd,
-        daysRemaining,
+        message:
+          "Your 7-day free trial is still active. No payment is required yet.",
       });
     }
 
-    // ==========================================
-    // TRIAL HAS EXPIRED
-    // ==========================================
-
-    if (
-      user.subscriptionStatus === "trial" &&
-      user.trialEndDate &&
-      new Date(user.trialEndDate) <= now
-    ) {
-      user.subscriptionStatus = "expired";
-      await user.save();
-    }
-
-    // ==========================================
+    // =========================================
     // ALREADY ACTIVE
-    // ==========================================
+    // =========================================
 
     if (user.subscriptionStatus === "active") {
       return res.status(400).json({
@@ -67,15 +44,10 @@ const createSubscription = async (req, res) => {
       });
     }
 
-    // ==========================================
-    // CREATE REAL RAZORPAY SUBSCRIPTION
-    //
-    // IMPORTANT:
-    // NO start_at HERE.
-    //
-    // The trial has already ended.
-    // The customer is now subscribing.
-    // ==========================================
+    // =========================================
+    // CREATE RAZORPAY SUBSCRIPTION
+    // ONLY AFTER TRIAL ENDS
+    // =========================================
 
     const subscription =
       await razorpay.subscriptions.create({
@@ -94,14 +66,12 @@ const createSubscription = async (req, res) => {
         },
       });
 
-    // ==========================================
+    // =========================================
     // SAVE RAZORPAY SUBSCRIPTION ID
-    // ==========================================
+    // =========================================
 
     user.razorpaySubscriptionId =
       subscription.id;
-
-    user.currentPlan = "starter";
 
     await user.save();
 
@@ -128,25 +98,28 @@ const createSubscription = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message:
-        err.response?.error?.description ||
-        err.message ||
-        "Unable to create subscription",
+      message: err.message,
     });
   }
 };
+
 const getPaymentHistory = async (req, res) => {
   try {
     const payments = await Payment.find({
       userId: req.user.id,
     }).sort({ createdAt: -1 });
 
-    res.json({
+    return res.json({
       success: true,
       payments,
     });
   } catch (err) {
-    res.status(500).json({
+    console.error(
+      "PAYMENT HISTORY ERROR:",
+      err
+    );
+
+    return res.status(500).json({
       success: false,
       message: err.message,
     });
