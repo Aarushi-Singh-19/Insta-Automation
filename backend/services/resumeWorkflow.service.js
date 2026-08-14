@@ -8,7 +8,8 @@ class ResumeWorkflowService {
     }
 
     // Atomically acquire the waiting session.
-    // This prevents duplicate clicks from resuming the same session twice.
+    // This prevents duplicate verification clicks
+    // from resuming the same session twice.
     const session = await GateSession.findOneAndUpdate(
       {
         verificationToken: token,
@@ -25,11 +26,13 @@ class ResumeWorkflowService {
     );
 
     if (!session) {
-      throw new Error("SESSION_NOT_FOUND_OR_ALREADY_PROCESSING");
+      throw new Error(
+        "SESSION_NOT_FOUND_OR_ALREADY_PROCESSING"
+      );
     }
 
     try {
-      // Check expiration before resuming the workflow.
+      // Check expiration before resuming.
       if (session.expiresAt < new Date()) {
         session.status = "EXPIRED";
         await session.save();
@@ -42,52 +45,86 @@ class ResumeWorkflowService {
         throw new Error("INVALID_GATE_TYPE");
       }
 
-      // There must be stored actions to resume.
-      // We never rebuild the workflow here.
-      if (!Array.isArray(session.actions) || session.actions.length === 0) {
+      // There must be stored actions.
+      if (
+        !Array.isArray(session.actions) ||
+        session.actions.length === 0
+      ) {
         throw new Error("NO_ACTIONS_TO_RESUME");
       }
 
-      // Re-queue the exact action snapshot created before
-      // the workflow was paused.
-      for (const action of session.actions) {
-        await actionQueue.add(
-          "process-comment",
-          {
-            action,
+      console.log(
+        "🔓 RESUMING FOLLOW GATE:",
+        session._id.toString()
+      );
 
-            campaignId: session.campaignId,
+      console.log(
+        "📦 ACTIONS TO RESUME:",
+        JSON.stringify(session.actions, null, 2)
+      );
 
-            commentId: session.commentId,
+      /*
+       * IMPORTANT:
+       *
+       * Previously we created one BullMQ job per action.
+       *
+       * That caused the resumed send_dm action to remain
+       * unprocessed even though the job was successfully
+       * created.
+       *
+       * We now create ONE resume job containing the complete
+       * immutable action snapshot.
+       *
+       * The worker will execute these actions sequentially.
+       */
 
-            ruleId: session.ruleId,
+      const job = await actionQueue.add(
+        "process-gate-resume",
+        {
+          actions: session.actions.map((action) => ({
+            type: action.type,
+            username: action.username,
+            recipientId: action.recipientId,
+            message: action.message,
+            campaignId: action.campaignId,
+            ruleId: action.ruleId,
+          })),
 
-            userId: session.userId,
+          campaignId: session.campaignId,
 
-            username: session.username,
+          commentId: session.commentId,
 
-            recipientId: session.recipientId,
+          ruleId: session.ruleId,
 
-            isGateResume: true,
+          userId: session.userId,
 
-            receivedAt: new Date(),
+          username: session.username,
+
+          recipientId: session.recipientId,
+
+          isGateResume: true,
+
+          receivedAt: new Date(),
+        },
+        {
+          attempts: 3,
+
+          backoff: {
+            type: "exponential",
+            delay: 5000,
           },
-          {
-            attempts: 3,
 
-            backoff: {
-              type: "exponential",
-              delay: 5000,
-            },
+          removeOnComplete: 1000,
 
-            removeOnComplete: 1000,
+          removeOnFail: 5000,
+        }
+      );
 
-            removeOnFail: 5000,
-          }
-        );
-      }
+      console.log(
+        "✅ FOLLOW GATE RESUME JOB QUEUED:",
+        job.id
+      );
 
-      // All actions were successfully added to BullMQ.
       session.status = "COMPLETED";
       session.completedAt = new Date();
 
@@ -95,7 +132,7 @@ class ResumeWorkflowService {
 
       return session;
     } catch (err) {
-      // If the session expired, do not move it back to WAITING.
+      // If the session expired, don't move it back to WAITING.
       if (session.status !== "EXPIRED") {
         session.status = "WAITING";
         await session.save();
