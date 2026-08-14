@@ -1,5 +1,4 @@
 const GateSession = require("../models/GateSession");
-const actionQueue = require("../queues/action.queue");
 
 class ResumeWorkflowService {
   async resume(token) {
@@ -9,7 +8,7 @@ class ResumeWorkflowService {
 
     // Atomically acquire the waiting session.
     // This prevents duplicate verification clicks
-    // from resuming the same session twice.
+    // from completing the same session twice.
     const session = await GateSession.findOneAndUpdate(
       {
         verificationToken: token,
@@ -32,7 +31,7 @@ class ResumeWorkflowService {
     }
 
     try {
-      // Check expiration before resuming.
+      // Check expiration.
       if (session.expiresAt < new Date()) {
         session.status = "EXPIRED";
         await session.save();
@@ -45,85 +44,45 @@ class ResumeWorkflowService {
         throw new Error("INVALID_GATE_TYPE");
       }
 
-      // There must be stored actions.
-      if (
-        !Array.isArray(session.actions) ||
-        session.actions.length === 0
-      ) {
-        throw new Error("NO_ACTIONS_TO_RESUME");
-      }
-
       console.log(
-        "🔓 RESUMING FOLLOW GATE:",
+        "✅ FOLLOW VERIFIED:",
         session._id.toString()
       );
 
       console.log(
-        "📦 ACTIONS TO RESUME:",
-        JSON.stringify(session.actions, null, 2)
-      );
-
-      /*
-       * IMPORTANT:
-       *
-       * Previously we created one BullMQ job per action.
-       *
-       * That caused the resumed send_dm action to remain
-       * unprocessed even though the job was successfully
-       * created.
-       *
-       * We now create ONE resume job containing the complete
-       * immutable action snapshot.
-       *
-       * The worker will execute these actions sequentially.
-       */
-
-      const job = await actionQueue.add(
-        "process-gate-resume",
-        {
-          actions: session.actions.map((action) => ({
-            type: action.type,
-            username: action.username,
-            recipientId: action.recipientId,
-            message: action.message,
-            campaignId: action.campaignId,
-            ruleId: action.ruleId,
-          })),
-
-          campaignId: session.campaignId,
-
-          commentId: session.commentId,
-
-          ruleId: session.ruleId,
-
-          userId: session.userId,
-
-          username: session.username,
-
-          recipientId: session.recipientId,
-
-          isGateResume: true,
-
-          receivedAt: new Date(),
-        },
-        {
-          attempts: 3,
-
-          backoff: {
-            type: "exponential",
-            delay: 5000,
-          },
-
-          removeOnComplete: 1000,
-
-          removeOnFail: 5000,
-        }
+        "📌 Original comment:",
+        session.commentId
       );
 
       console.log(
-        "✅ FOLLOW GATE RESUME JOB QUEUED:",
-        job.id
+        "📌 User:",
+        session.username
       );
+
+      /*
+       * IMPORTANT
+       *
+       * We intentionally DO NOT resume the old actions here.
+       *
+       * The original comment may now be outside Meta's
+       * allowed messaging window.
+       *
+       * Instead:
+       *
+       * Follow verification
+       *        ↓
+       * GateSession completed
+       *        ↓
+       * User comments again
+       *        ↓
+       * Existing Follow Gate checks follower status
+       *        ↓
+       * Already following
+       *        ↓
+       * Gate bypassed
+       *        ↓
+       * Fresh comment actions are sent normally.
+       */
 
       session.status = "COMPLETED";
       session.completedAt = new Date();
@@ -131,6 +90,7 @@ class ResumeWorkflowService {
       await session.save();
 
       return session;
+
     } catch (err) {
       // If the session expired, don't move it back to WAITING.
       if (session.status !== "EXPIRED") {

@@ -55,9 +55,9 @@ function FollowVerify() {
 
         if (data.verified) {
           setStatus("success");
-          setMessage(
-            "You're following! Your DM is being unlocked."
-          );
+  setMessage(
+  "Your follow has been verified successfully. Please comment again on the post to receive your requested DM."
+);
           return;
         }
 
