@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 const API_BASE_URL =
@@ -12,6 +12,7 @@ function FollowVerify() {
   const [message, setMessage] = useState(
     "Verifying your follow..."
   );
+  const verificationStarted = useRef(false);
 
   useEffect(() => {
     const token = searchParams.get("token");
@@ -23,7 +24,13 @@ function FollowVerify() {
     }
 
     const verifyFollow = async () => {
-      try {
+  if (verificationStarted.current) {
+    return;
+  }
+
+  verificationStarted.current = true;
+
+  try {
         
           const response = await fetch(
   `${API_BASE_URL}/follow/verify-follow`,
