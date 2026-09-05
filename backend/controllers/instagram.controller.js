@@ -466,16 +466,13 @@ console.log(
 
 console.log("TOKEN USER ID:", instagramUserId);
 
-const longLivedTokenResponse = await axios.post(
+const longLivedTokenResponse = await axios.get(
   "https://graph.instagram.com/access_token",
-  new URLSearchParams({
-    grant_type: "ig_exchange_token",
-    client_secret: process.env.INSTAGRAM_APP_SECRET,
-    access_token: accessToken,
-  }),
   {
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
+    params: {
+      grant_type: "ig_exchange_token",
+      client_secret: process.env.INSTAGRAM_APP_SECRET,
+      access_token: accessToken,
     },
   }
 );
