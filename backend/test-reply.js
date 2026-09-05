@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const axios = require("axios");
 
 async function test() {
@@ -8,7 +10,7 @@ async function test() {
       {
         params: {
           message: "TriggerDM Test Reply 🚀",
-          access_token: "IGAATJcmTAetFBZAFpPaEZA4MWYtbjRvbEVOQ3BQWnRYMTFuU0JDSVpNSVNtdEUxbF96Y0VJQTZAIMXp3SWswTkl2d2QzZAkNHVXBkX0haUlN6UjAzcHYwNWJseU1SbmV4dnAzcEpJMnNSdjVfZA2lmenptRmZA3"
+         access_token: process.env.INSTAGRAM_ACCESS_TOKEN
         }
       }
     );
