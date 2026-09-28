@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const GRAPH_VERSION = "v19.0";
+const GRAPH_VERSION = "v25.0";
 
 async function replyToComment({ accessToken, commentId, message }) {
   try {
