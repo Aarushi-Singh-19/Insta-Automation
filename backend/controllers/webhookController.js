@@ -6,8 +6,6 @@ const InstagramAccount = require("../models/InstagramAccount");
 
 const commentProcessor = require("../services/commentProcessor.js");
 
-const FollowVerificationService = require("../services/followVerification.service");
-const ResumeWorkflowService = require("../services/resumeWorkflow.service");
 
 
 const { findMatchingRule } = require("../utils/ruleEngine");
@@ -78,38 +76,20 @@ const receiveWebhook = async (req, res) => {
             );
 
     
+
 if (messagingEvent.postback) {
-  const payload = messagingEvent.postback.payload || "";
-  console.log("🔘 POSTBACK RECEIVED:", payload);
+  console.log("🔘 POSTBACK RECEIVED");
 
-  if (payload.startsWith("FOLLOW_GATE_VERIFY:")) {
-    const token = payload.slice("FOLLOW_GATE_VERIFY:".length);
-    const senderId = messagingEvent.sender?.id;
-
-    try {
-      const result = await FollowVerificationService.verify(token);
-
-      if (
-        result.session?.recipientId &&
-        String(result.session.recipientId) !== String(senderId)
-      ) {
-        console.warn("FOLLOW GATE: Postback sender mismatch");
-        continue;
-      }
-
-      if (!result.verified) {
-        console.log("FOLLOW GATE: User has not followed yet");
-        continue;
-      }
-
-      await ResumeWorkflowService.resume(token);
-
-      console.log("FOLLOW GATE: Verified and workflow queued");
-    } catch (error) {
-      console.error("FOLLOW GATE POSTBACK ERROR:", error.message);
-    }
-  }
+  console.log(
+    "POSTBACK:",
+    JSON.stringify(
+      messagingEvent.postback,
+      null,
+      2
+    )
+  );
 }
+
 
           }
         }

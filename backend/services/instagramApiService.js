@@ -108,36 +108,36 @@ async function sendFollowGateMessage({
       ? { comment_id: commentId }
       : { id: recipientId };
 
-    const payload = {
-      recipient,
-      message: {
-        attachment: {
-          type: "template",
-          payload: {
-            template_type: "generic",
-            elements: [
-              {
-                title:
-                  openingMessage ||
-                  "Follow us to unlock your DM.",
-                buttons: [
-                  {
-                    type: "web_url",
-                    url: profileUrl,
-                    title: "Visit Profile",
-                  },
-                  {
-                    type: "postback",
-                    title: buttonText || "I'm Following",
-                    payload: `FOLLOW_GATE_VERIFY:${verificationToken}`,
-                  },
-                ],
-              },
-            ],
+
+const payload = {
+  recipient,
+  message: {
+    attachment: {
+      type: "template",
+      payload: {
+        template_type: "button",
+        text:
+          openingMessage ||
+          "Follow us to unlock your DM.",
+        buttons: [
+          {
+            type: "web_url",
+            url: profileUrl,
+            title: "Visit Profile",
           },
-        },
+          {
+            type: "web_url",
+            title: buttonText || "I'm Following",
+            url: `https://triggerdm.in/follow/verify?token=${encodeURIComponent(
+              verificationToken
+            )}`,
+          },
+        ],
       },
-    };
+    },
+  },
+};
+
 
     console.log("FOLLOW GATE RECIPIENT:", {
       commentId,
