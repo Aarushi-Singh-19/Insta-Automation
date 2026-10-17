@@ -1,4 +1,3 @@
-
 const GateSession = require("../models/GateSession");
 
 class ResumeWorkflowService {
@@ -60,13 +59,40 @@ class ResumeWorkflowService {
         session.username
       );
 
+      /*
+       * IMPORTANT
+       *
+       * We intentionally DO NOT resume the old actions here.
+       *
+       * The original comment may now be outside Meta's
+       * allowed messaging window.
+       *
+       * Instead:
+       *
+       * Follow verification
+       *        ↓
+       * GateSession completed
+       *        ↓
+       * User comments again
+       *        ↓
+       * Existing Follow Gate checks follower status
+       *        ↓
+       * Already following
+       *        ↓
+       * Gate bypassed
+       *        ↓
+       * Fresh comment actions are sent normally.
+       */
+
       session.status = "COMPLETED";
       session.completedAt = new Date();
 
       await session.save();
 
       return session;
+
     } catch (err) {
+      // If the session expired, don't move it back to WAITING.
       if (session.status !== "EXPIRED") {
         session.status = "WAITING";
         await session.save();

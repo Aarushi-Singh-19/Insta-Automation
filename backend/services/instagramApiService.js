@@ -81,6 +81,7 @@ async function sendDM({
     throw err;
   }
 }
+
 async function sendFollowGateMessage({
   accessToken,
   instagramBusinessId,
@@ -105,58 +106,84 @@ async function sendFollowGateMessage({
       `${instagramBusinessId}/messages`;
 
     const recipient = commentId
-      ? { comment_id: commentId }
-      : { id: recipientId };
+      ? {
+          comment_id: commentId,
+        }
+      : {
+          id: recipientId,
+        };
 
+    const payload = {
+      recipient,
 
-const payload = {
-  recipient,
-  message: {
-    attachment: {
-      type: "template",
-      payload: {
-        template_type: "button",
-        text:
-          openingMessage ||
-          "Follow us to unlock your DM.",
-        buttons: [
-          {
-            type: "web_url",
-            url: profileUrl,
-            title: "Visit Profile",
+      message: {
+        attachment: {
+          type: "template",
+
+          payload: {
+            template_type: "button",
+
+            text:
+              openingMessage ||
+              "Follow us to unlock your DM.",
+
+            buttons: [
+              {
+                type: "web_url",
+                url: profileUrl,
+                title: "Visit Profile",
+              },
+
+       {
+  type: "web_url",
+  title:
+    buttonText ||
+    "I'm Following",
+  url:
+    `https://triggerdm.in/follow/verify?token=${encodeURIComponent(
+      verificationToken
+    )}`,
+},
+            ],
           },
-          {
-            type: "web_url",
-            title: buttonText || "I'm Following",
-            url: `https://triggerdm.in/follow/verify?token=${encodeURIComponent(
-              verificationToken
-            )}`,
-          },
-        ],
+        },
       },
-    },
-  },
-};
+    };
 
-
-    console.log("FOLLOW GATE RECIPIENT:", {
-      commentId,
-      recipientId,
-      usingCommentId: Boolean(commentId),
-    });
+    // ===============================
+    // DEBUG RECIPIENT
+    // ===============================
+    console.log(
+      "FOLLOW GATE RECIPIENT:",
+      {
+        commentId,
+        recipientId,
+        usingCommentId: Boolean(commentId),
+      }
+    );
 
     console.log(
       "FOLLOW GATE PAYLOAD:",
       JSON.stringify(payload, null, 2)
     );
 
-    const res = await axios.post(url, payload, {
-      params: {
-        access_token: accessToken,
-      },
-    });
+    // ===============================
+    // SEND MESSAGE
+    // ===============================
+    const res = await axios.post(
+      url,
+      payload,
+      {
+        params: {
+          access_token: accessToken,
+        },
+      }
+    );
 
-    console.log("FOLLOW GATE DM SUCCESS:", res.data);
+    console.log(
+      "FOLLOW GATE DM SUCCESS:",
+      res.data
+    );
 
     return res.data;
   } catch (err) {
@@ -172,3 +199,41 @@ const payload = {
     throw err;
   }
 }
+  async function getUserProfile({
+  accessToken,
+  instagramScopedUserId,
+}) {
+  try {
+    const url =
+      `https://graph.instagram.com/${GRAPH_VERSION}/` +
+      instagramScopedUserId;
+
+    const res = await axios.get(url, {
+      params: {
+        fields:
+          "id,name,username,profile_pic,follower_count,is_user_follow_business,is_business_follow_user",
+        access_token: accessToken,
+      },
+    });
+
+    console.log("USER PROFILE RESPONSE:");
+    console.dir(res.data, { depth: null });
+
+    return res.data;
+  } catch (err) {
+    console.log(
+      "USER PROFILE ERROR:",
+      JSON.stringify(err.response?.data || err.message, null, 2)
+    );
+
+    throw err;
+  }
+}
+
+
+module.exports = {
+  replyToComment,
+  sendDM,
+  sendFollowGateMessage,
+  getUserProfile,
+};

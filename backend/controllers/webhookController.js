@@ -7,7 +7,6 @@ const InstagramAccount = require("../models/InstagramAccount");
 const commentProcessor = require("../services/commentProcessor.js");
 
 
-
 const { findMatchingRule } = require("../utils/ruleEngine");
 const { findActiveCampaignByPost } = require("../utils/campaignResolver");
 const actionBuilder =
@@ -75,22 +74,18 @@ const receiveWebhook = async (req, res) => {
               )
             );
 
-    
+            if (messagingEvent.postback) {
+              console.log("🔘 POSTBACK RECEIVED");
 
-if (messagingEvent.postback) {
-  console.log("🔘 POSTBACK RECEIVED");
-
-  console.log(
-    "POSTBACK:",
-    JSON.stringify(
-      messagingEvent.postback,
-      null,
-      2
-    )
-  );
-}
-
-
+              console.log(
+                "POSTBACK:",
+                JSON.stringify(
+                  messagingEvent.postback,
+                  null,
+                  2
+                )
+              );
+            }
           }
         }
       }
