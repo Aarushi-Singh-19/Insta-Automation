@@ -7,7 +7,12 @@ require("dotenv").config({
 const connection = require("../config/redis");
 const connectDB = require("../config/db");
 
+
 const { Worker } = require("bullmq");
+
+const {
+  getUserSubscriptionAccess,
+} = require("../services/subscriptionAccess.service");
 
 const MetricsService = require("../services/metrics.service");
 const ActionService = require("../services/action.service");
@@ -58,6 +63,29 @@ const startWorker = async () => {
 
       console.log("WORKER USER ID:", userId);
       console.log("WORKER USER ID TYPE:", typeof userId);
+
+      // =========================
+// SUBSCRIPTION ACCESS CHECK
+// =========================
+const { user, hasAccess } =
+  await getUserSubscriptionAccess(userId);
+
+if (!user || !hasAccess) {
+  console.log(
+    "⛔ JOB BLOCKED — SUBSCRIPTION ACCESS DENIED:",
+    {
+      jobId: job.id,
+      userId,
+      commentId,
+    }
+  );
+
+  return {
+    success: false,
+    blocked: true,
+    reason: "SUBSCRIPTION_REQUIRED",
+  };
+}
 
       /*
        * ==========================================================
