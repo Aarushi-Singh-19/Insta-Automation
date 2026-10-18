@@ -36,18 +36,27 @@ const handleRazorpayWebhook = async (req, res) => {
     // 2. VERIFY RAZORPAY SIGNATURE
     // ==========================================
 
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+    if (!webhookSecret) {
+      console.error("RAZORPAY_WEBHOOK_SECRET is not configured");
+      return res.status(500).json({
+        success: false,
+        message: "Webhook configuration error",
+      });
+    }
+
     const expectedSignature = crypto
-      .createHmac(
-        "sha256",
-        process.env.RAZORPAY_WEBHOOK_SECRET
-      )
+      .createHmac("sha256", webhookSecret)
       .update(rawBody)
       .digest("hex");
 
+    const suppliedSignature = String(webhookSignature);
     if (
+      !/^[a-fA-F0-9]{64}$/.test(suppliedSignature) ||
       !crypto.timingSafeEqual(
-        Buffer.from(expectedSignature),
-        Buffer.from(webhookSignature)
+        Buffer.from(expectedSignature, "hex"),
+        Buffer.from(suppliedSignature, "hex")
       )
     ) {
       console.error(
@@ -240,7 +249,11 @@ const handleRazorpayWebhook = async (req, res) => {
                 chargedPayment.id,
             });
 
-          if (!existingPayment) {
+          if (
+            !existingPayment &&
+            Number.isFinite(chargedPayment.amount) &&
+            chargedPayment.amount > 0
+          ) {
             await Payment.create({
               userId: user._id,
 
@@ -250,10 +263,7 @@ const handleRazorpayWebhook = async (req, res) => {
               razorpaySubscriptionId:
                 subscription.id,
 
-              amount:
-                chargedPayment.amount
-                  ? chargedPayment.amount / 100
-                  : 99,
+              amount: chargedPayment.amount / 100,
 
               currency:
                 chargedPayment.currency || "INR",
