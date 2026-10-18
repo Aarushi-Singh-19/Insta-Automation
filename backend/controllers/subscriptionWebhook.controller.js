@@ -5,6 +5,8 @@ const Payment = require("../models/Payment");
 const WebhookEvent = require("../models/WebhookEvent");
 
 const handleRazorpayWebhook = async (req, res) => {
+  let eventId;
+
   try {
     // ==========================================
     // 1. GET RAW BODY + SIGNATURE
@@ -77,7 +79,7 @@ const handleRazorpayWebhook = async (req, res) => {
       rawBody.toString("utf8")
     );
 
-    const eventId = event.id;
+    eventId = req.headers["x-razorpay-event-id"] || event.id;
     const eventType = event.event;
 
     if (!eventId || !eventType) {
@@ -95,23 +97,54 @@ const handleRazorpayWebhook = async (req, res) => {
     );
 
     // ==========================================
-    // 4. IDEMPOTENCY CHECK
+    // 4. ATOMIC WEBHOOK EVENT CLAIM
     // ==========================================
 
-    const existingEvent =
-      await WebhookEvent.findOne({
-        eventId,
-      });
+    const now = new Date();
+    const leaseMs = 2 * 60 * 1000;
+    let claimedEvent;
 
-    if (existingEvent) {
-      console.log(
-        "♻️ Duplicate Razorpay webhook ignored:",
-        eventId
+    try {
+      claimedEvent = await WebhookEvent.findOneAndUpdate(
+        {
+          eventId,
+          $or: [
+            { status: "failed" },
+            { status: "processing", lockedUntil: { $lte: now } },
+          ],
+        },
+        {
+          $set: {
+            eventType,
+            status: "processing",
+            lockedUntil: new Date(now.getTime() + leaseMs),
+            lastError: null,
+          },
+          $inc: { attempts: 1 },
+        },
+        { new: true }
       );
 
-      return res.status(200).json({
-        success: true,
-        duplicate: true,
+      if (!claimedEvent) {
+        claimedEvent = await WebhookEvent.create({
+          eventId,
+          eventType,
+          status: "processing",
+          lockedUntil: new Date(now.getTime() + leaseMs),
+          attempts: 1,
+        });
+      }
+    } catch (claimError) {
+      if (claimError.code !== 11000) throw claimError;
+
+      const existingEvent = await WebhookEvent.findOne({ eventId });
+      if (existingEvent?.status === "processed") {
+        return res.status(200).json({ success: true, duplicate: true });
+      }
+
+      return res.status(503).json({
+        success: false,
+        message: "Webhook is already being processed; retry later",
       });
     }
 
@@ -590,41 +623,44 @@ const handleRazorpayWebhook = async (req, res) => {
     // 14. MARK WEBHOOK PROCESSED
     // ==========================================
 
-    try {
-      await WebhookEvent.create({
-        eventId,
-        eventType,
-      });
-    } catch (idempotencyError) {
-      /*
-       * If another webhook worker/request already
-       * inserted this event, MongoDB's unique index
-       * prevents a duplicate.
-       *
-       * The actual payment record is additionally
-       * protected by razorpayPaymentId.
-       */
-
-      if (
-        idempotencyError.code !== 11000
-      ) {
-        throw idempotencyError;
+    await WebhookEvent.findOneAndUpdate(
+      { eventId, status: "processing" },
+      {
+        $set: {
+          status: "processed",
+          processedAt: new Date(),
+          lockedUntil: null,
+          lastError: null,
+        },
       }
-    }
+    );
 
     return res.status(200).json({
       success: true,
     });
   } catch (error) {
-    console.error(
-      "RAZORPAY WEBHOOK ERROR:",
-      error
-    );
+    console.error("RAZORPAY WEBHOOK ERROR:", error);
+
+    if (eventId) {
+      try {
+        await WebhookEvent.findOneAndUpdate(
+          { eventId, status: "processing" },
+          {
+            $set: {
+              status: "failed",
+              lockedUntil: null,
+              lastError: String(error.message || error).slice(0, 1000),
+            },
+          }
+        );
+      } catch (markError) {
+        console.error("FAILED TO MARK WEBHOOK FOR RETRY:", markError);
+      }
+    }
 
     return res.status(500).json({
       success: false,
-      message:
-        "Webhook processing failed",
+      message: "Webhook processing failed",
     });
   }
 };
