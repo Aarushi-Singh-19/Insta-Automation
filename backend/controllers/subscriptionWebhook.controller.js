@@ -138,7 +138,9 @@ const handleRazorpayWebhook = async (req, res) => {
       if (claimError.code !== 11000) throw claimError;
 
       const existingEvent = await WebhookEvent.findOne({ eventId });
-      if (existingEvent?.status === "processed") {
+      // Legacy records were created only after successful processing
+      // and have no status field, so treat them as already processed.
+      if (existingEvent && (!existingEvent.status || existingEvent.status === "processed")) {
         return res.status(200).json({ success: true, duplicate: true });
       }
 
