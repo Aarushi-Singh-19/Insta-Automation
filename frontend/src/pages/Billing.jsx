@@ -249,7 +249,7 @@ const daysRemaining = user?.trialEndDate
           color: "#111827",
         }}
       >
-        ₹99
+        ₹199
       </span>
 
       <span
@@ -351,7 +351,7 @@ const daysRemaining = user?.trialEndDate
           name: "TriggerDM",
 
           description:
-            "TriggerDM Starter - ₹99/month",
+            "TriggerDM Starter - ₹199/month",
 
           prefill: {
             name: user?.name || "",
@@ -446,7 +446,7 @@ const daysRemaining = user?.trialEndDate
       cursor: "pointer",
     }}
   >
-    Subscribe for ₹99/month
+    Subscribe for ₹199/month
   </button>
 )}
   </div>
