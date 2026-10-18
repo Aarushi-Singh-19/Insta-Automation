@@ -12,7 +12,7 @@ function Pricing() {
           </h2>
 
           <p className="mt-4 text-lg text-gray-500">
-            Try TriggerDM free for 7 days. Upgrade anytime for just ₹99/month.
+            Try TriggerDM free for 7 days. Upgrade anytime for just ₹199/month.
           </p>
         </div>
 
@@ -28,7 +28,7 @@ function Pricing() {
 
           <div className="mt-6">
             <p className="text-6xl font-extrabold text-gray-900">
-              ₹99
+              ₹199
             </p>
 
             <p className="mt-2 text-lg text-gray-500">
