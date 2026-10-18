@@ -1,6 +1,10 @@
 const ProcessedEvent = require("../models/processedEvent.model");
 const Rule = require("../models/Rule");
 
+const {
+  getUserSubscriptionAccess,
+} = require("./subscriptionAccess.service");
+
 const { findMatchingRule } = require("../utils/ruleEngine");
 const { findActiveCampaignByPost } = require("../utils/campaignResolver");
 
@@ -58,26 +62,7 @@ if (commentTimestamp) {
   }
 }
 
-  // ===============================
-  // DUPLICATE CHECK
-  // ===============================
-  const existing = await ProcessedEvent.findOne({
-    eventId,
-  });
 
-  if (existing) {
-    console.log("🚨 COMMENT PROCESSOR EXECUTED");
-    console.log("Duplicate event ignored:", eventId);
-    return;
-  }
-
-  await ProcessedEvent.create({
-    eventId,
-    type: "comment",
-    status: "processed",
-  });
-
-  console.log("New event stored:", eventId);
 
   // ===============================
   // FIND CAMPAIGN
@@ -112,6 +97,47 @@ console.log("INSTAGRAM ACCOUNT FOUND:", {
     campaignId: campaign._id,
     userId: campaign.userId,
   });
+
+
+  // ===============================
+// SUBSCRIPTION ACCESS CHECK
+// ===============================
+const { user, hasAccess } =
+  await getUserSubscriptionAccess(campaign.userId);
+
+if (!user || !hasAccess) {
+  console.log(
+    "SUBSCRIPTION ACCESS DENIED — COMMENT NOT PROCESSED:",
+    {
+      eventId,
+      userId: campaign.userId,
+    }
+  );
+
+  return;
+}
+
+  // ===============================
+  // DUPLICATE CHECK
+  // ===============================
+  const existing = await ProcessedEvent.findOne({
+    eventId,
+  });
+
+  if (existing) {
+    console.log("🚨 COMMENT PROCESSOR EXECUTED");
+    console.log("Duplicate event ignored:", eventId);
+    return;
+  }
+
+  await ProcessedEvent.create({
+    eventId,
+    type: "comment",
+    status: "processed",
+  });
+
+  console.log("New event stored:", eventId);
+
 
   // ===============================
   // FIND ACTIVE RULES

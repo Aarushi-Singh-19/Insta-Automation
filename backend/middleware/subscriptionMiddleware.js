@@ -1,8 +1,12 @@
-const User = require("../models/User");
+
+const {
+  getUserSubscriptionAccess,
+} = require("../services/subscriptionAccess.service");
 
 const subscriptionMiddleware = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id);
+    const { user, hasAccess } =
+      await getUserSubscriptionAccess(req.user.id);
 
     if (!user) {
       return res.status(404).json({
@@ -11,30 +15,7 @@ const subscriptionMiddleware = async (req, res, next) => {
       });
     }
 
-const today = new Date();
-
-console.log("========== SUBSCRIPTION CHECK ==========");
-
-console.log({
-  userId: user._id.toString(),
-  subscriptionStatus: user.subscriptionStatus,
-  trialEndDate: user.trialEndDate,
-  planEndDate: user.planEndDate,
-  today,
-});
-
-const trialActive =
-  user.subscriptionStatus === "trial" &&
-  user.trialEndDate &&
-  new Date(user.trialEndDate) > today;
-
-    const paidActive =
-      user.subscriptionStatus === "active" &&
-      user.planEndDate &&
-new Date(user.planEndDate).getTime() > Date.now()
-new Date(user.trialEndDate).getTime() > Date.now()
-
-    if (trialActive || paidActive) {
+    if (hasAccess) {
       return next();
     }
 
@@ -43,7 +24,7 @@ new Date(user.trialEndDate).getTime() > Date.now()
       message: "Subscription required",
     });
   } catch (error) {
-    console.error(error);
+    console.error("SUBSCRIPTION MIDDLEWARE ERROR:", error);
 
     return res.status(500).json({
       success: false,

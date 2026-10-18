@@ -45,14 +45,55 @@ const createSubscription = async (req, res) => {
     }
 
     // =========================================
+    // REUSE A PENDING SUBSCRIPTION
+    // Avoid creating multiple Razorpay subscriptions
+    // when a user retries checkout.
+    // =========================================
+
+    if (user.razorpaySubscriptionId) {
+      let existingSubscription;
+      try {
+        existingSubscription = await razorpay.subscriptions.fetch(
+          user.razorpaySubscriptionId
+        );
+      } catch (fetchError) {
+        console.error("EXISTING SUBSCRIPTION LOOKUP ERROR:", fetchError);
+        return res.status(502).json({
+          success: false,
+          message: "Could not verify your existing subscription. Please retry shortly.",
+        });
+      }
+
+      if (["created", "authenticated", "pending"].includes(existingSubscription.status)) {
+        return res.json({
+          success: true,
+          subscription: {
+            id: existingSubscription.id,
+            planId: existingSubscription.plan_id,
+            status: existingSubscription.status,
+            startAt: existingSubscription.start_at,
+          },
+        });
+      }
+    }
+
+    const planId = process.env.RAZORPAY_MONTHLY_PLAN_ID;
+    if (!planId) {
+      console.error("RAZORPAY_MONTHLY_PLAN_ID is not configured");
+      return res.status(503).json({
+        success: false,
+        message: "Subscription billing is temporarily unavailable.",
+      });
+    }
+
+    // =========================================
     // CREATE RAZORPAY SUBSCRIPTION
     // ONLY AFTER TRIAL ENDS
     // =========================================
 
     const subscription =
       await razorpay.subscriptions.create({
-        plan_id:
-          process.env.RAZORPAY_MONTHLY_PLAN_ID,
+        plan_id: planId,
 
         total_count: 120,
 

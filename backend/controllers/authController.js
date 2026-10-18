@@ -6,6 +6,10 @@ const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
 
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
     const now = new Date();
 
 if (
@@ -16,12 +20,6 @@ if (
   user.subscriptionStatus = "expired";
   await user.save();
 }
-
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
-    }
 
     res.json({
       user: sanitizeUser(user),
@@ -94,6 +92,10 @@ const login = async (req, res) => {
 
     const user = await User.findOne({ email });
 
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
+
     const now = new Date();
 
 if (
@@ -104,10 +106,6 @@ if (
   user.subscriptionStatus = "expired";
   await user.save();
 }
-
-    if (!user) {
-      return res.status(400).json({ message: "User not found" });
-    }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
