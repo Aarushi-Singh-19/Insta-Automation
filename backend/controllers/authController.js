@@ -21,12 +21,6 @@ if (
   await user.save();
 }
 
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
-    }
-
     res.json({
       user: sanitizeUser(user),
     });
@@ -112,10 +106,6 @@ if (
   user.subscriptionStatus = "expired";
   await user.save();
 }
-
-    if (!user) {
-      return res.status(400).json({ message: "User not found" });
-    }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
