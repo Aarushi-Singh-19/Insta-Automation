@@ -86,6 +86,12 @@ function Login() {
             />
           </div>
 
+          <div className="text-right -mt-2">
+            <Link to="/reset-password" className="text-sm font-semibold text-purple-600 hover:text-purple-700">
+              Forgot password?
+            </Link>
+          </div>
+
           <button
             type="submit"
             disabled={loading}
