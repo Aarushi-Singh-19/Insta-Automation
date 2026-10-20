@@ -18,6 +18,16 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
 
+    passwordResetTokenHash: {
+      type: String,
+      default: null,
+    },
+
+    passwordResetExpires: {
+      type: Date,
+      default: null,
+    },
+
     instagramConnected: {
       type: Boolean,
       default: false,
