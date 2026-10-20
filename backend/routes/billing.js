@@ -35,14 +35,24 @@ const createSubscription = async (req, res) => {
 
     // =========================================
     // ALREADY ACTIVE
+    // Do not trust a stale "active" status forever:
+    // access is time-bound by planEndDate.
     // =========================================
 
-    if (user.subscriptionStatus === "active") {
+    const now = new Date();
+    const hasUnexpiredPaidPeriod =
+      user.planEndDate && new Date(user.planEndDate) > now;
+
+    if (user.subscriptionStatus === "active" && hasUnexpiredPaidPeriod) {
       return res.status(400).json({
         success: false,
         message: "Subscription already active",
       });
     }
+
+    // An active status with no future paid period is stale; allow the
+    // normal Razorpay lookup/reuse path below, then create a fresh
+    // subscription if the previous one is no longer pending.
 
     // =========================================
     // REUSE A PENDING SUBSCRIPTION
