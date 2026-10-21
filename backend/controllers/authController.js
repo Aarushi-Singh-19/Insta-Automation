@@ -36,7 +36,20 @@ if (
 // helper (keep ABOVE everything)
 const sanitizeUser = (user) => {
   const userObj = user.toObject();
-  delete userObj.password;
+
+  // Never return credentials, reset-token material, or internal payment IDs
+  // from signup, login, or the authenticated account endpoint.
+  [
+    "password",
+    "accessToken",
+    "passwordResetTokenHash",
+    "passwordResetExpires",
+    "razorpaySubscriptionId",
+    "razorpayCustomerId",
+  ].forEach((field) => {
+    delete userObj[field];
+  });
+
   return userObj;
 };
 
