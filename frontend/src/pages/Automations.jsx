@@ -47,6 +47,16 @@ function Automations() {
         return;
       }
 
+      const configuredButtons = dmButtons.filter((button) => button.title.trim() || button.url.trim());
+      if (configuredButtons.some((button) => !button.title.trim() || button.title.trim().length > 20 || !button.url.trim().toLowerCase().startsWith("https://"))) {
+        alert("Each DM button needs a label (max 20 characters) and a valid HTTPS URL.");
+        return;
+      }
+      if (configuredButtons.length > 0 && dmMessage.trim().length > 640) {
+        alert("Instagram button DMs support up to 640 characters. Shorten the DM message before adding buttons.");
+        return;
+      }
+
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
 
       const automationData = {
