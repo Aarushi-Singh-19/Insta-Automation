@@ -561,9 +561,31 @@ if (!trialUser) {
 }
 
 if (trialUser.subscriptionStatus === "trial") {
-  const existingRedemption = await TrialRedemption.findOne({
-    instagramBusinessId: String(graphUserId),
+  const instagramId = String(graphUserId);
+  let existingRedemption = await TrialRedemption.findOne({
+    instagramBusinessId: instagramId,
   });
+
+  // Backward compatibility: an Instagram identity connected to another
+  // TriggerDM user before this feature existed must not receive another trial.
+  const previouslyConnectedAccount = await InstagramAccount.findOne({
+    instagramBusinessId: instagramId,
+    userId: { $ne: trialUser._id },
+  });
+
+  if (!existingRedemption && previouslyConnectedAccount) {
+    try {
+      existingRedemption = await TrialRedemption.create({
+        instagramBusinessId: instagramId,
+        userId: previouslyConnectedAccount.userId,
+      });
+    } catch (redemptionError) {
+      if (redemptionError.code !== 11000) throw redemptionError;
+      existingRedemption = await TrialRedemption.findOne({
+        instagramBusinessId: instagramId,
+      });
+    }
+  }
 
   if (
     existingRedemption &&
@@ -577,14 +599,14 @@ if (trialUser.subscriptionStatus === "trial") {
   if (!existingRedemption) {
     try {
       await TrialRedemption.create({
-        instagramBusinessId: String(graphUserId),
+        instagramBusinessId: instagramId,
         userId: trialUser._id,
       });
     } catch (redemptionError) {
       // Unique index makes simultaneous signup attempts safe.
       if (redemptionError.code !== 11000) throw redemptionError;
       const claimed = await TrialRedemption.findOne({
-        instagramBusinessId: String(graphUserId),
+        instagramBusinessId: instagramId,
       });
       if (!claimed || String(claimed.userId) !== String(trialUser._id)) {
         return res.redirect(
