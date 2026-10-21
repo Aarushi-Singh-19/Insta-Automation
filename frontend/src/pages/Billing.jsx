@@ -275,20 +275,7 @@ const daysRemaining = user?.trialEndDate
   </div>
 
   <div style={{ marginTop: "auto" }}>
-{user?.subscriptionStatus === "trial" ? (
-  <div
-    style={{
-      background: "#F3F4F6",
-      color: "#374151",
-      textAlign: "center",
-      padding: "14px",
-      borderRadius: "12px",
-      fontWeight: "600",
-    }}
-  >
-    ✓ Free trial active
-  </div>
-) : user?.subscriptionStatus === "active" ? (
+{user?.subscriptionStatus === "active" ? (
   <div
     style={{
       background: "#F3F4F6",
