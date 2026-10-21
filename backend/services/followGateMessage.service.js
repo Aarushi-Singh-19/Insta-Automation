@@ -43,6 +43,8 @@ class FollowGateMessageService {
     const profileUrl =
       `https://www.instagram.com/${account.username}/`;
 
+    const mediaUrl = campaign.instagramMediaUrl || "";
+
     console.log("📨 Sending Follow Gate message:", {
       sessionId: session._id,
       recipientId: session.recipientId,
@@ -67,6 +69,8 @@ recipientId: session.recipientId,
       buttonText,
 
       profileUrl,
+
+      mediaUrl,
 
       verificationToken:
         session.verificationToken,
