@@ -118,6 +118,7 @@ async function sendFollowGateMessage({
   openingMessage,
   buttonText,
   profileUrl,
+  mediaUrl,
   verificationToken,
 }) {
   try {
@@ -161,17 +162,20 @@ async function sendFollowGateMessage({
                 url: profileUrl,
                 title: "Visit Profile",
               },
-
-       {
-  type: "web_url",
-  title:
-    buttonText ||
-    "I'm Following",
-  url:
-    `https://triggerdm.in/follow/verify?token=${encodeURIComponent(
-      verificationToken
-    )}`,
-},
+              ...(typeof mediaUrl === "string" && mediaUrl.trim().toLowerCase().startsWith("https://")
+                ? [{
+                    type: "web_url",
+                    url: mediaUrl.trim(),
+                    title: "Visit Reel",
+                  }]
+                : []),
+              {
+                type: "web_url",
+                title: buttonText || "I'm Following",
+                url: `https://triggerdm.in/follow/verify?token=${encodeURIComponent(
+                  verificationToken
+                )}`,
+              },
             ],
           },
         },
