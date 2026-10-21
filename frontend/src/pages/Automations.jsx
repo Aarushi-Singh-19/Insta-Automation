@@ -14,6 +14,7 @@ function Automations() {
     useState("keyword");
 
   const [dmMessage, setDmMessage] = useState("");
+  const [dmButtons, setDmButtons] = useState([]);
 
   const [commentReplyEnabled, setCommentReplyEnabled] =
     useState(false);
@@ -63,6 +64,7 @@ function Automations() {
             : [],
 
         dmMessage,
+        dmButtons: dmButtons.filter((button) => button.title.trim() && button.url.trim()),
         commentReplyEnabled,
         commentReplyMessage,
         followGate,
@@ -110,6 +112,7 @@ function Automations() {
       setKeywords("");
       setCommentTriggerType("keyword");
       setDmMessage("");
+      setDmButtons([]);
       setCommentReplyEnabled(false);
       setCommentReplyMessage("");
       setFollowGate(false);
@@ -170,6 +173,7 @@ function Automations() {
     );
 
     setDmMessage(automation.dmMessage);
+    setDmButtons(Array.isArray(automation.dmButtons) ? automation.dmButtons : []);
 
     setCommentReplyEnabled(
       automation.commentReplyEnabled
@@ -579,6 +583,22 @@ function Automations() {
                   boxSizing: "border-box",
                 }}
               />
+
+              <h3>DM Buttons (Optional)</h3>
+              <p style={{ color: "#6B7280", fontSize: "13px", marginTop: "-8px" }}>
+                Add up to 3 website buttons to the DM. Labels: max 20 characters. Links must use HTTPS.
+              </p>
+              {dmButtons.map((button, index) => (
+                <div key={index} style={{ border: "1px solid #E5E7EB", borderRadius: "12px", padding: "14px", marginBottom: "12px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                    <strong>Button #{index + 1}</strong>
+                    <button type="button" onClick={() => setDmButtons((items) => items.filter((_, i) => i !== index))} style={{ border: "none", background: "transparent", color: "#DC2626", cursor: "pointer" }}>Remove</button>
+                  </div>
+                  <input value={button.title} maxLength={20} onChange={(e) => setDmButtons((items) => items.map((item, i) => i === index ? { ...item, title: e.target.value } : item))} placeholder="Button label (e.g. Get the link)" style={{ width: "100%", padding: "12px", border: "1px solid #D1D5DB", borderRadius: "10px", boxSizing: "border-box", marginBottom: "8px" }} />
+                  <input type="url" value={button.url} onChange={(e) => setDmButtons((items) => items.map((item, i) => i === index ? { ...item, url: e.target.value } : item))} placeholder="https://example.com" style={{ width: "100%", padding: "12px", border: "1px solid #D1D5DB", borderRadius: "10px", boxSizing: "border-box" }} />
+                </div>
+              ))}
+              {dmButtons.length < 3 && <button type="button" onClick={() => setDmButtons((items) => [...items, { title: "", url: "" }])} style={{ padding: "10px 14px", border: "1px dashed #C4B5FD", borderRadius: "10px", background: "#FAF5FF", color: "#7C3AED", cursor: "pointer", marginBottom: "22px" }}>+ Add URL Button</button>}
 
               <h3>4. Comment Reply</h3>
 
