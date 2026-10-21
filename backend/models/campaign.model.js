@@ -67,6 +67,7 @@ const campaignSchema = new mongoose.Schema(
       enableDM: { type: Boolean, default: true },
       enableReply: { type: Boolean, default: true },
       dmMessage: { type: String, default: "" },
+      dmButtons: { type: [{ title: { type: String, trim: true, maxlength: 20 }, url: { type: String, trim: true } }], default: [] },
       minDelaySeconds: { type: Number, default: 10 },
       maxDelaySeconds: { type: Number, default: 40 },
     },
