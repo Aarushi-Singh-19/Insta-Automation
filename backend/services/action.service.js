@@ -113,6 +113,7 @@ async sendDM(action, context = {}) {
     recipientId: action.recipientId,
 
     message,
+    buttons: action.buttons || [],
   });
 }
 }
