@@ -13,7 +13,10 @@ function Contact() {
       <h2>Support</h2>
 
       <p>
-        Email: aarushisingh19102005@gmail.com
+        Email:{" "}
+        <a href="mailto:support@triggerdm.in" style={{ color: "inherit", textDecoration: "underline" }}>
+          support@triggerdm.in
+        </a>
       </p>
 
       <h2>Business</h2>
