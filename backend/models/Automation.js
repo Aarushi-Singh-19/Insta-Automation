@@ -17,6 +17,12 @@ const automationSchema = new mongoose.Schema(
   type: String,
   default: "",
 },
+
+    instagramMediaUrl: {
+      type: String,
+      default: "",
+      trim: true,
+    },
 keywords: {
   type: [String],
   default: [],
@@ -60,6 +66,13 @@ matchType: {
     followGate: {
       type: Boolean,
       default: false,
+    },
+
+    followGateMessage: {
+      type: String,
+      default: "Please follow our profile to unlock your DM! 💖",
+      trim: true,
+      maxlength: 640,
     },
 
     status: {
