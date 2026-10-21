@@ -36,6 +36,7 @@ async function sendDM({
   commentId,
   recipientId,
   message,
+  buttons = [],
 }) {
   try {
     const recipient = commentId
@@ -56,16 +57,43 @@ async function sendDM({
   `https://graph.instagram.com/${GRAPH_VERSION}/` +
   `${instagramBusinessId}/messages`;
 
+    const validButtons = Array.isArray(buttons)
+      ? buttons.slice(0, 3).filter((button) =>
+          typeof button?.title === "string" &&
+          button.title.trim() &&
+          button.title.trim().length <= 20 &&
+          typeof button?.url === "string" &&
+          button.url.trim().toLowerCase().startsWith("https://")
+        )
+      : [];
+
+    const outgoingMessage = validButtons.length
+      ? {
+          attachment: {
+            type: "template",
+            payload: {
+              template_type: "button",
+              text: message,
+              buttons: validButtons.map((button) => ({
+                type: "web_url",
+                title: button.title.trim(),
+                url: button.url.trim(),
+              })),
+            },
+          },
+        }
+      : { text: message };
+
     const res = await axios.post(
       url,
       {
         recipient,
-        message: { text: message },
+        message: outgoingMessage,
       },
       {
-  params: {
-    access_token: accessToken,
-},
+        params: {
+          access_token: accessToken,
+        },
       }
     );
 
