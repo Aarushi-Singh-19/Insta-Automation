@@ -88,7 +88,6 @@ const user = await User.create({
 // LOGIN
 const login = async (req, res) => {
   try {
-    console.log("LOGIN BODY RECEIVED:", req.body);
 
     const { email, password } = req.body;
 
