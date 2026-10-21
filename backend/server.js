@@ -1,13 +1,8 @@
 const dotenv = require("dotenv");
 dotenv.config();
 
-console.log("REDIS_URL =", process.env.REDIS_URL);
-
 const express = require("express");
 const cors = require("cors");
-const webhookDebugRoutes = require(
-  "./routes/webhookDebug.routes"
-);
 
 
 const followVerificationRoutes = require("./routes/followVerification.routes");
@@ -31,7 +26,6 @@ const razorpayWebhookRoutes = require(
   "./routes/razorpayWebhook.routes"
 );
 
-const testDmRoutes = require("./routes/testDm.routes");
 
 // require("./workers/bullmq/commentWorker");
 
@@ -83,22 +77,8 @@ app.use(
     "/api/follow",
     followVerificationRoutes
 );
-
-
-app.use(
-  "/api/webhook-debug",
-  webhookDebugRoutes
-);
-  
-
-  app.use("/api/test", testRoutes);
-  
-
-  app.use("/api/test-dm", testDmRoutes);
-
-
-  
-  app.use("/api/billing", billingRoutes);
+app.use("/api/test", testRoutes);
+app.use("/api/billing", billingRoutes);
 app.use("/api/webhook", webhookRoutes);
 app.use("/api/instagram", instagramRoutes);
 app.use("/api/analytics", analyticsRoutes);
