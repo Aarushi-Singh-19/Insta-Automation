@@ -64,14 +64,7 @@ const daysRemaining = user?.trialEndDate
 
 
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "24px",
-          marginTop: "30px",
-        }}
-      >
+      <div className="mt-8 grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2">
        {/* Current Subscription */}
 
 <div
