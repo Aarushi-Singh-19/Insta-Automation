@@ -594,23 +594,48 @@ function Automations() {
                 }}
               />
 
-              <h3>DM Buttons (Optional)</h3>
-              <p style={{ color: "#6B7280", fontSize: "13px", marginTop: "-8px" }}>
-                Add up to 3 website buttons to the DM. Labels: max 20 characters. Links must use HTTPS.
-              </p>
-              {dmButtons.map((button, index) => (
-                <div key={index} style={{ border: "1px solid #E5E7EB", borderRadius: "12px", padding: "14px", marginBottom: "12px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                    <strong>Button #{index + 1}</strong>
-                    <button type="button" onClick={() => setDmButtons((items) => items.filter((_, i) => i !== index))} style={{ border: "none", background: "transparent", color: "#DC2626", cursor: "pointer" }}>Remove</button>
+              <section
+                style={{
+                  margin: "8px 0 28px",
+                  padding: "22px",
+                  border: "1px solid #E9DFFF",
+                  borderRadius: "16px",
+                  background: "linear-gradient(135deg, #FCFAFF 0%, #FFFFFF 100%)",
+                  boxSizing: "border-box",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
+                  <div style={{ width: "40px", height: "40px", borderRadius: "12px", background: "#F0E9FF", color: "#7C3AED", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>↗</div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "18px", lineHeight: 1.4 }}>DM Buttons <span style={{ marginLeft: "6px", padding: "3px 9px", borderRadius: "999px", background: "#F0E9FF", color: "#6D28D9", fontSize: "12px", fontWeight: 600 }}>Optional</span></h3>
                   </div>
-                  <input value={button.title} maxLength={20} onChange={(e) => setDmButtons((items) => items.map((item, i) => i === index ? { ...item, title: e.target.value } : item))} placeholder="Button label (e.g. Get the link)" style={{ width: "100%", padding: "12px", border: "1px solid #D1D5DB", borderRadius: "10px", boxSizing: "border-box", marginBottom: "8px" }} />
-                  <input type="url" value={button.url} onChange={(e) => setDmButtons((items) => items.map((item, i) => i === index ? { ...item, url: e.target.value } : item))} placeholder="https://example.com" style={{ width: "100%", padding: "12px", border: "1px solid #D1D5DB", borderRadius: "10px", boxSizing: "border-box" }} />
                 </div>
-              ))}
-              {dmButtons.length < 3 && <button type="button" onClick={() => setDmButtons((items) => [...items, { title: "", url: "" }])} style={{ padding: "10px 14px", border: "1px dashed #C4B5FD", borderRadius: "10px", background: "#FAF5FF", color: "#7C3AED", cursor: "pointer", marginBottom: "22px" }}>+ Add URL Button</button>}
+                <p style={{ color: "#6B7280", fontSize: "13px", lineHeight: 1.5, margin: "0 0 18px" }}>
+                  Add up to 3 website links that appear with your DM. Button labels can be up to 20 characters.
+                </p>
 
-              <h3>4. Comment Reply</h3>
+                {dmButtons.map((button, index) => (
+                  <div key={index} style={{ border: "1px solid #E5E7EB", borderRadius: "12px", padding: "16px", background: "#FFFFFF", marginBottom: "12px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "14px" }}>
+                      <strong style={{ fontSize: "15px" }}>Button {index + 1}</strong>
+                      <button type="button" onClick={() => setDmButtons((items) => items.filter((_, i) => i !== index))} style={{ border: "none", background: "transparent", color: "#DC2626", cursor: "pointer", fontSize: "14px", padding: "4px 0" }}>Remove</button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))", gap: "12px" }}>
+                      <input value={button.title} maxLength={20} onChange={(e) => setDmButtons((items) => items.map((item, i) => i === index ? { ...item, title: e.target.value } : item))} placeholder="Button label (e.g. Get the link)" aria-label={`Button ${index + 1} label`} style={{ width: "100%", minWidth: 0, padding: "13px 14px", border: "1px solid #D1D5DB", borderRadius: "10px", boxSizing: "border-box", fontSize: "14px" }} />
+                      <input type="url" value={button.url} onChange={(e) => setDmButtons((items) => items.map((item, i) => i === index ? { ...item, url: e.target.value } : item))} placeholder="https://example.com" aria-label={`Button ${index + 1} HTTPS URL`} style={{ width: "100%", minWidth: 0, padding: "13px 14px", border: "1px solid #D1D5DB", borderRadius: "10px", boxSizing: "border-box", fontSize: "14px" }} />
+                    </div>
+                    <div style={{ textAlign: "right", fontSize: "12px", color: "#9CA3AF", marginTop: "6px" }}>{button.title.length}/20 characters</div>
+                  </div>
+                ))}
+
+                {dmButtons.length < 3 && (
+                  <button type="button" onClick={() => setDmButtons((items) => [...items, { title: "", url: "" }])} style={{ width: "100%", padding: "13px 16px", border: "1px dashed #C4B5FD", borderRadius: "11px", background: "#FFFFFF", color: "#7C3AED", cursor: "pointer", fontSize: "15px", fontWeight: 600 }}>
+                    + Add another button
+                  </button>
+                )}
+              </section>
+
+              <h3 style={{ margin: "0 0 14px", fontSize: "18px" }}>4. Comment Reply</h3>
 
               <label
                 style={{
