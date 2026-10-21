@@ -196,6 +196,19 @@ const updateAutomation = async (req, res) => {
         { new: true }
       );
 
+    if (automation) {
+      await Campaign.findOneAndUpdate(
+        { automationId: automation._id, userId: req.user.id },
+        {
+          $set: {
+            "settings.dmMessage": automation.dmMessage || "",
+            "settings.dmButtons": Array.isArray(automation.dmButtons) ? automation.dmButtons.slice(0, 3) : [],
+            "settings.enableDM": Boolean(automation.dmMessage && automation.dmMessage.trim()),
+          },
+        }
+      );
+    }
+
     res.json(automation);
   } catch (err) {
     res.status(500).json({
