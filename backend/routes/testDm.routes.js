@@ -18,9 +18,6 @@ router.post("/", async (req, res) => {
       });
     }
 
-    console.log("Page Token:", account.pageAccessToken);
-console.log("User Token:", account.accessToken);
-
     console.log("Using account:", account.username);
     console.log("IG User ID:", account.instagramBusinessId);
     console.log("Comment ID:", commentId);
