@@ -6,6 +6,7 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
   const navigate = useNavigate();
 
@@ -22,7 +23,13 @@ function Login() {
         password,
       });
 
-      localStorage.setItem("token", res.data.token);
+      if (rememberMe) {
+        localStorage.setItem("token", res.data.token);
+        sessionStorage.removeItem("token");
+      } else {
+        sessionStorage.setItem("token", res.data.token);
+        localStorage.removeItem("token");
+      }
 
       navigate("/dashboard");
     } catch (err) {
@@ -86,7 +93,16 @@ function Login() {
             />
           </div>
 
-          <div className="text-right -mt-2">
+          <div className="flex items-center justify-between gap-3 -mt-2">
+            <label className="flex items-center gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 accent-purple-600"
+              />
+              Stay logged in
+            </label>
             <Link to="/reset-password" className="text-sm font-semibold text-purple-600 hover:text-purple-700">
               Forgot password?
             </Link>
