@@ -510,7 +510,6 @@ try {
   // Enforce one connected Instagram account per TriggerDM user on the server.
   const connectedAccount = await InstagramAccount.findOne({
     userId: decodedState.userId,
-    status: "active",
   });
   if (
     connectedAccount &&
