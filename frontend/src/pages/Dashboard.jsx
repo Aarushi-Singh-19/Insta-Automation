@@ -15,47 +15,36 @@ import {
 } from "lucide-react";
 
 function Dashboard() {
-  const [rules, setRules] = useState([]);
   const [user, setUser] = useState(null);
-
-  const [analytics, setAnalytics] = useState({
-    queued: 0,
-    success: 0,
-    failed: 0,
+  const [stats, setStats] = useState({
+    activeAutomations: 0,
+    dmsSent: 0,
+    commentsProcessed: 0,
+    connectedAccounts: 0,
   });
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchRules();
     fetchUser();
-    fetchAnalytics();
+    fetchDashboardStats();
   }, []);
 
-  const fetchRules = async () => {
+  const fetchDashboardStats = async () => {
     try {
-      const response = await API.get("/rules");
-      setRules(response.data.data);
+      const response = await API.get("/analytics/dashboard");
+      setStats(response.data);
     } catch (error) {
-      console.log("Error fetching rules:", error);
-    }
-  };
-
-  const fetchAnalytics = async () => {
-    try {
-      const res = await API.get("/analytics/trends");
-      setAnalytics(res.data);
-    } catch (error) {
-      console.log("Analytics error:", error);
+      console.error("Dashboard statistics error:", error);
     }
   };
 
   const fetchUser = async () => {
     try {
-      const res = await API.get("/auth/me");
-      setUser(res.data.user);
+      const response = await API.get("/auth/me");
+      setUser(response.data.user);
     } catch (error) {
-      console.log("Error fetching user:", error);
+      console.error("Error fetching user:", error);
     }
   };
 
@@ -74,15 +63,14 @@ function Dashboard() {
       <PageHeader
         title="Welcome back 👋"
         subtitle="Manage your Instagram comment-to-DM automations."
-action={
-  <button
-    onClick={() => navigate("/automations")}
-    className="rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 px-5 py-3 font-semibold text-white transition hover:opacity-90"
-  >
-    + Create Automation
-  </button>
-
-}
+        action={
+          <button
+            onClick={() => navigate("/automations")}
+            className="rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 px-5 py-3 font-semibold text-white transition hover:opacity-90"
+          >
+            + Create Automation
+          </button>
+        }
       />
 
       {user?.subscriptionStatus === "trial" && (
@@ -102,25 +90,22 @@ action={
       >
         <StatCard
           title="Active Automations"
-          value={rules.length}
+          value={stats.activeAutomations}
           icon={<Bot size={22} />}
         />
-
         <StatCard
           title="DMs Sent"
-          value={analytics.success}
+          value={stats.dmsSent}
           icon={<MessageCircle size={22} />}
         />
-
         <StatCard
-          title="Keywords Triggered"
-          value={rules.length}
+          title="Comments Processed"
+          value={stats.commentsProcessed}
           icon={<KeyRound size={22} />}
         />
-
         <StatCard
           title="Instagram Accounts"
-          value="1"
+          value={stats.connectedAccounts}
           icon={<CircleUserRound size={22} />}
         />
       </div>
