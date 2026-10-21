@@ -17,21 +17,9 @@ const createSubscription = async (req, res) => {
       });
     }
 
-    // =========================================
-    // BLOCK SUBSCRIPTION DURING FREE TRIAL
-    // =========================================
-
-    if (
-      user.subscriptionStatus === "trial" &&
-      user.trialEndDate &&
-      new Date(user.trialEndDate) > new Date()
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Your 7-day free trial is still active. No payment is required yet.",
-      });
-    }
+    // Users may optionally start a paid subscription before their
+    // 7-day trial ends. The trial remains available unless they choose
+    // Subscribe; subscription status is still confirmed by Razorpay webhooks.
 
     // =========================================
     // ALREADY ACTIVE
