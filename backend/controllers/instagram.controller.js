@@ -505,7 +505,20 @@ try {
     }
   );
 
-  const graphUserId = profileResponse.data.id;
+  const graphUserId = String(profileResponse.data.id);
+
+  // A single Instagram identity must never be connected to multiple TriggerDM users.
+  // Check globally before subscribing the app or writing any account record.
+  const accountOwnedByAnotherUser = await InstagramAccount.findOne({
+    instagramBusinessId: graphUserId,
+    userId: { $ne: decodedState.userId },
+  }).select("_id userId");
+
+  if (accountOwnedByAnotherUser) {
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/accounts?error=instagram_account_already_connected`
+    );
+  }
 
   // Enforce one connected Instagram account per TriggerDM user on the server.
   const connectedAccount = await InstagramAccount.findOne({
