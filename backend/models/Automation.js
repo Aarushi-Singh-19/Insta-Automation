@@ -41,6 +41,12 @@ matchType: {
       required: true,
     },
 
+    dmButtons: {
+      type: [{ title: { type: String, trim: true, maxlength: 20 }, url: { type: String, trim: true } }],
+      default: [],
+      validate: [(buttons) => buttons.length <= 3, "A maximum of 3 DM buttons is allowed"],
+    },
+
     commentReplyEnabled: {
       type: Boolean,
       default: false,
