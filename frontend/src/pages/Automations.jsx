@@ -46,7 +46,7 @@ function Automations() {
         return;
       }
 
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
 
       const automationData = {
         triggerType,
@@ -197,7 +197,7 @@ function Automations() {
       try {
         setLoadingMedia(true);
 
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
 
         const res = await API.get("/instagram/media", {
           headers: {
