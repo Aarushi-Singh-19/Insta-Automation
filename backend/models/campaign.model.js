@@ -27,6 +27,12 @@ const campaignSchema = new mongoose.Schema(
   default: "",
 },
 
+    instagramMediaUrl: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     // Keeps the execution configuration associated with the automation that
     // created this campaign. Existing campaigns continue to work without it.
     automationId: {
