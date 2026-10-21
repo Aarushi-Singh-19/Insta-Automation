@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import API from "../services/api";
 import DashboardLayout from "../components/DashboardLayout";
 import PageHeader from "../components/ui/PageHeader";
 import {
@@ -8,6 +10,22 @@ import {
 } from "lucide-react";
 
 function Settings() {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    API.get("/auth/me")
+      .then((res) => {
+        if (!cancelled) setUser(res.data.user);
+      })
+      .catch((error) => {
+        console.error("Failed to load settings profile:", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const cardStyle = {
     background: "#fff",
     border: "1px solid #E5E7EB",
@@ -60,12 +78,12 @@ function Settings() {
         >
           <div>
             <div style={labelStyle}>Full Name</div>
-            <div style={valueStyle}>Test User</div>
+            <div style={valueStyle}>{user?.name || "Loading..."}</div>
           </div>
 
           <div>
             <div style={labelStyle}>Email Address</div>
-            <div style={valueStyle}>test@gmail.com</div>
+            <div style={valueStyle}>{user?.email || "Loading..."}</div>
           </div>
         </div>
       </div>
