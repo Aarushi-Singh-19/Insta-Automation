@@ -1,6 +1,8 @@
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
 const InstagramAccount = require("../models/InstagramAccount.js");
+const User = require("../models/User.js");
+const TrialRedemption = require("../models/TrialRedemption.js");
 
 /**
  * STEP 1: Redirect to Facebook OAuth
@@ -505,6 +507,20 @@ try {
 
   const graphUserId = profileResponse.data.id;
 
+  // Enforce one connected Instagram account per TriggerDM user on the server.
+  const connectedAccount = await InstagramAccount.findOne({
+    userId: decodedState.userId,
+    status: "active",
+  });
+  if (
+    connectedAccount &&
+    String(connectedAccount.instagramBusinessId) !== String(graphUserId)
+  ) {
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/accounts?error=one_instagram_account_limit`
+    );
+  }
+
 console.log("GRAPH USER ID:", graphUserId);
 console.log("TOKEN USER ID:", instagramUserId);
 
@@ -538,6 +554,47 @@ await getInstagramSubscriptions(
 //     graphUserId,
 //     longLivedTokenResponse.data.access_token
 // );
+
+// Permanently bind a free trial to the Instagram identity. This survives disconnects.
+const trialUser = await User.findById(decodedState.userId);
+if (!trialUser) {
+  return res.redirect(`${process.env.FRONTEND_URL}/accounts?error=user_not_found`);
+}
+
+if (trialUser.subscriptionStatus === "trial") {
+  const existingRedemption = await TrialRedemption.findOne({
+    instagramBusinessId: String(graphUserId),
+  });
+
+  if (
+    existingRedemption &&
+    String(existingRedemption.userId) !== String(trialUser._id)
+  ) {
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/accounts?error=instagram_trial_already_used`
+    );
+  }
+
+  if (!existingRedemption) {
+    try {
+      await TrialRedemption.create({
+        instagramBusinessId: String(graphUserId),
+        userId: trialUser._id,
+      });
+    } catch (redemptionError) {
+      // Unique index makes simultaneous signup attempts safe.
+      if (redemptionError.code !== 11000) throw redemptionError;
+      const claimed = await TrialRedemption.findOne({
+        instagramBusinessId: String(graphUserId),
+      });
+      if (!claimed || String(claimed.userId) !== String(trialUser._id)) {
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/accounts?error=instagram_trial_already_used`
+        );
+      }
+    }
+  }
+}
 
 console.log("ABOUT TO SAVE INSTAGRAM ACCOUNT", {
   userId: decodedState.userId,
