@@ -497,10 +497,10 @@ function Automations() {
                       {media.map((post) => (
                         <div
                           key={post.id}
-                          onClick={() =>
+                          onClick={() => {
                             setSelectedPostId(post.id);
                             setSelectedPostUrl(post.permalink || "");
-                          }
+                          }}
                           style={{
                             cursor: "pointer",
                             border:
