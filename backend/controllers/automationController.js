@@ -10,6 +10,7 @@ const createAutomation = async (req, res) => {
   commentTriggerType,
   keywords,
   dmMessage,
+  dmButtons = [],
   commentReplyEnabled,
   commentReplyMessage,
   followGate,
@@ -25,6 +26,7 @@ const automation = await Automation.create({
   commentTriggerType,
   keywords,
   dmMessage,
+  dmButtons: Array.isArray(dmButtons) ? dmButtons.slice(0, 3).filter((button) => button && typeof button.title === "string" && typeof button.url === "string") : [],
   commentReplyEnabled,
   commentReplyMessage,
   followGate,
@@ -97,6 +99,7 @@ const campaignData = {
     enableDM: Boolean(dmMessage && dmMessage.trim()),
     enableReply: Boolean(commentReplyEnabled && commentReplyMessage),
     dmMessage: dmMessage || "",
+    dmButtons: Array.isArray(dmButtons) ? dmButtons.slice(0, 3).filter((button) => button && typeof button.title === "string" && typeof button.url === "string") : [],
   },
 
   gate: {
