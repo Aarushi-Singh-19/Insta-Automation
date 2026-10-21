@@ -53,6 +53,7 @@ class ActionBuilderService {
         username,
         recipientId,
         message: dmMessage,
+        buttons: campaign.settings?.dmButtons || [],
         campaignId: campaign._id,
         ruleId: rule._id,
       });
