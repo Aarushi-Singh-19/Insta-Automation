@@ -7,6 +7,7 @@ const createAutomation = async (req, res) => {
     const {
       triggerType,
       instagramMediaId,
+      instagramMediaUrl = "",
       commentTriggerType,
       keywords,
       dmMessage,
@@ -14,6 +15,7 @@ const createAutomation = async (req, res) => {
       commentReplyEnabled,
       commentReplyMessage,
       followGate,
+      followGateMessage = "Please follow our profile to unlock your DM! 💖",
     } = req.body;
 
     // 1. Save the automation.
@@ -32,6 +34,7 @@ const createAutomation = async (req, res) => {
       user: req.user.id,
       triggerType,
       instagramMediaId,
+      instagramMediaUrl,
       commentTriggerType,
       keywords,
       dmMessage,
@@ -39,6 +42,7 @@ const createAutomation = async (req, res) => {
       commentReplyEnabled,
       commentReplyMessage,
       followGate,
+      followGateMessage,
     });
 
     console.log("✅ Automation Saved:", automation._id);
@@ -68,6 +72,7 @@ const createAutomation = async (req, res) => {
       name: `Automation - ${automation._id}`,
       triggerType,
       instagramMediaId,
+      instagramMediaUrl,
       instagramAccountId: "",
       postIds: triggerType === "specific-post" ? [instagramMediaId] : [],
       status: automation.status === "active" ? "active" : "draft",
@@ -81,7 +86,7 @@ const createAutomation = async (req, res) => {
       gate: {
         gateType: followGate ? "FOLLOW" : "NONE",
         status: followGate ? "enabled" : "disabled",
-        openingMessage: followGate ? "Follow us to unlock your DM." : "",
+        openingMessage: followGate ? (followGateMessage || "Please follow our profile to unlock your DM! 💖") : "",
         buttonText: "I'm Following",
       },
     };
@@ -182,6 +187,12 @@ const updateAutomation = async (req, res) => {
           "settings.enableDM": Boolean(
             automation.dmMessage && automation.dmMessage.trim()
           ),
+          instagramMediaUrl: automation.instagramMediaUrl || "",
+          "gate.gateType": automation.followGate ? "FOLLOW" : "NONE",
+          "gate.status": automation.followGate ? "enabled" : "disabled",
+          "gate.openingMessage": automation.followGate
+            ? (automation.followGateMessage || "Please follow our profile to unlock your DM!")
+            : "",
         },
       },
       { new: true }
