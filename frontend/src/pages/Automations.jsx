@@ -23,6 +23,8 @@ function Automations() {
     useState("");
 
   const [followGate, setFollowGate] = useState(false);
+  const [followGateMessage, setFollowGateMessage] = useState("Please follow our profile to unlock your DM! 💖");
+  const [selectedPostUrl, setSelectedPostUrl] = useState("");
 
   const [automations, setAutomations] = useState([]);
 
@@ -62,6 +64,7 @@ function Automations() {
       const automationData = {
         triggerType,
         instagramMediaId: selectedPostId,
+        instagramMediaUrl: selectedPostUrl || media.find((post) => post.id === selectedPostId)?.permalink || "",
 
         commentTriggerType,
 
@@ -78,6 +81,7 @@ function Automations() {
         commentReplyEnabled,
         commentReplyMessage,
         followGate,
+        followGateMessage,
       };
 
       console.log("Automation Data:", automationData);
@@ -126,7 +130,9 @@ function Automations() {
       setCommentReplyEnabled(false);
       setCommentReplyMessage("");
       setFollowGate(false);
+      setFollowGateMessage("Please follow our profile to unlock your DM! 💖");
       setSelectedPostId("");
+      setSelectedPostUrl("");
 
       fetchAutomations();
     } catch (err) {
@@ -168,6 +174,7 @@ function Automations() {
     setSelectedPostId(
       automation.instagramMediaId || ""
     );
+    setSelectedPostUrl(automation.instagramMediaUrl || "");
 
     setCommentTriggerType(
       automation.commentTriggerType ||
@@ -194,6 +201,7 @@ function Automations() {
     );
 
     setFollowGate(automation.followGate);
+    setFollowGateMessage(automation.followGateMessage || "Please follow our profile to unlock your DM! 💖");
 
     setShowForm(true);
   };
@@ -490,7 +498,8 @@ function Automations() {
                         <div
                           key={post.id}
                           onClick={() =>
-                            setSelectedPostId(post.id)
+                            setSelectedPostId(post.id);
+                            setSelectedPostUrl(post.permalink || "");
                           }
                           style={{
                             cursor: "pointer",
@@ -695,6 +704,24 @@ function Automations() {
                 />{" "}
                 Ask user to follow before DM
               </label>
+
+              {followGate && (
+                <div style={{ marginTop: "-16px", marginBottom: "24px" }}>
+                  <label style={{ display: "block", fontWeight: 600, marginBottom: "8px" }}>
+                    Follow-gate message
+                  </label>
+                  <textarea
+                    value={followGateMessage}
+                    onChange={(e) => setFollowGateMessage(e.target.value)}
+                    maxLength={640}
+                    placeholder="Please follow our profile to unlock your DM! 💖"
+                    style={{ width: "100%", minHeight: "90px", padding: "14px 16px", border: "1px solid #D1D5DB", borderRadius: "12px", fontSize: "15px", resize: "vertical", boxSizing: "border-box" }}
+                  />
+                  <p style={{ margin: "6px 0 0", color: "#6B7280", fontSize: "12px" }}>
+                    Example: Please follow our profile to unlock your DM! 💖 You can personalize this message for each automation.
+                  </p>
+                </div>
+              )}
 
               <div
                 style={{
