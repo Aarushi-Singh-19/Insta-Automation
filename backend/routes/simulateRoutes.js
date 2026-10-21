@@ -21,6 +21,7 @@ router.post("/comment", auth, async (req, res) => {
 console.log("REQ USER:", req.user);
 
 const rules = await Rule.find({
+  userId: req.user.id,
   isActive: true,
 });
 
@@ -60,7 +61,9 @@ console.log(rules);
     // Pick reply
 
 
-const fakeCampaign = await Campaign.findOne({});
+const fakeCampaign = await Campaign.findOne({
+  userId: req.user.id,
+});
 
 console.log("FOUND CAMPAIGN:", fakeCampaign);
 
