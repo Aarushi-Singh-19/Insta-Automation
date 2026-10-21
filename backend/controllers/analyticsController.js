@@ -31,7 +31,7 @@ exports.getDashboardStats = async (req, res) => {
         Automation.countDocuments({ user: userId, status: "active" }),
         InstagramAccount.countDocuments({ userId, status: "active" }),
         Campaign.aggregate([
-          { $match: { userId: require("mongoose").Types.ObjectId.createFromHexString(userId) } },
+          { $match: { userId: new (require("mongoose").Types.ObjectId)(userId) } },
           {
             $group: {
               _id: null,
