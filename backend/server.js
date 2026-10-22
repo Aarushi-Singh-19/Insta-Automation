@@ -30,8 +30,6 @@ const razorpayWebhookRoutes = require(
 // require("./workers/bullmq/commentWorker");
 
 
-
-
 const app = express();
 
 // Middleware
@@ -72,11 +70,9 @@ app.use(
     extended: true
   })
 );
-  // Routes
-app.use(
-    "/api/follow",
-    followVerificationRoutes
-);
+
+// Routes
+app.use("/api/follow", followVerificationRoutes);
 app.use("/api/test", testRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/webhook", webhookRoutes);
@@ -85,12 +81,12 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/health", require("./routes/healthRoutes"));
 app.use("/api/simulate", require("./routes/simulateRoutes"));
-// app.use("/webhook", require("./routes/webhookRoutes"));
 app.use("/api/rules", require("./routes/ruleRoutes"));
 app.use("/api/campaigns", require("./routes/campaigns.routes"));
 app.use("/api/automations", require("./routes/automationRoutes"));
 app.use("/api/campaign-health", require("./routes/campaignHealth.routes"));
 app.use("/api/trend", require("./routes/trend.routes"));
+app.use("/api/admin", require("./routes/admin.routes"));
 
 app.get("/", (req, res) => {
   res.send("Backend running");
@@ -105,12 +101,10 @@ const start = async () => {
     // Start BullMQ worker only after DB connection
     require("./workers/action.worker");
 
-app.listen(PORT, async () => {
-  console.log(`✅ Server running on port ${PORT}`);
-
-  await pollingService.startPolling();
-});
-
+    app.listen(PORT, async () => {
+      console.log(`✅ Server running on port ${PORT}`);
+      await pollingService.startPolling();
+    });
   } catch (err) {
     console.error(err);
     process.exit(1);
