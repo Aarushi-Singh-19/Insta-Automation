@@ -22,7 +22,8 @@ router.get("/users", authMiddleware, adminMiddleware, async (req, res) => {
       filter.subscriptionStatus = status;
     }
     if (search) {
-      const regex = new RegExp(search.replace(/[.*+?^${}()|[\\]\\\\]/g, String.fromCharCode(92) + "$&"), "i");
+      const escaped = [...search].map((char) => ".*+?^${}()|[]\\ ".includes(char) ? String.fromCharCode(92) + char : char).join("");
+      const regex = new RegExp(escaped, "i");
       filter.$or = [{ name: regex }, { email: regex }];
     }
     if (from || to) {
