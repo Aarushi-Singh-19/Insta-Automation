@@ -25,6 +25,15 @@ function Admin() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [users, setUsers] = useState([]);
+  const [userLoading, setUserLoading] = useState(false);
+  const [userError, setUserError] = useState("");
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, pages: 0 });
 
   const load = async () => {
     setLoading(true);
@@ -39,7 +48,22 @@ function Admin() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  const loadUsers = async (nextPage = page, filters = { search, status, from, to }) => {
+    setUserLoading(true);
+    setUserError("");
+    try {
+      const response = await API.get("/admin/users", { params: { ...filters, page: nextPage, limit: 25 } });
+      setUsers(response.data.users || []);
+      setPagination(response.data.pagination || { page: nextPage, limit: 25, total: 0, pages: 0 });
+      setPage(nextPage);
+    } catch (err) {
+      setUserError(err.response?.data?.message || "Could not load the user list.");
+    } finally {
+      setUserLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); loadUsers(1); }, []);
 
   const metrics = data?.metrics;
   const cards = metrics ? [
@@ -79,8 +103,30 @@ function Admin() {
 
           <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-200 px-5 py-4">
-              <h2 className="font-bold text-slate-900">Recent sign-ups</h2>
-              <p className="mt-1 text-sm text-slate-500">Latest 10 registered accounts. Email is visible only to the authorized admin.</p>
+              <h2 className="font-bold text-slate-900">User directory</h2>
+              <p className="mt-1 text-sm text-slate-500">Search all registered users by name or email, and filter by subscription status or signup date.</p>
+            </div>
+            <form className="grid grid-cols-1 gap-3 border-b border-slate-200 p-5 sm:grid-cols-2 xl:grid-cols-5" onSubmit={(event) => { event.preventDefault(); loadUsers(1); }}>
+              <input aria-label="Search by name or email" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name or email" className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-purple-500" />
+              <select aria-label="Subscription status" value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                <option value="">All subscription statuses</option>
+                <option value="trial">Free trial</option>
+                <option value="active">Active / paid</option>
+                <option value="expired">Expired</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="past_due">Past due</option>
+                <option value="halted">Halted</option>
+              </select>
+              <input aria-label="Signup date from" type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+              <input aria-label="Signup date to" type="date" value={to} onChange={(event) => setTo(event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+              <div className="flex gap-2">
+                <button type="submit" className="rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 px-4 py-2 text-sm font-semibold text-white">Apply filters</button>
+                <button type="button" onClick={() => { const empty = { search: "", status: "", from: "", to: "" }; setSearch(""); setStatus(""); setFrom(""); setTo(""); loadUsers(1, empty); }} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700">Clear</button>
+              </div>
+            </form>
+            <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm text-slate-500">
+              <span>{userLoading ? "Loading users…" : `Showing ${users.length} of ${pagination.total} users`}</span>
+              {userError && <span role="alert" className="text-red-600">{userError}</span>}
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -94,7 +140,7 @@ function Admin() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {data.recentUsers.map((user) => (
+                  {users.map((user) => (
                     <tr key={user._id}>
                       <td className="px-5 py-3">
                         <div className="font-medium text-slate-900">{user.name || "—"}</div>
@@ -106,9 +152,16 @@ function Admin() {
                       <td className="px-5 py-3 whitespace-nowrap">{user.trialEndDate ? new Date(user.trialEndDate).toLocaleDateString("en-IN") : "—"}</td>
                     </tr>
                   ))}
-                  {data.recentUsers.length === 0 && <tr><td colSpan="5" className="px-5 py-8 text-center text-slate-500">No users registered yet.</td></tr>}
+                  {!userLoading && users.length === 0 && <tr><td colSpan="5" className="px-5 py-8 text-center text-slate-500">No users match these filters.</td></tr>}
                 </tbody>
               </table>
+            </div>
+            <div className="flex items-center justify-between border-t border-slate-200 px-5 py-4">
+              <span className="text-sm text-slate-500">Page {pagination.page} of {Math.max(1, pagination.pages)}</span>
+              <div className="flex gap-2">
+                <button disabled={userLoading || page <= 1} onClick={() => loadUsers(page - 1)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-40">Previous</button>
+                <button disabled={userLoading || page >= pagination.pages} onClick={() => loadUsers(page + 1)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-40">Next</button>
+              </div>
             </div>
           </section>
           <p className="mt-4 text-xs text-slate-500">Updated {new Date(data.generatedAt).toLocaleString("en-IN")}. “Currently logged in” is not shown: the app uses seven-day JWTs and does not currently maintain a live session/presence tracker.</p>
