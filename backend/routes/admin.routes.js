@@ -22,7 +22,7 @@ router.get("/users", authMiddleware, adminMiddleware, async (req, res) => {
       filter.subscriptionStatus = status;
     }
     if (search) {
-      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\router.get("/overview"");
+      const escaped = search.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&");
       const regex = new RegExp(escaped, "i");
       filter.$or = [{ name: regex }, { email: regex }];
     }
