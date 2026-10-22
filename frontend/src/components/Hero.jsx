@@ -30,7 +30,7 @@ function Hero() {
         <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:gap-4 md:mt-10">
           <Link to="/signup">
             <button className="w-full rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 px-6 py-3 text-base font-semibold text-white shadow-lg transition hover:opacity-95 sm:w-auto sm:px-8 sm:py-4 sm:text-lg sm:hover:scale-105">
-              Start Free Trial
+              Sign Up
             </button>
           </Link>
 
