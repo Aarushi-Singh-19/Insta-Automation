@@ -882,7 +882,6 @@ return res.redirect(`${process.env.FRONTEND_URL}/accounts`);
 
 const getInstagramMedia = async (req, res) => {
   try {
-    // 1. Find connected Instagram account
     const account = await InstagramAccount.findOne({
       userId: req.user.id,
       status: "active",
@@ -895,33 +894,58 @@ const getInstagramMedia = async (req, res) => {
       });
     }
 
-    // 2. Fetch media from Instagram Graph API
-    const mediaResponse = await axios.get(
-      "https://graph.instagram.com/me/media",
-      {
-        params: {
-          fields:
-            "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp",
-          access_token: account.accessToken,
-        },
+    const fields = "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp";
+    const search = String(req.query.search || "").trim().toLowerCase();
+    const normalizeUrl = (value) => String(value || "").trim().replace(/\/$/, "").toLowerCase();
+
+    let mediaResponse = await axios.get("https://graph.instagram.com/me/media", {
+      params: {
+        fields,
+        limit: 100,
+        access_token: account.accessToken,
+      },
+    });
+
+    // Without a search, return the newest page quickly. When searching, follow
+    // Instagram's pagination so older posts can be found by caption or permalink.
+    if (search) {
+      const matches = [];
+      let pagesChecked = 0;
+      const normalizedSearchUrl = normalizeUrl(search);
+      let page = mediaResponse;
+
+      while (page && pagesChecked < 20) {
+        const items = page.data?.data || [];
+        matches.push(...items.filter((post) => {
+          const caption = String(post.caption || "").toLowerCase();
+          const permalink = normalizeUrl(post.permalink);
+          return caption.includes(search) || permalink.includes(normalizedSearchUrl);
+        }));
+
+        const nextUrl = page.data?.paging?.next;
+        if (!nextUrl) break;
+        page = await axios.get(nextUrl);
+        pagesChecked += 1;
       }
-    );
+
+      return res.json({ success: true, data: matches });
+    }
 
     return res.json({
       success: true,
-      data: mediaResponse.data.data,
+      data: mediaResponse.data.data || [],
     });
   } catch (error) {
-  console.error("GET MEDIA ERROR");
-  console.error("Status:", error.response?.status);
-  console.error("Response:", error.response?.data);
-  console.error("Message:", error.message);
+    console.error("GET MEDIA ERROR");
+    console.error("Status:", error.response?.status);
+    console.error("Response:", error.response?.data);
+    console.error("Message:", error.message);
 
-  return res.status(500).json({
-    success: false,
-    error: error.response?.data || error.message,
-  });
-}
+    return res.status(500).json({
+      success: false,
+      error: error.response?.data || error.message,
+    });
+  }
 };
 
 console.log({
