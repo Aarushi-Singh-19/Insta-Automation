@@ -33,6 +33,8 @@ function Automations() {
   const [media, setMedia] = useState([]);
   const [selectedPostId, setSelectedPostId] = useState("");
   const [loadingMedia, setLoadingMedia] = useState(false);
+  const [mediaSearch, setMediaSearch] = useState("");
+  const [visibleMediaCount, setVisibleMediaCount] = useState(6);
 
   const handleSaveAutomation = async () => {
     try {
@@ -229,7 +231,14 @@ function Automations() {
 
         console.log("Instagram Media:", res.data);
 
-        setMedia(res.data.data || []);
+        const fetchedMedia = res.data.data || [];
+        fetchedMedia.sort((a, b) => {
+          const dateA = new Date(a.timestamp || a.created_time || 0).getTime();
+          const dateB = new Date(b.timestamp || b.created_time || 0).getTime();
+          return dateB - dateA;
+        });
+        setMedia(fetchedMedia);
+        setVisibleMediaCount(6);
 
         console.log(
           "Media Length:",
@@ -482,19 +491,51 @@ function Automations() {
                 <>
                   <h3>Select Instagram Post</h3>
 
+                  <input
+                    type="search"
+                    value={mediaSearch}
+                    onChange={(e) => {
+                      setMediaSearch(e.target.value);
+                      setVisibleMediaCount(6);
+                    }}
+                    placeholder="Search your Reels by caption… or link"
+                    aria-label="Search Instagram posts by caption or link"
+                    style={{
+                      width: "100%",
+                      padding: "13px 16px",
+                      border: "1px solid #D1D5DB",
+                      borderRadius: "12px",
+                      fontSize: "14px",
+                      boxSizing: "border-box",
+                      marginBottom: "8px",
+                    }}
+                  />
+                  <p style={{ margin: "0 0 14px", color: "#6B7280", fontSize: "12px" }}>
+                    Showing the latest posts first. Search by caption or paste a post/Reel link to find older content.
+                  </p>
                   {loadingMedia ? (
                     <p>Loading posts...</p>
                   ) : (
+                    (() => {
+                      const query = mediaSearch.trim().toLowerCase();
+                      const filteredMedia = media.filter((post) => {
+                        if (!query) return true;
+                        const caption = String(post.caption || "").toLowerCase();
+                        const permalink = String(post.permalink || "").toLowerCase();
+                        return caption.includes(query) || permalink.includes(query);
+                      });
+                      const visibleMedia = filteredMedia.slice(0, query ? filteredMedia.length : visibleMediaCount);
+                      return (
+                        <>
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns:
-                          "repeat(auto-fill, minmax(170px, 1fr))",
+                        gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
                         gap: "12px",
-                        marginBottom: "20px",
+                        marginBottom: "12px",
                       }}
                     >
-                      {media.map((post) => (
+                      {visibleMedia.map((post) => (
                         <div
                           key={post.id}
                           onClick={() => {
@@ -577,6 +618,33 @@ function Automations() {
                         </div>
                       ))}
                     </div>
+                    {filteredMedia.length === 0 && (
+                      <p style={{ color: "#6B7280", fontSize: "14px", marginBottom: "20px" }}>
+                        No matching posts found. Try another caption or paste the post/Reel link.
+                      </p>
+                    )}
+                    {!query && visibleMediaCount < filteredMedia.length && (
+                      <button
+                        type="button"
+                        onClick={() => setVisibleMediaCount((count) => count + 6)}
+                        style={{
+                          width: "100%",
+                          padding: "12px 16px",
+                          border: "1px solid #E5E7EB",
+                          borderRadius: "10px",
+                          background: "#fff",
+                          color: "#374151",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          marginBottom: "20px",
+                        }}
+                      >
+                        Load 6 more posts ({filteredMedia.length - visibleMediaCount} remaining)
+                      </button>
+                    )}
+                        </>
+                      );
+                    })()
                   )}
                 </>
               )}
