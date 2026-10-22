@@ -3,6 +3,7 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const User = require("../models/User");
 const Payment = require("../models/Payment");
+const InstagramAccount = require("../models/InstagramAccount");
 const authMiddleware = require("../middleware/authMiddleware");
 const adminMiddleware = require("../middleware/adminMiddleware");
 
@@ -12,7 +13,7 @@ router.get("/overview", authMiddleware, adminMiddleware, async (req, res) => {
 
     const [
       totalUsers,
-      instagramConnected,
+      connectedInstagramUserIds,
       activeTrials,
       expiredTrials,
       activePaidSubscribers,
@@ -23,7 +24,7 @@ router.get("/overview", authMiddleware, adminMiddleware, async (req, res) => {
       capturedRevenue
     ] = await Promise.all([
       User.countDocuments({}),
-      User.countDocuments({ instagramConnected: true }),
+      InstagramAccount.distinct("userId", { status: "active" }),
       User.countDocuments({
         subscriptionStatus: "trial",
         trialEndDate: { $gt: now }
@@ -52,11 +53,17 @@ router.get("/overview", authMiddleware, adminMiddleware, async (req, res) => {
       ])
     ]);
 
+    const connectedUserIds = new Set(connectedInstagramUserIds.map((id) => String(id)));
+    const usersWithCorrectInstagramStatus = recentUsers.map((user) => ({
+      ...user,
+      instagramConnected: connectedUserIds.has(String(user._id)),
+    }));
+
     return res.json({
       generatedAt: now.toISOString(),
       metrics: {
         totalUsers,
-        instagramConnected,
+        instagramConnected: connectedInstagramUserIds.length,
         activeTrials,
         expiredTrials,
         activePaidSubscribers,
@@ -66,7 +73,7 @@ router.get("/overview", authMiddleware, adminMiddleware, async (req, res) => {
         capturedPayments: capturedRevenue[0]?.count || 0,
         capturedRevenuePaise: capturedRevenue[0]?.total || 0
       },
-      recentUsers
+      recentUsers: usersWithCorrectInstagramStatus
     });
   } catch (error) {
     console.error("ADMIN OVERVIEW ERROR:", error);
