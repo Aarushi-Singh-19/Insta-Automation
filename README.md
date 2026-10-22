@@ -156,3 +156,18 @@ From `backend/`:
 Built and maintained by **Aarushi Singh**.
 
 When extending TriggerDM, prefer small, tested changes that preserve the working production flows. Verify current code and provider configuration before assuming any integration detail is unchanged.
+
+
+## Private admin dashboard
+
+The app includes a private admin page at `/admin` for an account explicitly authorized on the backend. Configure `ADMIN_EMAIL` in the backend hosting environment to the exact email address of the administrator's existing TriggerDM account. Do not put this variable in frontend environment settings or commit it to the repository.
+
+The dashboard summarizes registered users, connected Instagram accounts, active and expired trials, subscription statuses, recorded captured payments, and the ten most recent sign-ups. Metrics are derived from the existing `User` and `Payment` collections.
+
+- Backend endpoint: `GET /api/admin/overview`
+- Access requires a valid login token and a matching server-side `ADMIN_EMAIL`.
+- If `ADMIN_EMAIL` is missing, the endpoint intentionally returns an unavailable/configuration response.
+- Currently logged-in users are not counted: the application uses JWTs and does not currently maintain live session presence.
+- Captured payment totals are sums of captured payment records; they are not a full accounting or net-revenue report.
+
+After setting `ADMIN_EMAIL` in the backend hosting dashboard, wait for the backend deployment to complete, then sign in using that same account and open `/admin`. Verify access with the admin account and confirm a normal user receives a 403 response from the admin endpoint.
