@@ -534,7 +534,7 @@ function Automations() {
                       setMediaSearch(e.target.value);
                       setVisibleMediaCount(6);
                     }}
-                    placeholder="Search your Reels by caption… or link"
+                    placeholder="Search your Reels by link"
                     aria-label="Search Instagram posts by caption or link"
                     style={{
                       width: "100%",
