@@ -35,6 +35,8 @@ function Automations() {
   const [loadingMedia, setLoadingMedia] = useState(false);
   const [mediaSearch, setMediaSearch] = useState("");
   const [visibleMediaCount, setVisibleMediaCount] = useState(6);
+  const [searchedMedia, setSearchedMedia] = useState([]);
+  const [searchingMedia, setSearchingMedia] = useState(false);
 
   const handleSaveAutomation = async () => {
     try {
@@ -256,6 +258,40 @@ function Automations() {
 
     fetchInstagramMedia();
   }, [triggerType]);
+
+  useEffect(() => {
+    const query = mediaSearch.trim();
+    if (!query || triggerType !== "specific-post") {
+      setSearchedMedia([]);
+      setSearchingMedia(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = setTimeout(async () => {
+      try {
+        setSearchingMedia(true);
+        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+        const res = await API.get("/instagram/media", {
+          params: { search: query },
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!cancelled) setSearchedMedia(res.data.data || []);
+      } catch (err) {
+        if (!cancelled) {
+          setSearchedMedia([]);
+          console.error("Failed to search Instagram media:", err);
+        }
+      } finally {
+        if (!cancelled) setSearchingMedia(false);
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [mediaSearch, triggerType]);
 
   console.log({
     triggerType,
@@ -513,17 +549,12 @@ function Automations() {
                   <p style={{ margin: "0 0 14px", color: "#6B7280", fontSize: "12px" }}>
                     Showing the latest posts first. Search by caption or paste a post/Reel link to find older content.
                   </p>
-                  {loadingMedia ? (
-                    <p>Loading posts...</p>
+                  {loadingMedia || (mediaSearch.trim() && searchingMedia) ? (
+                    <p>{loadingMedia ? "Loading posts..." : "Searching your Instagram posts..."}</p>
                   ) : (
                     (() => {
-                      const query = mediaSearch.trim().toLowerCase();
-                      const filteredMedia = media.filter((post) => {
-                        if (!query) return true;
-                        const caption = String(post.caption || "").toLowerCase();
-                        const permalink = String(post.permalink || "").toLowerCase();
-                        return caption.includes(query) || permalink.includes(query);
-                      });
+                      const query = mediaSearch.trim();
+                      const filteredMedia = query ? searchedMedia : media;
                       const visibleMedia = filteredMedia.slice(0, query ? filteredMedia.length : visibleMediaCount);
                       return (
                         <>
@@ -620,7 +651,7 @@ function Automations() {
                     </div>
                     {filteredMedia.length === 0 && (
                       <p style={{ color: "#6B7280", fontSize: "14px", marginBottom: "20px" }}>
-                        No matching posts found. Try another caption or paste the post/Reel link.
+                        No matching posts found. Try a different caption or paste the full Instagram post/Reel URL.
                       </p>
                     )}
                     {!query && visibleMediaCount < filteredMedia.length && (
