@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import API from "../services/api";
 import DashboardLayout from "../components/DashboardLayout";
 import PageHeader from "../components/ui/PageHeader";
-import { Users, Instagram, Clock3, CreditCard, AlertTriangle, RefreshCw } from "lucide-react";
+import { Users, Clock3, CreditCard, AlertTriangle, RefreshCw } from "lucide-react";
 
 const formatCurrency = (paise) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 })
@@ -44,7 +44,7 @@ function Admin() {
   const metrics = data?.metrics;
   const cards = metrics ? [
     { title: "Registered users", value: metrics.totalUsers, icon: Users },
-    { title: "Instagram connected", value: metrics.instagramConnected, icon: Instagram },
+    { title: "Instagram connected", value: metrics.instagramConnected, icon: Users },
     { title: "Active free trials", value: metrics.activeTrials, icon: Clock3 },
     { title: "Active paid subscribers", value: metrics.activePaidSubscribers, icon: CreditCard, note: "Active status with an unexpired plan end date" },
     { title: "Expired trials", value: metrics.expiredTrials, icon: Clock3 },
