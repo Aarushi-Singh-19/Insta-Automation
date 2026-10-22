@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import API from "../services/api";
 import DashboardLayout from "../components/DashboardLayout";
 import AutomationCard from "../components/automation/AutomationCard";
 import PageHeader from "../components/ui/PageHeader";
 
 function Automations() {
+  const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
   const [triggerType, setTriggerType] = useState("specific-post");
 
@@ -37,6 +39,23 @@ function Automations() {
   const [visibleMediaCount, setVisibleMediaCount] = useState(6);
   const [searchedMedia, setSearchedMedia] = useState([]);
   const [searchingMedia, setSearchingMedia] = useState(false);
+
+  const handleCreateAutomation = async () => {
+    try {
+      const response = await API.get("/instagram/accounts");
+      const accounts = response.data?.data || [];
+      const hasActiveAccount = accounts.some((account) => account.status === "active");
+      if (!hasActiveAccount) {
+        navigate("/accounts", { state: { connectRequired: true } });
+        return;
+      }
+      setEditingId(null);
+      setShowForm(true);
+    } catch (error) {
+      console.error("Unable to verify Instagram connection:", error);
+      alert("We could not verify your Instagram connection. Please try again.");
+    }
+  };
 
   const handleSaveAutomation = async () => {
     try {
@@ -310,7 +329,7 @@ function Automations() {
         subtitle="Manage your Instagram comment-to-DM automations."
         action={
           <button
-            onClick={() => setShowForm(true)}
+            onClick={handleCreateAutomation}
             style={{
               padding: "12px 20px",
               border: "none",
