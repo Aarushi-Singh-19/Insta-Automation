@@ -4,6 +4,7 @@ import Billing from "./pages/Billing";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import Admin from "./pages/Admin";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Signup from "./pages/Signup";
 import ResetPassword from "./pages/ResetPassword";
@@ -17,101 +18,28 @@ import {
   BrowserRouter,
   Routes,
   Route,
-  Navigate,
 } from "react-router-dom";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
-<Route
-  path="/"
-  element={<Home />}
-/>
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+        <Route path="/automations" element={<ProtectedRoute><Automations /></ProtectedRoute>} />
+        <Route path="/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
+        <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
-        <Route
-          path="/login"
-          element={<Login />}
-        />
-
-        <Route
-  path="/signup"
-  element={<Signup />}
-/>
-
-        <Route
-  path="/reset-password"
-  element={<ResetPassword />}
-/>
-
-
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-  path="/automations"
-  element={
-    <ProtectedRoute>
-      <Automations />
-    </ProtectedRoute>
-  }
-/>
-
-<Route
-  path="/accounts"
-  element={
-    <ProtectedRoute>
-      <Accounts />
-    </ProtectedRoute>
-  }
-/>
-
-<Route
-  path="/billing"
-  element={
-    <ProtectedRoute>
-      <Billing />
-    </ProtectedRoute>
-  }
-/>
-
-<Route
-  path="/settings"
-  element={
-    <ProtectedRoute>
-      <Settings />
-    </ProtectedRoute>
-  }
-/>
-
-        <Route
-  path="/privacy"
-  element={<Privacy />}
-/>
-
-<Route
-  path="/terms"
-  element={<Terms />}
-/>
-
-<Route
-  path="/contact"
-  element={<Contact />}
-/>
-<Route
-  path="/follow/verify"
-  element={<FollowVerify />}
-/>
-
-
-
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/follow/verify" element={<FollowVerify />} />
       </Routes>
     </BrowserRouter>
   );
