@@ -896,7 +896,7 @@ const getInstagramMedia = async (req, res) => {
 
     const fields = "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp";
     const search = String(req.query.search || "").trim().toLowerCase();
-    const normalizeUrl = (value) => String(value || "").trim().replace(/\/$/, "").toLowerCase();
+    const normalizeUrl = (value) => String(value || "").trim().split(/[?#]/)[0].replace(/\/+$/, "").toLowerCase();
 
     let mediaResponse = await axios.get("https://graph.instagram.com/me/media", {
       params: {
