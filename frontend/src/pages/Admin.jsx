@@ -6,7 +6,7 @@ import { Users, Clock3, CreditCard, AlertTriangle, RefreshCw } from "lucide-reac
 
 const formatCurrency = (paise) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 })
-    .format((Number(paise) || 0) / 100);
+    .format(Number(paise) || 0);
 
 function Metric({ title, value, icon: Icon, note }) {
   return (
