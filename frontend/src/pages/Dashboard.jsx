@@ -30,6 +30,21 @@ function Dashboard() {
     fetchDashboardStats();
   }, []);
 
+  const handleCreateAutomation = async () => {
+    try {
+      const response = await API.get("/instagram/accounts");
+      const accounts = response.data?.data || [];
+      if (!accounts.some((account) => account.status === "active")) {
+        navigate("/accounts", { state: { connectRequired: true } });
+        return;
+      }
+      navigate("/automations");
+    } catch (error) {
+      console.error("Unable to verify Instagram connection:", error);
+      alert("We could not verify your Instagram connection. Please try again.");
+    }
+  };
+
   const fetchDashboardStats = async () => {
     try {
       const response = await API.get("/analytics/dashboard");
@@ -65,7 +80,7 @@ function Dashboard() {
         subtitle="Manage your Instagram comment-to-DM automations."
         action={
           <button
-            onClick={() => navigate("/automations")}
+            onClick={handleCreateAutomation}
             className="rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 px-5 py-3 font-semibold text-white transition hover:opacity-90"
           >
             + Create Automation
