@@ -264,6 +264,41 @@ if (!user || !hasAccess) {
             }
           );
 
+          // FINAL LOOP SAFETY GUARD: discard already-queued actions triggered
+          // by comments authored by the connected business account itself.
+          const normalizeInstagramUsername = (value) =>
+            String(value || "").replace(/^@/, "").trim().toLowerCase();
+          const jobCommentUsername = normalizeInstagramUsername(job.data.username);
+          const connectedUsername = normalizeInstagramUsername(igAccount.username);
+          const jobCommentAuthorId = String(job.data.recipientId || "");
+          const connectedBusinessId = String(igAccount.instagramBusinessId || "");
+
+          if (
+            (jobCommentUsername && connectedUsername &&
+              jobCommentUsername === connectedUsername) ||
+            (jobCommentAuthorId && connectedBusinessId &&
+              jobCommentAuthorId === connectedBusinessId)
+          ) {
+            console.warn("🛑 SELF-TRIGGER LOOP GUARD: skipping queued action", {
+              jobId: job.id,
+              commentId,
+              matchedBy: jobCommentAuthorId === connectedBusinessId &&
+                jobCommentAuthorId ? "instagram-id" : "username",
+            });
+
+            await ActionLog.updateOne(
+              { ...currentLogQuery, status: "processing" },
+              {
+                $set: {
+                  status: "success",
+                  error: "Skipped self-authored comment to prevent reply loop",
+                  updatedAt: new Date(),
+                },
+              }
+            );
+            continue;
+          }
+
           // =========================
           // 3. EXECUTE ACTION
           // =========================
