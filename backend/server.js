@@ -6,6 +6,7 @@ const cors = require("cors");
 
 const followVerificationRoutes = require("./routes/followVerification.routes");
 const testRoutes = require("./routes/test.routes.js");
+const pollingService = require("./services/pollingService.js");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const connectDB = require("./config/db");
 const instagramRoutes = require("./routes/instagram.routes");
@@ -25,7 +26,7 @@ app.use(cors({
   credentials: true
 }));
 
-// Razorpay webhook must retain access to the raw request body.
+// Keep the Razorpay raw-body route before express.json().
 app.use(
   "/api/billing/razorpay-webhook",
   razorpayWebhookRoutes
@@ -60,14 +61,20 @@ const start = async () => {
   try {
     await connectDB();
 
-    // Start the existing action worker after MongoDB connects.
+    // Start the BullMQ worker only after MongoDB connects.
     require("./workers/action.worker");
 
-    app.listen(PORT, () => {
+    app.listen(PORT, async () => {
       console.log(`✅ Server running on port ${PORT}`);
-      console.log("✅ Instagram comment handling is webhook-driven.");
-      // Polling intentionally disabled on staging. Keep pollingService.js
-      // available for rollback, but do not run both event sources concurrently.
+
+      // Do not disable polling until Meta delivery to staging is confirmed.
+      // Set INSTAGRAM_WEBHOOK_ONLY=true on the staging service to cut over.
+      if (process.env.INSTAGRAM_WEBHOOK_ONLY === "true") {
+        console.log("✅ Instagram webhook-only mode enabled.");
+      } else {
+        console.log("⚠️ Instagram webhook-only mode is off; polling fallback enabled.");
+        await pollingService.startPolling();
+      }
     });
   } catch (err) {
     console.error(err);
