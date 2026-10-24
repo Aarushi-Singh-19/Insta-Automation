@@ -172,7 +172,7 @@ async function sendFollowGateMessage({
               {
                 type: "web_url",
                 title: buttonText || "I'm Following",
-                url: `https://triggerdm.in/follow/verify?token=${encodeURIComponent(
+                url: `${(process.env.FRONTEND_URL || "https://triggerdm.in").replace(/\/+$/, "")}/follow/verify?token=${encodeURIComponent(
                   verificationToken
                 )}`,
               },
