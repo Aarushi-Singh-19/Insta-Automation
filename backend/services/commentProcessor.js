@@ -93,6 +93,36 @@ console.log("INSTAGRAM ACCOUNT FOUND:", {
   username: instagramAccount.username,
 });
 
+// SAFETY GUARD: never process comments authored by the connected business
+// account itself. Replies posted by TriggerDM can arrive as new comment
+// webhooks; without this guard, a keyword such as "link" can create a
+// self-triggering reply loop.
+const ownUsername = String(instagramAccount.username || "")
+  .replace(/^@/, "")
+  .trim()
+  .toLowerCase();
+const incomingUsername = String(username || "")
+  .replace(/^@/, "")
+  .trim()
+  .toLowerCase();
+const ownInstagramId = String(instagramAccount.instagramBusinessId || "");
+const incomingInstagramId = String(recipientId || "");
+
+if (
+  (ownUsername && incomingUsername && ownUsername === incomingUsername) ||
+  (ownInstagramId && incomingInstagramId && ownInstagramId === incomingInstagramId)
+) {
+  console.warn("Ignoring comment authored by connected Instagram business account", {
+    eventId,
+    postId,
+    username: incomingUsername || undefined,
+    matchedBy: ownUsername && incomingUsername === ownUsername
+      ? "username"
+      : "instagramBusinessId",
+  });
+  return;
+}
+
   console.log("CAMPAIGN FOUND:", {
     campaignId: campaign._id,
     userId: campaign.userId,
