@@ -154,11 +154,26 @@ const pollComments = async (account, post) => {
     );
 
     for (const comment of comments) {
-      // Skip comments made by the account owner
+      // Never process replies/comments authored by this connected business account.
+      // Compare both stable Instagram IDs and normalized usernames because
+      // the API may vary username casing or omit one of these fields.
+      const ownerUsername = String(account.username || "")
+        .replace(/^@/, "")
+        .trim()
+        .toLowerCase();
+      const authorUsername = String(comment.from?.username || "")
+        .replace(/^@/, "")
+        .trim()
+        .toLowerCase();
+      const ownerInstagramId = String(account.instagramBusinessId || "");
+      const authorInstagramId = String(comment.from?.id || "");
+
       if (
         !comment.from ||
-        comment.from.username === account.username
+        (ownerUsername && authorUsername && ownerUsername === authorUsername) ||
+        (ownerInstagramId && authorInstagramId && ownerInstagramId === authorInstagramId)
       ) {
+        console.log("Skipping own-account comment during polling:", comment.id);
         continue;
       }
 
