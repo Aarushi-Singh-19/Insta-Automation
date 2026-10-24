@@ -112,6 +112,19 @@ const receiveWebhook = async (req, res) => {
 
         const change = changeObj.value;
 
+        // Instagram can send a webhook for a public reply created by our own
+        // business account. Ignore it before it reaches the automation engine.
+        const webhookOwnerId = String(entry.id || "");
+        const commentAuthorId = String(change?.from?.id || "");
+        if (
+          webhookOwnerId &&
+          commentAuthorId &&
+          webhookOwnerId === commentAuthorId
+        ) {
+          console.log("Skipping own-account comment webhook:", change?.id);
+          continue;
+        }
+
         const eventId = change?.id;
 
         const postId =
