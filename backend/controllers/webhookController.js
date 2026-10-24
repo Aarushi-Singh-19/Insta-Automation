@@ -112,6 +112,13 @@ const receiveWebhook = async (req, res) => {
 
         const change = changeObj.value;
 
+        // Only top-level comments may trigger an automation. Replies to comments
+        // (including replies posted by TriggerDM) must never start another run.
+        if (change?.parent_id) {
+          console.log("Skipping comment reply to prevent automation loops:", change?.id);
+          continue;
+        }
+
         // Instagram can send a webhook for a public reply created by our own
         // business account. Ignore it before it reaches the automation engine.
         const webhookOwnerId = String(entry.id || "");
