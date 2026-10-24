@@ -7,11 +7,8 @@ const API_BASE_URL =
 
 function FollowVerify() {
   const [searchParams] = useSearchParams();
-
   const [status, setStatus] = useState("checking");
-  const [message, setMessage] = useState(
-    "Verifying your follow..."
-  );
+  const [message, setMessage] = useState("Verifying your follow...");
   const verificationStarted = useRef(false);
 
   useEffect(() => {
@@ -24,57 +21,42 @@ function FollowVerify() {
     }
 
     const verifyFollow = async () => {
-  if (verificationStarted.current) {
-    return;
-  }
+      if (verificationStarted.current) return;
+      verificationStarted.current = true;
 
-  verificationStarted.current = true;
-
-  try {
-        
-          const response = await fetch(
-  `${API_BASE_URL}/follow/verify-follow`,
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/follow/verify-follow`,
           {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              token,
-            }),
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token }),
           }
         );
 
         const data = await response.json();
 
         if (!response.ok || !data.success) {
-          throw new Error(
-            data.message || "Verification failed."
-          );
+          throw new Error(data.message || "Verification failed.");
         }
 
         if (data.verified) {
           setStatus("success");
-  setMessage(
-  "Your follow has been verified successfully. Please comment again on the post to receive your requested DM."
-);
+          setMessage(
+            "You're verified! Your requested message is being sent to your Instagram DMs. You don't need to comment again."
+          );
           return;
         }
 
         setStatus("not-following");
         setMessage(
-          "You're not following the account yet. Follow the account on Instagram and try again."
+          "We couldn't confirm that you're following the account yet. Follow the account on Instagram, then tap the check button below."
         );
       } catch (error) {
-        console.error(
-          "Follow verification error:",
-          error
-        );
-
+        console.error("Follow verification error:", error);
         setStatus("error");
         setMessage(
-          error.message ||
-            "Something went wrong while verifying your follow."
+          error.message || "Something went wrong while verifying your follow."
         );
       }
     };
@@ -101,41 +83,26 @@ function FollowVerify() {
           borderRadius: "16px",
           padding: "32px",
           textAlign: "center",
-          boxShadow:
-            "0 10px 30px rgba(0, 0, 0, 0.08)",
+          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.08)",
         }}
       >
-        <h1
-          style={{
-            marginBottom: "16px",
-            fontSize: "24px",
-          }}
-        >
-          {status === "checking" &&
-            "Checking Follow Status..."}
-
-          {status === "success" &&
-            "Follow Verified ✓"}
-
-          {status === "not-following" &&
-            "Follow Required"}
-
-          {status === "error" &&
-            "Verification Failed"}
+        <h1 style={{ marginBottom: "16px", fontSize: "24px" }}>
+          {status === "checking" && "Checking Follow Status..."}
+          {status === "success" && "Follow Verified ✓"}
+          {status === "not-following" && "Follow Required"}
+          {status === "error" && "Verification Failed"}
         </h1>
 
-        <p
-          style={{
-            color: "#666",
-            lineHeight: 1.6,
-          }}
-        >
-          {message}
-        </p>
+        <p style={{ color: "#666", lineHeight: 1.6 }}>{message}</p>
 
         {status === "not-following" && (
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              verificationStarted.current = false;
+              setStatus("checking");
+              setMessage("Checking your follow...");
+              window.location.reload();
+            }}
             style={{
               marginTop: "20px",
               padding: "12px 20px",
@@ -145,7 +112,7 @@ function FollowVerify() {
               fontWeight: 600,
             }}
           >
-            I'm Following — Check Again
+            I've Followed — Check Again
           </button>
         )}
       </div>
