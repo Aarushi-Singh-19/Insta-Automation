@@ -103,7 +103,14 @@ const start = async () => {
 
     app.listen(PORT, async () => {
       console.log(`✅ Server running on port ${PORT}`);
-      await pollingService.startPolling();
+      // Production uses Instagram webhooks as the event source. Polling is
+      // opt-in only, so a missed webhook cannot trigger repeated replies from
+      // repeatedly scanning old comments.
+      if (process.env.ENABLE_INSTAGRAM_POLLING === "true") {
+        await pollingService.startPolling();
+      } else {
+        console.log("Instagram polling disabled; webhook-only mode.");
+      }
     });
   } catch (err) {
     console.error(err);
