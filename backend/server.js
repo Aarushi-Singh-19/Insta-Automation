@@ -4,74 +4,36 @@ dotenv.config();
 const express = require("express");
 const cors = require("cors");
 
-
 const followVerificationRoutes = require("./routes/followVerification.routes");
-
-
 const testRoutes = require("./routes/test.routes.js");
-
-const pollingService = require("./services/pollingService.js");
-
 const analyticsRoutes = require("./routes/analyticsRoutes");
-
 const connectDB = require("./config/db");
-
 const instagramRoutes = require("./routes/instagram.routes");
-
 const webhookRoutes = require("./routes/webhookRoutes");
-
 const billingRoutes = require("./routes/billing");
-
-const razorpayWebhookRoutes = require(
-  "./routes/razorpayWebhook.routes"
-);
-
-
-// require("./workers/bullmq/commentWorker");
-
+const razorpayWebhookRoutes = require("./routes/razorpayWebhook.routes");
 
 const app = express();
 
-// Middleware
 app.use(cors({
   origin: [
     "http://localhost:5173",
     "https://triggerdm.in",
     "https://www.triggerdm.in"
   ],
-  methods: [
-    "GET",
-    "POST",
-    "PUT",
-    "DELETE",
-    "PATCH"
-  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   credentials: true
 }));
 
-// ==========================================
-// RAZORPAY WEBHOOK
-// MUST BE BEFORE express.json()
-// ==========================================
-
+// Razorpay webhook must retain access to the raw request body.
 app.use(
   "/api/billing/razorpay-webhook",
   razorpayWebhookRoutes
 );
 
-// ==========================================
-// NORMAL BODY PARSERS
-// ==========================================
-
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-app.use(
-  express.urlencoded({
-    extended: true
-  })
-);
-
-// Routes
 app.use("/api/follow", followVerificationRoutes);
 app.use("/api/test", testRoutes);
 app.use("/api/billing", billingRoutes);
@@ -98,12 +60,14 @@ const start = async () => {
   try {
     await connectDB();
 
-    // Start BullMQ worker only after DB connection
+    // Start the existing action worker after MongoDB connects.
     require("./workers/action.worker");
 
-    app.listen(PORT, async () => {
+    app.listen(PORT, () => {
       console.log(`✅ Server running on port ${PORT}`);
-      await pollingService.startPolling();
+      console.log("✅ Instagram comment handling is webhook-driven.");
+      // Polling intentionally disabled on staging. Keep pollingService.js
+      // available for rollback, but do not run both event sources concurrently.
     });
   } catch (err) {
     console.error(err);
