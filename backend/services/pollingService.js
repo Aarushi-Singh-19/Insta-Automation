@@ -141,7 +141,7 @@ const pollComments = async (account, post) => {
       `https://graph.instagram.com/${post.id}/comments`,
       {
         params: {
-          fields: "id,text,from,timestamp",
+          fields: "id,text,from,username,timestamp,parent_id",
           access_token: account.accessToken,
         },
       }
@@ -154,6 +154,13 @@ const pollComments = async (account, post) => {
     );
 
     for (const comment of comments) {
+      // Never trigger automations from replies to comments. This is essential
+      // because public replies created by TriggerDM can appear in polling results.
+      if (comment.parent_id) {
+        console.log("Skipping comment reply during polling:", comment.id);
+        continue;
+      }
+
       // Never process replies/comments authored by this connected business account.
       // Compare both stable Instagram IDs and normalized usernames because
       // the API may vary username casing or omit one of these fields.
@@ -161,7 +168,7 @@ const pollComments = async (account, post) => {
         .replace(/^@/, "")
         .trim()
         .toLowerCase();
-      const authorUsername = String(comment.from?.username || "")
+      const authorUsername = String(comment.from?.username || comment.username || "")
         .replace(/^@/, "")
         .trim()
         .toLowerCase();
@@ -188,7 +195,7 @@ await commentProcessor.processComment({
   eventId: comment.id,
   postId: post.id,
   commentText: comment.text,
-  username: comment.from?.username,
+  username: comment.from?.username || comment.username,
   recipientId: comment.from?.id,
   commentTimestamp: comment.timestamp,
 });
