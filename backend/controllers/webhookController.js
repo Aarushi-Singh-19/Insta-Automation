@@ -70,6 +70,16 @@ async function handleFollowGatePostback(payload) {
 }
 
 const receiveWebhook = async (req, res) => {
+  // Staging diagnostics: log receipt and event shape without logging tokens or full user payloads.
+  console.log("📩 Instagram webhook POST received", {
+    path: req.originalUrl,
+    object: req.body?.object,
+    entryCount: Array.isArray(req.body?.entry) ? req.body.entry.length : 0,
+    fields: Array.isArray(req.body?.entry)
+      ? [...new Set(req.body.entry.flatMap((entry) => (Array.isArray(entry.changes) ? entry.changes.map((change) => change.field) : [])))]
+      : [],
+    hasMessagingEvents: Array.isArray(req.body?.entry) && req.body.entry.some((entry) => Array.isArray(entry.messaging) && entry.messaging.length > 0),
+  });
   try {
     const body = req.body;
 
