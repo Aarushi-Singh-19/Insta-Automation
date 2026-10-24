@@ -13,6 +13,16 @@ const actionSnapshotSchema = new mongoose.Schema(
 
     message: String,
 
+    buttons: {
+      type: [
+        {
+          title: String,
+          url: String,
+        },
+      ],
+      default: [],
+    },
+
     campaignId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Campaign",
@@ -37,13 +47,12 @@ const gateSessionSchema = new mongoose.Schema(
       index: true,
     },
 
-
     verificationToken: {
-  type: String,
-  required: true,
-  unique: true,
-  index: true,
-},
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
 
     userId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -95,19 +104,15 @@ const gateSessionSchema = new mongoose.Schema(
       required: true,
     },
 
-    // Snapshot of actions waiting to resume
+    // Snapshot of actions waiting to resume after the user follows.
     actions: {
-  type: [actionSnapshotSchema],
-  default: [],
-},
+      type: [actionSnapshotSchema],
+      default: [],
+    },
+
     status: {
       type: String,
-      enum: [
-        "WAITING",
-        "PROCESSING",
-        "COMPLETED",
-        "EXPIRED",
-      ],
+      enum: ["WAITING", "PROCESSING", "COMPLETED", "EXPIRED"],
       default: "WAITING",
       index: true,
     },
