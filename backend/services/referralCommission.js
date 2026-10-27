@@ -19,6 +19,7 @@ function buildReferralEarning(user, payment) {
     grossAmount,
     commissionRate: 20,
     commissionAmount: Math.round(grossAmount * 20) / 100,
+    originalCommissionAmount: Math.round(grossAmount * 20) / 100,
     currency: payment.currency,
     status: "eligible",
   };
