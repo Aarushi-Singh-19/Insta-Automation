@@ -57,6 +57,7 @@ const sanitizeUser = (user) => {
 const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
+    const referralCode = String(req.body.referralCode || "").trim().toUpperCase();
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: "All fields required" });
@@ -74,8 +75,11 @@ const now = new Date();
 const trialEndDate = new Date();
 trialEndDate.setDate(trialEndDate.getDate() + 7);
 
+const referrer = referralCode ? await User.findOne({ referralCode }).select("_id") : null;
+
 const user = await User.create({
   name,
+  referredBy: referrer ? referrer._id : null,
   email,
   password: hashedPassword,
 
