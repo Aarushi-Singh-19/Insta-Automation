@@ -39,6 +39,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/follow", followVerificationRoutes);
 app.use("/api/test", testRoutes);
 app.use("/api/billing", billingRoutes);
+app.use("/api/referrals", require("./routes/referrals.routes"));
 app.use("/api/webhook", webhookRoutes);
 app.use("/api/instagram", instagramRoutes);
 app.use("/api/analytics", analyticsRoutes);
