@@ -81,7 +81,7 @@ function Dashboard() {
         action={
           <button
             onClick={handleCreateAutomation}
-            className="rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 px-5 py-3 font-semibold text-white transition hover:opacity-90"
+            className="rounded-lg bg-[#7655db] px-5 py-3 text-sm font-semibold text-white shadow-[0_6px_18px_rgba(118,85,219,0.18)] transition hover:-translate-y-0.5 hover:bg-[#6746cc]"
           >
             + Create Automation
           </button>
