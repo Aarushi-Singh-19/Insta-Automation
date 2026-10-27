@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, SlidersHorizontal, MoreVertical, Plus, Zap, ExternalLink, Instagram } from "lucide-react";
+import { Search, SlidersHorizontal, MoreVertical, Plus, Zap, ExternalLink } from "lucide-react";
 import API from "../services/api";
 import DashboardLayout from "../components/DashboardLayout";
 
@@ -941,7 +941,7 @@ function Automations() {
                   return (
                     <div key={automation._id} className="grid grid-cols-1 gap-3 px-4 py-4 transition hover:bg-slate-50/70 sm:px-6 xl:grid-cols-[minmax(170px,1.35fr)_minmax(105px,0.7fr)_minmax(130px,1fr)_90px_minmax(90px,0.65fr)_100px] xl:items-center xl:gap-4">
                       <div className="flex min-w-0 items-center gap-3">
-                        <span aria-label="Instagram" title="Instagram" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white shadow-sm"><Instagram size={21} strokeWidth={2.1} /></span>
+                        <span aria-label="Instagram" title="Instagram" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white shadow-sm"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" aria-hidden="true"><rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5.1" stroke="currentColor" strokeWidth="2"/><circle cx="12" cy="12" r="4.1" stroke="currentColor" strokeWidth="2"/><circle cx="17.7" cy="6.6" r="1.15" fill="currentColor"/></svg></span>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-slate-900">{title}</p>
                           <p className="mt-1 line-clamp-1 text-xs text-slate-500">{automation.dmMessage || "No DM message configured"}</p>
