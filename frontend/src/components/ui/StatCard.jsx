@@ -1,21 +1,17 @@
-function StatCard({ title, value, icon, color = "#7C3AED" }) {
+function StatCard({ title, value, icon, color = "#7655db" }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-200">
+    <div className="rounded-xl border border-[#e9e4eb] bg-white p-6 shadow-[0_2px_8px_rgba(34,25,57,0.04)] transition-shadow duration-200 hover:shadow-[0_8px_24px_rgba(34,25,57,0.08)]">
       <div
-        className="w-12 h-12 rounded-xl flex items-center justify-center bg-purple-100"
+        className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#eee8ff]"
         style={{ color }}
       >
         {icon}
       </div>
-
       <div className="mt-5">
-        <h2 className="text-4xl font-bold text-gray-900">
+        <h2 className="text-4xl font-semibold tracking-tight text-[#191724]">
           {value}
         </h2>
-
-        <p className="mt-2 text-gray-500">
-          {title}
-        </p>
+        <p className="mt-2 text-sm text-[#777280]">{title}</p>
       </div>
     </div>
   );
