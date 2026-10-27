@@ -6,7 +6,7 @@ const repoRoot = path.resolve(__dirname, "..");
 const routePath = path.join(repoRoot, "routes", "referralPayout.routes.js");
 const routeModuleId = require.resolve(routePath);
 
-function loadRouterWithMocks({ payout, updateMany }) {
+function loadRouterWithMocks({ payout, updateMany, earnings = [] }) {
   const mongooseId = require.resolve("mongoose");
   const expressId = require.resolve("express");
   const authPath = require.resolve(path.join(repoRoot, "middleware", "authMiddleware.js"));
@@ -40,7 +40,7 @@ function loadRouterWithMocks({ payout, updateMany }) {
       updateMany(...args);
       return { modifiedCount: 1 };
     },
-    find: () => ({ session: async () => [] })
+    find: () => ({ session: async () => earnings })
   };
   const fakePayouts = {
     findById: () => ({ session: async () => payout })
@@ -72,6 +72,20 @@ function loadRouterWithMocks({ payout, updateMany }) {
   };
 }
 
+async function invoke(handler, body) {
+  let statusCode = 200;
+  let responseBody;
+  const res = {
+    status(code) { statusCode = code; return this; },
+    json(value) { responseBody = value; return this; }
+  };
+  await handler(
+    { params: { id: "payout-id" }, body, user: { id: "admin-id" } },
+    res
+  );
+  return { statusCode, body: responseBody };
+}
+
 test("rejecting an approved unpaid payout releases only earnings still reserved as requested", async () => {
   const payout = {
     _id: "payout-id",
@@ -87,20 +101,9 @@ test("rejecting an approved unpaid payout releases only earnings still reserved 
   });
 
   try {
-    assert.equal(typeof loaded.handler, "function");
-    let statusCode = 200;
-    let body;
-    const res = {
-      status(code) { statusCode = code; return this; },
-      json(value) { body = value; return this; }
-    };
-    await loaded.handler(
-      { params: { id: "payout-id" }, body: { action: "reject" }, user: { id: "admin-id" } },
-      res
-    );
-
-    assert.equal(statusCode, 200);
-    assert.equal(body.success, true);
+    const result = await invoke(loaded.handler, { action: "reject" });
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.body.success, true);
     assert.equal(payout.status, "rejected");
     assert.equal(calls.length, 1);
     assert.deepEqual(calls[0][0], {
@@ -110,6 +113,37 @@ test("rejecting an approved unpaid payout releases only earnings still reserved 
     });
     assert.deepEqual(calls[0][1], { $set: { status: "eligible" } });
     assert.equal(calls[0][2].session !== undefined, true);
+  } finally {
+    loaded.restore();
+  }
+});
+
+test("refuses to mark an approved payout paid when a refund changed the reserved amount", async () => {
+  const payout = {
+    _id: "payout-id",
+    referrerId: "referrer-id",
+    earningIds: ["earning-id"],
+    amount: 199,
+    status: "approved",
+    async save() { return this; }
+  };
+  const calls = [];
+  const loaded = loadRouterWithMocks({
+    payout,
+    earnings: [{ _id: "earning-id", commissionAmount: 149, status: "requested" }],
+    updateMany: (...args) => calls.push(args)
+  });
+
+  try {
+    const result = await invoke(loaded.handler, {
+      action: "paid",
+      transferReference: "TEST-TRANSFER-REFERENCE"
+    });
+    assert.equal(result.statusCode, 409);
+    assert.equal(result.body.success, false);
+    assert.match(result.body.message, /changed after a refund/i);
+    assert.equal(payout.status, "approved");
+    assert.equal(calls.length, 0);
   } finally {
     loaded.restore();
   }
