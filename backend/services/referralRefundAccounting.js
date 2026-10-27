@@ -55,4 +55,34 @@ function applyRecoveryToCommission({ commissionAmount, recoveryDue }) {
   };
 }
 
-module.exports = { calculateRefundCommissionReversal, applyRecoveryToCommission };
+
+function calculateRecoveryRestore({
+  grossAmount,
+  recoveryApplied,
+  previouslyRestoredAmount = 0,
+  cumulativeRefundAmount,
+}) {
+  const gross = Number(grossAmount);
+  const applied = Number(recoveryApplied);
+  const previouslyRestored = Number(previouslyRestoredAmount);
+  const cumulativeRefund = Number(cumulativeRefundAmount);
+  if (
+    !Number.isFinite(gross) || gross <= 0 ||
+    !Number.isFinite(applied) || applied < 0 ||
+    !Number.isFinite(previouslyRestored) || previouslyRestored < 0 ||
+    !Number.isFinite(cumulativeRefund) || cumulativeRefund < 0
+  ) {
+    throw new RangeError("Invalid recovery restoration amounts");
+  }
+  const targetRecoveryRestore = Math.min(
+    applied,
+    Math.round((Math.min(gross, cumulativeRefund) / gross * applied) * 100) / 100
+  );
+  const recoveryRestoreDelta = Math.max(
+    0,
+    Number((targetRecoveryRestore - previouslyRestored).toFixed(2))
+  );
+  return { targetRecoveryRestore, recoveryRestoreDelta };
+}
+
+module.exports = { calculateRefundCommissionReversal, applyRecoveryToCommission, calculateRecoveryRestore };
