@@ -1,12 +1,15 @@
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Zap } from "lucide-react";
 
 function Navbar() {
   return (
     <nav className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-8 lg:px-10">
-        <Link to="/" aria-label="TriggerDM home" className="text-[25px] font-extrabold tracking-[-0.06em] text-slate-950">
-          Trigger<span className="text-violet-600">DM</span>
+        <Link to="/" aria-label="TriggerDM home" className="inline-flex items-center gap-3 text-[25px] font-extrabold tracking-[-0.06em] text-slate-950">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-600 text-white shadow-sm">
+            <Zap size={28} strokeWidth={2.8} fill="currentColor" aria-hidden="true" />
+          </span>
+          <span>Trigger<span className="text-violet-600">DM</span></span>
         </Link>
         <div className="hidden items-center gap-8 md:flex">
           <a href="#features" className="text-sm font-medium text-slate-600 transition hover:text-violet-700">Product</a>
