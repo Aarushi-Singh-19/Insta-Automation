@@ -7,7 +7,7 @@ function Hero() {
       <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[1.02fr_0.98fr] lg:gap-10 lg:px-10 lg:py-24">
         <div className="relative z-10">
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-violet-100 bg-white/80 px-3.5 py-2 text-xs font-semibold text-violet-700 shadow-sm sm:text-sm">
-            <MessageCircle size={16} strokeWidth={2} /> Instagram comment-to-DM automation
+            <MessageCircle size={16} strokeWidth={2} /> Instagram Comment-to-DM Automation
           </div>
           <h1 className="max-w-2xl text-4xl font-bold leading-[1.08] tracking-[-0.045em] text-slate-950 sm:text-5xl lg:text-[58px]">
             Turn comments into <span className="text-violet-600">conversations.</span>
@@ -17,22 +17,13 @@ function Hero() {
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link to="/signup" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(109,40,217,0.2)] transition hover:-translate-y-0.5 hover:bg-violet-700">
-              Get started <ArrowRight size={17} />
+              Start free <ArrowRight size={17} />
             </Link>
             <a href="#how-it-works" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-800 transition hover:border-violet-200 hover:bg-violet-50">
               <Play size={16} className="text-violet-600" /> See how it works
             </a>
           </div>
           <div className="mt-4 text-xs font-medium text-slate-500">7-day free trial <span className="mx-2 text-slate-300">•</span> No credit card required</div>
-          <div className="mt-10 grid max-w-xl grid-cols-3 gap-4 border-t border-slate-200/80 pt-6">
-            {[{Icon:Zap,title:"Respond faster",body:"Instant replies"},{Icon:Users,title:"Grow your audience",body:"Turn interest into leads"},{Icon:ChartNoAxesColumnIncreasing,title:"Save time",body:"Work on autopilot"}].map(({Icon,title,body})=>(
-              <div key={title} className="min-w-0">
-                <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100/80 text-violet-700"><Icon size={18}/></span>
-                <p className="text-xs font-semibold text-slate-900 sm:text-sm">{title}</p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">{body}</p>
-              </div>
-            ))}
-          </div>
         </div>
         <div className="relative mx-auto w-full max-w-[590px] lg:ml-auto">
           <div className="absolute -inset-5 rounded-[34px] bg-gradient-to-br from-violet-200/70 via-white to-fuchsia-100/80 blur-2xl" />
@@ -64,6 +55,21 @@ function Hero() {
               </div>
             </div>
           </div>
+        </div>
+
+      </div>
+      <div id="features" className="border-t border-slate-200/70 bg-white/85">
+        <div className="mx-auto grid max-w-7xl gap-5 px-5 py-7 sm:grid-cols-3 sm:px-8 sm:py-8 lg:px-10">
+          {[
+            { Icon: Zap, title: "More engagement", body: "Instant replies keep your audience interested." },
+            { Icon: Users, title: "Grow your audience", body: "Turn comments into followers and loyal customers." },
+            { Icon: ChartNoAxesColumnIncreasing, title: "Save time", body: "Automate repetitive DMs and focus on creating." },
+          ].map(({ Icon, title, body }, index) => (
+            <div key={title} className={index > 0 ? "flex items-start gap-4 sm:border-l sm:border-slate-200 sm:pl-7" : "flex items-start gap-4"}>
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-700"><Icon size={21} strokeWidth={1.8} /></span>
+              <div><p className="text-sm font-semibold text-slate-900">{title}</p><p className="mt-1 max-w-xs text-sm leading-5 text-slate-500">{body}</p></div>
+            </div>
+          ))}
         </div>
       </div>
     </section>

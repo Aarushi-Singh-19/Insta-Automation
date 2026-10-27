@@ -7,6 +7,7 @@ import {
   CreditCard,
   Settings,
   LogOut,
+  ChevronDown,
   Menu,
   X,
 } from "lucide-react";
@@ -92,7 +93,7 @@ function DashboardLayout({ children }) {
       </header>
 
       <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200/80 bg-white px-4 py-6 md:flex lg:w-64 lg:px-5">
-        <Link to="/dashboard" aria-label="TriggerDM overview" className="mb-9 px-2 text-[28px] font-extrabold tracking-tight text-slate-950">
+        <Link to="/dashboard" aria-label="TriggerDM overview" className="mb-9 px-2 text-[25px] font-extrabold tracking-[-0.05em] text-slate-950">
           Trigger<span className="text-violet-600">DM</span>
         </Link>
         {renderNavigation()}
@@ -129,8 +130,15 @@ function DashboardLayout({ children }) {
         </>
       )}
 
-      <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 xl:p-10">
-        {children}
+      <main className="min-w-0 flex-1 overflow-y-auto">
+        <header className="sticky top-0 z-20 hidden h-[74px] items-center justify-end border-b border-slate-200/80 bg-white/90 px-6 backdrop-blur sm:px-8 md:flex lg:px-10">
+          <div className="flex items-center gap-3 rounded-xl px-2 py-1.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-600 text-sm font-semibold text-white">W</span>
+            <span><span className="block text-sm font-semibold text-slate-900">Workspace</span><span className="block text-xs text-slate-500">TriggerDM account</span></span>
+            <ChevronDown size={15} className="text-slate-500" />
+          </div>
+        </header>
+        <div className="p-4 sm:p-6 lg:p-8 xl:p-10">{children}</div>
       </main>
     </div>
   );

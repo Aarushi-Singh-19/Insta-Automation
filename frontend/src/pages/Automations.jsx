@@ -328,11 +328,8 @@ function Automations() {
     <DashboardLayout>
       <div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">
-            <span className="h-1.5 w-1.5 rounded-full bg-violet-600" /> WORKSPACE
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-[34px]">Automations</h1>
-          <p className="mt-2 text-sm text-slate-500 sm:text-base">Create and manage your Instagram comment-to-DM workflows.</p>
+          <h1 className="text-3xl font-bold tracking-[-0.035em] text-slate-950 sm:text-[34px]">Automations</h1>
+          <p className="mt-2 text-sm text-slate-500 sm:text-base">Create and manage your Instagram comment-to-DM automations.</p>
         </div>
         <button onClick={handleCreateAutomation} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700 focus:outline-none focus:ring-4 focus:ring-violet-100">
           <Plus size={17} /> New automation
@@ -886,7 +883,7 @@ function Automations() {
         </div>
       )}
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_2px_10px_rgba(15,23,42,0.025)]">
+      <section className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_4px_20px_rgba(15,23,42,0.035)]">
         <div className="flex flex-col gap-4 border-b border-slate-100 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="text-base font-semibold text-slate-900">Your workflows</h2>
@@ -932,8 +929,8 @@ function Automations() {
             <div className="px-6 py-14 text-center text-sm text-slate-500">No automations match these filters. Try changing your search.</div>
           ) : (
             <>
-              <div className="hidden grid-cols-[minmax(180px,1.5fr)_minmax(110px,0.8fr)_minmax(140px,1fr)_100px_100px] gap-4 border-b border-slate-100 bg-slate-50/70 px-6 py-3 text-[11px] font-semibold uppercase tracking-[0.09em] text-slate-500 lg:grid">
-                <span>Automation</span><span>Trigger</span><span>Instagram post</span><span>Status</span><span className="text-right">Actions</span>
+              <div className="hidden grid-cols-[minmax(170px,1.35fr)_minmax(105px,0.7fr)_minmax(130px,1fr)_90px_minmax(90px,0.65fr)_100px] gap-4 border-b border-slate-100 bg-slate-50/60 px-6 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 xl:grid">
+                <span>Automation</span><span>Trigger</span><span>Instagram post</span><span>Status</span><span>Last activity</span><span className="text-right">Actions</span>
               </div>
               <div className="divide-y divide-slate-100">
                 {filtered.map((automation) => {
@@ -942,7 +939,7 @@ function Automations() {
                   const trigger = automation.commentTriggerType || (keywords.length ? "keyword" : "any_comment");
                   const title = keywords[0] || "Any comment";
                   return (
-                    <div key={automation._id} className="grid grid-cols-1 gap-3 px-4 py-4 transition hover:bg-slate-50/70 sm:px-6 lg:grid-cols-[minmax(180px,1.5fr)_minmax(110px,0.8fr)_minmax(140px,1fr)_100px_100px] lg:items-center lg:gap-4">
+                    <div key={automation._id} className="grid grid-cols-1 gap-3 px-4 py-4 transition hover:bg-slate-50/70 sm:px-6 xl:grid-cols-[minmax(170px,1.35fr)_minmax(105px,0.7fr)_minmax(130px,1fr)_90px_minmax(90px,0.65fr)_100px] xl:items-center xl:gap-4">
                       <div className="flex min-w-0 items-center gap-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700"><MessageSquareText size={18} strokeWidth={1.8} /></span>
                         <div className="min-w-0">
@@ -961,6 +958,10 @@ function Automations() {
                       <div className="flex items-center gap-2 lg:block">
                         <span className="text-xs text-slate-400 lg:hidden">Status</span>
                         <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}><span className={`h-1.5 w-1.5 rounded-full ${active ? "bg-emerald-500" : "bg-slate-400"}`} />{active ? "Active" : "Inactive"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 xl:block">
+                        <span className="text-xs text-slate-400 xl:hidden">Last activity</span>
+                        <span className="text-xs text-slate-500">{(() => { const stamp = automation.updatedAt || automation.createdAt; if (!stamp) return "—"; const date = new Date(stamp); if (Number.isNaN(date.getTime())) return "—"; const elapsed = Math.max(0, Date.now() - date.getTime()); const minutes = Math.floor(elapsed / 60000); if (minutes < 1) return "Just now"; if (minutes < 60) return minutes + "m ago"; const hours = Math.floor(minutes / 60); if (hours < 24) return hours + "h ago"; const days = Math.floor(hours / 24); return days === 1 ? "Yesterday" : days + "d ago"; })()}</span>
                       </div>
                       <div className="flex gap-2 lg:justify-end">
                         <button type="button" onClick={() => handleEditAutomation(automation)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700">Edit</button>
