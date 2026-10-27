@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Camera, Check, CirclePlay, Menu, MessageCircle, Send, Sparkles, Zap } from "lucide-react";
 
@@ -11,6 +11,12 @@ function ProductPreview(){return <div className="product-preview">
  <div className="preview-bottom"><span><i/> Automation running</span><span>Comment → Keyword → DM <ArrowRight size={12}/></span></div></div>}
 export default function Home(){
  const [menu,setMenu]=useState(false);
+ useEffect(() => {
+   const referralCode = new URLSearchParams(window.location.search).get("ref");
+   if (referralCode) {
+     localStorage.setItem("triggerdm_referral_code", referralCode.trim().toUpperCase());
+   }
+ }, []);
  return <main className="tdm-site">
  <header className="site-header"><nav className="nav-shell"><Link to="/" className="brand"><img className="brand-logo" src="/triggerdm-logo.svg" alt="" />Trigger<span>DM</span></Link><div className="nav-links"><a href="#product">Product</a><a href="#how-it-works">How it works</a><a href="#pricing">Pricing</a></div><div className="nav-actions"><Link to="/login" className="login">Log in</Link><Link to="/signup" className="nav-cta">Get started <ArrowRight size={15}/></Link></div><button className="mobile-menu-btn" onClick={()=>setMenu(!menu)} aria-label="Toggle menu"><Menu/></button></nav>{menu&&<div className="mobile-menu"><a href="#product" onClick={()=>setMenu(false)}>Product</a><a href="#how-it-works" onClick={()=>setMenu(false)}>How it works</a><a href="#pricing" onClick={()=>setMenu(false)}>Pricing</a><Link to="/login">Log in</Link><Link to="/signup">Get started →</Link></div>}</header>
  <section className="hero" id="product"><div className="orb orb-one"/><div className="orb orb-two"/><div className="hero-inner"><div className="hero-copy"><div className="eyebrow"><Sparkles size={14}/> INSTAGRAM COMMENT AUTOMATION</div><h1>Turn comments<br/>into <em>conversations</em><br/>that convert.</h1><p>Automatically reply to Instagram comments and send the right DM when someone engages with your posts and Reels.</p><div className="hero-buttons"><Link to="/signup" className="primary-btn">Start free <ArrowRight size={16}/></Link><a className="quiet-btn" href="#how-it-works"><CirclePlay size={18}/> See how it works</a></div><div className="hero-proof"><div className="avatars"><i>a</i><i>m</i><i>s</i></div><div><b>Built for creators who are going places.</b><small>7-day free trial · Then just ₹199/month</small></div></div></div><div className="hero-visual"><div className="float-note note-top"><Zap size={15}/><span><b>Keyword detected</b><small>“LINK” matched</small></span><Check size={14}/></div><ProductPreview/><div className="float-note note-bottom"><Send size={15}/><span><b>DM sent successfully</b><small>0 manual steps required</small></span><Check size={14}/></div></div></div><div className="hero-foot"><span>BUILT FOR THE WAY YOU CREATE</span><a href="#how-it-works">SCROLL TO EXPLORE ↓</a></div></section>
