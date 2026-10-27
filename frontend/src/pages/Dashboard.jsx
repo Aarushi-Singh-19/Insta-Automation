@@ -76,7 +76,7 @@ function Dashboard() {
   return (
     <DashboardLayout>
       <PageHeader
-        title="Welcome back 👋"
+        title="Welcome back"
         subtitle="Manage your Instagram comment-to-DM automations."
         action={
           <button
