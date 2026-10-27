@@ -7,6 +7,7 @@ const Payment = require("../models/Payment");
 const WebhookEvent = require("../models/WebhookEvent");
 const ReferralEarning = require("../models/ReferralEarning");
 const ReferralRefundRecord = require("../models/ReferralRefundRecord");
+const { calculateRefundCommissionReversal } = require("../services/referralRefundAccounting");
 
 const handleRazorpayWebhook = async (req, res) => {
   let eventId;
@@ -390,18 +391,14 @@ const handleRazorpayWebhook = async (req, res) => {
             if (!(originalCommission >= 0) || !(grossAmount > 0)) return;
 
             const refundAmount = refund.amount / 100;
-            const nextRefundedAmount = Math.min(
-              grossAmount,
-              Number((Number(earning.refundedAmount || 0) + refundAmount).toFixed(2))
-            );
-            const targetReversal = Math.min(
-              originalCommission,
-              Math.round((nextRefundedAmount / grossAmount * originalCommission) * 100) / 100
-            );
-            const reversalDelta = Math.max(
-              0,
-              Number((targetReversal - Number(earning.commissionReversedAmount || 0)).toFixed(2))
-            );
+            const { nextRefundedAmount, targetReversal, reversalDelta } =
+              calculateRefundCommissionReversal({
+                grossAmount,
+                originalCommissionAmount: originalCommission,
+                previouslyRefundedAmount: Number(earning.refundedAmount || 0),
+                previouslyReversedAmount: Number(earning.commissionReversedAmount || 0),
+                refundAmount,
+              });
 
             await ReferralRefundRecord.create([{
               razorpayRefundId: refund.id,
