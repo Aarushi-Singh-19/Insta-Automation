@@ -34,6 +34,10 @@ function Admin() {
   const [to, setTo] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, pages: 0 });
+  const [payoutRequests, setPayoutRequests] = useState([]);
+  const [payoutError, setPayoutError] = useState("");
+  const [payoutBusyId, setPayoutBusyId] = useState("");
+  const [transferReferences, setTransferReferences] = useState({});
 
   const load = async () => {
     setLoading(true);
@@ -63,7 +67,30 @@ function Admin() {
     }
   };
 
-  useEffect(() => { load(); loadUsers(1); }, []);
+  const loadPayoutRequests = async () => {
+    try {
+      const response = await API.get("/referrals/payouts/admin/requests");
+      setPayoutRequests(response.data.requests || []);
+      setPayoutError("");
+    } catch (err) {
+      setPayoutError(err.response?.data?.message || "Could not load payout requests. Admin access may be required.");
+    }
+  };
+
+  const updatePayout = async (requestId, action) => {
+    setPayoutBusyId(requestId); setPayoutError("");
+    try {
+      await API.patch("/referrals/payouts/admin/requests/" + requestId, {
+        action,
+        transferReference: transferReferences[requestId] || ""
+      });
+      await loadPayoutRequests();
+    } catch (err) {
+      setPayoutError(err.response?.data?.message || "Could not update payout request.");
+    } finally { setPayoutBusyId(""); }
+  };
+
+  useEffect(() => { load(); loadUsers(1); loadPayoutRequests(); }, []);
 
   const metrics = data?.metrics;
   const cards = metrics ? [
@@ -163,6 +190,33 @@ function Admin() {
                 <button disabled={userLoading || page >= pagination.pages} onClick={() => loadUsers(page + 1)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-40">Next</button>
               </div>
             </div>
+          </section>
+          <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+              <div><h2 className="font-bold text-slate-900">Referral payout requests</h2><p className="mt-1 text-sm text-slate-500">Approve/reject requests. Mark paid only after the bank transfer is confirmed.</p></div>
+              <button onClick={loadPayoutRequests} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">Refresh payouts</button>
+            </div>
+            {payoutError && <p role="alert" className="m-5 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{payoutError}</p>}
+            <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-slate-500"><tr><th className="px-5 py-3">Creator</th><th className="px-5 py-3">Amount</th><th className="px-5 py-3">Requested</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Transfer reference / actions</th></tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {payoutRequests.map((request) => <tr key={request._id}>
+                  <td className="px-5 py-4"><div className="font-medium">{request.referrerId?.name || "Creator"}</div><div className="text-slate-500">{request.referrerId?.email || "—"}</div></td>
+                  <td className="px-5 py-4 font-semibold">{formatCurrency(Math.round((Number(request.amount) || 0) * 100))}</td>
+                  <td className="px-5 py-4 whitespace-nowrap">{request.requestedAt ? new Date(request.requestedAt).toLocaleDateString("en-IN") : "—"}</td>
+                  <td className="px-5 py-4 capitalize">{request.status}</td>
+                  <td className="min-w-[270px] px-5 py-4">
+                    {request.status === "approved" && <input value={transferReferences[request._id] || ""} onChange={(event) => setTransferReferences((current) => ({ ...current, [request._id]: event.target.value }))} placeholder="Confirmed transfer reference" className="mb-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />}
+                    <div className="flex flex-wrap gap-2">
+                      {request.status === "requested" && <><button disabled={payoutBusyId === request._id} onClick={() => updatePayout(request._id, "approve")} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Approve</button><button disabled={payoutBusyId === request._id} onClick={() => updatePayout(request._id, "reject")} className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Reject</button></>}
+                      {request.status === "approved" && <button disabled={payoutBusyId === request._id || !(transferReferences[request._id] || "").trim()} onClick={() => updatePayout(request._id, "paid")} className="rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Mark paid</button>}
+                      {request.transferReference && <span className="self-center break-all text-xs text-slate-500">Ref: {request.transferReference}</span>}
+                    </div>
+                  </td>
+                </tr>)}
+                {!payoutRequests.length && <tr><td colSpan="5" className="px-5 py-8 text-center text-slate-500">No payout requests yet.</td></tr>}
+              </tbody>
+            </table></div>
           </section>
           <p className="mt-4 text-xs text-slate-500">Updated {new Date(data.generatedAt).toLocaleString("en-IN")}. “Currently logged in” is not shown: the app uses seven-day JWTs and does not currently maintain a live session/presence tracker.</p>
         </>
