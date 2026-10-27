@@ -23,6 +23,7 @@ test("captured ₹199 INR payment earns exactly ₹39.80", () => {
     grossAmount: 199,
     commissionRate: 20,
     commissionAmount: 39.8,
+    originalCommissionAmount: 39.8,
     currency: "INR",
     status: "eligible",
   });
