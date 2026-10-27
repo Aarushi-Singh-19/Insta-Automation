@@ -142,3 +142,72 @@ main .rounded-2xl.border, main .rounded-xl.border, main .rounded-\[28px\].border
 .auth-submit { background: var(--workspace-accent) !important; box-shadow: 0 5px 16px rgba(79,55,143,.16) !important; }
 .auth-submit:hover { background: #6544c8 !important; }
 .auth-input:focus { border-color: #a99ad6 !important; box-shadow: 0 0 0 3px rgba(118,85,219,.12) !important; }
+
+
+/* TriggerDM workspace theme — aligned with the public landing page */
+.tdm-workspace {
+  --workspace-bg: #10111b;
+  --workspace-panel: #151624;
+  --workspace-panel-soft: #19182a;
+  --workspace-line: #2b2940;
+  --workspace-text: #f7f5ff;
+  --workspace-muted: #a5a2b7;
+  --workspace-accent: #7655db;
+  font-family: 'DM Sans', Inter, system-ui, sans-serif;
+  background: radial-gradient(ellipse at 88% 0%, rgba(118,85,219,.13), transparent 36%), #10111b !important;
+  color: var(--workspace-text);
+}
+.tdm-workspace main { background: transparent !important; color: var(--workspace-text); }
+.tdm-workspace main > header { background: rgba(16,17,27,.92) !important; border-color: var(--workspace-line) !important; }
+.tdm-workspace main > div { color: var(--workspace-text); }
+.tdm-workspace h1, .tdm-workspace h2, .tdm-workspace h3 { color: #f7f5ff !important; }
+.tdm-workspace p, .tdm-workspace label, .tdm-workspace small { color: var(--workspace-muted); }
+.tdm-workspace main [style*="background: #fff"],
+.tdm-workspace main [style*="background:#fff"],
+.tdm-workspace main [style*="background: white"],
+.tdm-workspace main [style*="background:#fff;"],
+.tdm-workspace main .bg-white {
+  background-color: var(--workspace-panel) !important;
+  color: var(--workspace-text) !important;
+  border-color: var(--workspace-line) !important;
+  box-shadow: 0 10px 32px rgba(0,0,0,.12) !important;
+}
+.tdm-workspace main [style*="border: 1px solid #E5E7EB"],
+.tdm-workspace main [style*="border:1px solid #E5E7EB"],
+.tdm-workspace main [style*="border: 1px solid #e5e7eb"] { border-color: var(--workspace-line) !important; }
+.tdm-workspace main [style*="color: #111827"],
+.tdm-workspace main [style*="color: #191724"],
+.tdm-workspace main .text-slate-950,
+.tdm-workspace main .text-gray-900 { color: #f7f5ff !important; }
+.tdm-workspace main [style*="color: #6B7280"],
+.tdm-workspace main [style*="color: #6b7280"],
+.tdm-workspace main .text-slate-500,
+.tdm-workspace main .text-gray-500 { color: var(--workspace-muted) !important; }
+.tdm-workspace main input, .tdm-workspace main textarea, .tdm-workspace main select {
+  background-color: #10111b !important; color: #f7f5ff !important; border-color: var(--workspace-line) !important;
+}
+.tdm-workspace main input::placeholder, .tdm-workspace main textarea::placeholder { color: #77748e !important; }
+.tdm-workspace main table { color: #e9e5f5; }
+.tdm-workspace main thead, .tdm-workspace main thead tr,
+.tdm-workspace main [style*="background: #f3f4f6"],
+.tdm-workspace main [style*="background: #F3F4F6"] { background-color: #1d1b2e !important; }
+.tdm-workspace main td, .tdm-workspace main th, .tdm-workspace main tr { border-color: var(--workspace-line) !important; }
+.tdm-workspace main button[class*="bg-pink"],
+.tdm-workspace main button[class*="bg-violet"],
+.tdm-workspace main button[class*="bg-purple"],
+.tdm-workspace main button[class*="bg-gradient-to-r"],
+.tdm-workspace main a[class*="bg-gradient-to-r"] {
+  background: var(--workspace-accent) !important; color: #fff !important; box-shadow: 0 6px 20px rgba(118,85,219,.18) !important;
+}
+.tdm-workspace main button[class*="bg-violet"]:hover,
+.tdm-workspace main button[class*="bg-purple"]:hover { background: #6544c8 !important; }
+.tdm-workspace main .bg-violet-50, .tdm-workspace main .bg-purple-50,
+.tdm-workspace main .bg-pink-50 { background-color: #241d3b !important; }
+.tdm-workspace main .text-violet-600, .tdm-workspace main .text-violet-700,
+.tdm-workspace main .text-purple-600 { color: #b9a3ff !important; }
+.tdm-workspace main [style*="linear-gradient(135deg,#E1306C,#833AB4)"],
+.tdm-workspace main [style*="linear-gradient(135deg, #E1306C, #833AB4)"] { background: var(--workspace-accent) !important; }
+.tdm-workspace aside { scrollbar-width: thin; scrollbar-color: #39324f transparent; }
+@media (max-width: 767px) {
+  .tdm-workspace main > div { padding: 1.1rem !important; }
+}
