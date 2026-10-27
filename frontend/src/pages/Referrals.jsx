@@ -6,6 +6,17 @@ import API from "../services/api";
 
 const money = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(value || 0);
 
+const landingReferralLink = (value) => {
+  if (!value) return "";
+  try {
+    const url = new URL(value, window.location.origin);
+    const code = url.searchParams.get("ref");
+    return code ? `${window.location.origin}/?ref=${encodeURIComponent(code)}` : value;
+  } catch {
+    return value;
+  }
+};
+
 function Referrals() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -17,7 +28,7 @@ function Referrals() {
 
   const copyLink = async () => {
     try {
-      await navigator.clipboard.writeText(data.referralLink);
+      await navigator.clipboard.writeText(landingReferralLink(data.referralLink));
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
@@ -50,7 +61,7 @@ function Referrals() {
           <h2 className="text-lg font-bold text-[#191724]">Your referral link</h2>
           <p className="mt-1 text-sm text-[#777280]">Share this link with creators, businesses, and friends.</p>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-[#e8e3ed] bg-[#faf9fc] px-3 py-3"><Link2 size={18} className="shrink-0 text-[#7655db]" /><span className="min-w-0 break-all text-sm text-[#393545]">{data ? data.referralLink : "Generating your unique link…"}</span></div>
+            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-[#e8e3ed] bg-[#faf9fc] px-3 py-3"><Link2 size={18} className="shrink-0 text-[#7655db]" /><span className="min-w-0 break-all text-sm text-[#393545]">{data ? landingReferralLink(data.referralLink) : "Generating your unique link…"}</span></div>
             <button type="button" disabled={!data} onClick={copyLink} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#7655db] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#6544cc] disabled:opacity-50"><Copy size={16} />{copied ? "Copied!" : "Copy link"}</button>
           </div>
           <div className="mt-5 rounded-xl bg-[#f7f4ff] p-4 text-sm text-[#51466f]">You earn <strong>20%</strong> for each successful ₹199 subscription payment from a referred customer.</div>
