@@ -29,10 +29,10 @@ function Settings() {
   const cardStyle = {
     background: "#fff",
     border: "1px solid #E5E7EB",
-    borderRadius: "20px",
-    padding: "28px",
-    marginTop: "24px",
-    boxShadow: "0 4px 18px rgba(0,0,0,0.05)",
+    borderRadius: "18px",
+    padding: "26px",
+    marginTop: "20px",
+    boxShadow: "0 2px 10px rgba(31, 20, 65, 0.035)",
   };
 
   const labelStyle = {
@@ -108,15 +108,16 @@ function Settings() {
               gap: "12px",
             }}
           >
-           <BadgeCheck size={22} color="#E1306C" />
+           <BadgeCheck size={21} color="#7C5CE0" />
             <h2 style={{ margin: 0 }}>Instagram Account</h2>
           </div>
 
           <span
             style={{
-              background: "#DCFCE7",
-              color: "#15803D",
-              padding: "8px 14px",
+              background: "#F0FDF4",
+              color: "#287D4D",
+              border: "1px solid #D8F0E0",
+              padding: "7px 12px",
               borderRadius: "999px",
               fontSize: "14px",
               fontWeight: "600",
@@ -139,12 +140,12 @@ function Settings() {
 
         <button
           style={{
-            padding: "12px 18px",
-            border: "none",
-            borderRadius: "12px",
+            padding: "11px 16px",
+            border: "1px solid #E3DDF7",
+            borderRadius: "10px",
             cursor: "pointer",
-            background: "linear-gradient(135deg,#E1306C,#833AB4)",
-            color: "#fff",
+            background: "#F5F1FF",
+            color: "#6941C6",
             fontWeight: "600",
           }}
         >
@@ -172,12 +173,14 @@ function Settings() {
         <div
           style={{
             display: "inline-block",
-            padding: "8px 16px",
-            background: "#FEF3C7",
-            color: "#92400E",
+            padding: "7px 12px",
+            background: "#F5F1FF",
+            color: "#6941C6",
+            border: "1px solid #E6DFFD",
             borderRadius: "999px",
+            fontSize: "14px",
             fontWeight: "600",
-            marginBottom: "24px",
+            marginBottom: "20px",
           }}
         >
           Trial Plan
@@ -187,11 +190,11 @@ function Settings() {
 
         <button
           style={{
-            padding: "12px 18px",
+            padding: "11px 16px",
             border: "none",
-            borderRadius: "12px",
+            borderRadius: "10px",
             cursor: "pointer",
-            background: "#F59E0B",
+            background: "#7654DE",
             color: "#fff",
             fontWeight: "600",
           }}
@@ -205,7 +208,7 @@ function Settings() {
       <div
         style={{
           ...cardStyle,
-          border: "1px solid #FECACA",
+          border: "1px solid #F0E1E5",
         }}
       >
         <div
@@ -216,11 +219,11 @@ function Settings() {
             marginBottom: "14px",
           }}
         >
-          <ShieldAlert size={22} color="#DC2626" />
+          <ShieldAlert size={21} color="#C75B70" />
           <h2
             style={{
               margin: 0,
-              color: "#B91C1C",
+              color: "#9F3D52",
             }}
           >
             Danger Zone
@@ -238,12 +241,12 @@ function Settings() {
 
         <button
           style={{
-            padding: "12px 18px",
-            border: "none",
-            borderRadius: "12px",
+            padding: "11px 16px",
+            border: "1px solid #F0D8DE",
+            borderRadius: "10px",
             cursor: "pointer",
-            background: "#DC2626",
-            color: "#fff",
+            background: "#FFF5F6",
+            color: "#A33F53",
             fontWeight: "600",
           }}
         >
