@@ -114,6 +114,10 @@ router.patch("/admin/requests/:id", authMiddleware, adminMiddleware, async (req,
         if (earnings.length !== payout.earningIds.length) {
           const error = new Error("Payout earnings changed or are no longer reserved; review manually."); error.statusCode = 409; throw error;
         }
+        const currentReservedAmount = Number(earnings.reduce((sum, earning) => sum + earning.commissionAmount, 0).toFixed(2));
+        if (currentReservedAmount !== payout.amount) {
+          const error = new Error("Reserved earnings changed after a refund. Do not pay this request; review and reconcile it manually."); error.statusCode = 409; throw error;
+        }
         await ReferralEarning.updateMany(
           { _id: { $in: payout.earningIds }, referrerId: payout.referrerId, status: "requested" },
           { $set: { status: "paid", paidAt: new Date() } }, { session }
