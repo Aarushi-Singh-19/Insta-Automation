@@ -21,9 +21,13 @@ function Referrals() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [payoutRequests, setPayoutRequests] = useState([]);
+  const [payoutBusy, setPayoutBusy] = useState(false);
+  const [payoutMessage, setPayoutMessage] = useState("");
 
   useEffect(() => {
     API.get("/referrals/summary").then((response) => setData(response.data)).catch(() => setError("Unable to load your referral program right now."));
+    API.get("/referrals/payouts/requests").then((response) => setPayoutRequests(response.data.requests || [])).catch(() => setError("Unable to load payout history."));
   }, []);
 
   const copyLink = async () => {
@@ -55,6 +59,27 @@ function Referrals() {
             <p className="mt-4 text-2xl font-bold tracking-tight text-[#191724]">{value}</p>
           </div>
         ))}
+      </section>
+      <section className={card + " mt-6"}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="text-lg font-bold text-[#191724]">Manual payouts</h2><p className="mt-1 text-sm text-[#777280]">Minimum payout: ₹199. Transfers are processed manually after review.</p></div>
+          <button type="button" disabled={!data || data.eligibleBalance < 199 || payoutBusy} onClick={async () => {
+            setPayoutBusy(true); setPayoutMessage(""); setError("");
+            try {
+              const response = await API.post("/referrals/payouts/requests", {});
+              setPayoutMessage("Payout request submitted for " + money(response.data.request.amount) + ".");
+              const [summary, history] = await Promise.all([API.get("/referrals/summary"), API.get("/referrals/payouts/requests")]);
+              setData(summary.data); setPayoutRequests(history.data.requests || []);
+            } catch (err) {
+              setPayoutMessage(err.response?.data?.message || "Unable to submit payout request.");
+            } finally { setPayoutBusy(false); }
+          }} className="rounded-xl bg-[#7655db] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{payoutBusy ? "Submitting…" : "Request payout"}</button>
+        </div>
+        {payoutMessage && <p role="status" className="mt-3 rounded-lg bg-[#f7f4ff] p-3 text-sm text-[#51466f]">{payoutMessage}</p>}
+        {data && data.eligibleBalance < 199 && <p className="mt-3 text-sm text-[#777280]">You need another {money(199 - data.eligibleBalance)} in eligible earnings before you can request a payout.</p>}
+        <div className="mt-4 overflow-x-auto">
+          {!payoutRequests.length ? <p className="py-4 text-sm text-[#777280]">No payout requests yet.</p> : <table className="w-full min-w-[560px] text-left text-sm"><thead><tr className="border-b border-[#eee8f2] text-xs uppercase tracking-wide text-[#898392]"><th className="py-3 pr-4">Requested</th><th className="py-3 pr-4">Amount</th><th className="py-3 pr-4">Status</th><th className="py-3">Transfer reference</th></tr></thead><tbody>{payoutRequests.map((request) => <tr key={request._id} className="border-b border-[#f3f0f5]"><td className="py-4 pr-4">{new Date(request.requestedAt).toLocaleDateString("en-IN")}</td><td className="py-4 pr-4 font-semibold">{money(request.amount)}</td><td className="py-4 pr-4 capitalize">{request.status}</td><td className="py-4">{request.transferReference || "—"}</td></tr>)}</tbody></table>}
+        </div>
       </section>
       <section className="mt-6 grid gap-6 xl:grid-cols-[1.5fr_1fr]">
         <div className={card}>
