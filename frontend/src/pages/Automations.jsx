@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Search, SlidersHorizontal, MoreVertical, Plus, Zap, ExternalLink, MessageSquareText } from "lucide-react";
 import API from "../services/api";
 import DashboardLayout from "../components/DashboardLayout";
-import AutomationCard from "../components/automation/AutomationCard";
-import PageHeader from "../components/ui/PageHeader";
 
 function Automations() {
   const navigate = useNavigate();
