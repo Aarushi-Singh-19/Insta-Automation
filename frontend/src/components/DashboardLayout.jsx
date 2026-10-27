@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import {
   LayoutDashboard, CircleUserRound, CreditCard, Settings,
-  LogOut, ChevronDown, Menu, X, Zap,
+  LogOut, ChevronDown, Menu, X, Zap, Gift,
 } from "lucide-react";
 
 const navigation = [
@@ -10,6 +10,7 @@ const navigation = [
   { to: "/automations", label: "Automations", Icon: InstagramSidebarIcon },
   { to: "/accounts", label: "Instagram Accounts", Icon: CircleUserRound },
   { to: "/billing", label: "Billing", Icon: CreditCard },
+  { to: "/referrals", label: "Refer & Earn", Icon: Gift },
   { to: "/settings", label: "Settings", Icon: Settings },
 ];
 
