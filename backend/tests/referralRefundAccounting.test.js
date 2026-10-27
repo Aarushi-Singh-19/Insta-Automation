@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const {
   calculateRefundCommissionReversal,
   applyRecoveryToCommission,
+  calculateRecoveryRestore,
 } = require("../services/referralRefundAccounting");
 
 test("partial refund reverses only the proportional commission", () => {
@@ -95,5 +96,37 @@ test("recovery calculation rejects negative or non-finite amounts", () => {
   assert.throws(() => applyRecoveryToCommission({
     commissionAmount: 10,
     recoveryDue: Number.NaN,
+  }), RangeError);
+});
+
+
+test("partial refunds restore only the proportional amount of an earlier recovery offset", () => {
+  assert.deepEqual(calculateRecoveryRestore({
+    grossAmount: 199,
+    recoveryApplied: 20,
+    cumulativeRefundAmount: 49.75,
+  }), { targetRecoveryRestore: 5, recoveryRestoreDelta: 5 });
+
+  assert.deepEqual(calculateRecoveryRestore({
+    grossAmount: 199,
+    recoveryApplied: 20,
+    previouslyRestoredAmount: 5,
+    cumulativeRefundAmount: 99.5,
+  }), { targetRecoveryRestore: 10, recoveryRestoreDelta: 5 });
+});
+
+test("full refund restores all previously applied recovery, capped at the applied amount", () => {
+  assert.deepEqual(calculateRecoveryRestore({
+    grossAmount: 199,
+    recoveryApplied: 20,
+    cumulativeRefundAmount: 250,
+  }), { targetRecoveryRestore: 20, recoveryRestoreDelta: 20 });
+});
+
+test("recovery restoration rejects invalid amounts", () => {
+  assert.throws(() => calculateRecoveryRestore({
+    grossAmount: 0,
+    recoveryApplied: 20,
+    cumulativeRefundAmount: 10,
   }), RangeError);
 });
