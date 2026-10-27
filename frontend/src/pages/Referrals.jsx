@@ -53,7 +53,7 @@ function Referrals() {
             <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-[#e8e3ed] bg-[#faf9fc] px-3 py-3"><Link2 size={18} className="shrink-0 text-[#7655db]" /><span className="min-w-0 break-all text-sm text-[#393545]">{data ? data.referralLink : "Generating your unique link…"}</span></div>
             <button type="button" disabled={!data} onClick={copyLink} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#7655db] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#6544cc] disabled:opacity-50"><Copy size={16} />{copied ? "Copied!" : "Copy link"}</button>
           </div>
-          <div className="mt-5 rounded-xl bg-[#f7f4ff] p-4 text-sm text-[#51466f]">You earn <strong>₹39.80</strong> (20%) for each successful ₹199 subscription payment from a referred customer.</div>
+          <div className="mt-5 rounded-xl bg-[#f7f4ff] p-4 text-sm text-[#51466f]">You earn <strong>20%</strong> for each successful ₹199 subscription payment from a referred customer.</div>
         </div>
         <div className={card}>
           <h2 className="text-lg font-bold text-[#191724]">How it works</h2>
