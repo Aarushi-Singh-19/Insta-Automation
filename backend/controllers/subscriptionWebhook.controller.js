@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const User = require("../models/User");
 const Payment = require("../models/Payment");
 const WebhookEvent = require("../models/WebhookEvent");
+const ReferralEarning = require("../models/ReferralEarning");
 
 const handleRazorpayWebhook = async (req, res) => {
   let eventId;
@@ -246,6 +247,31 @@ const handleRazorpayWebhook = async (req, res) => {
           status: "captured",
           type: "subscription.charged",
         });
+
+        // Referral commission is created only from a confirmed subscription charge.
+        // Unique razorpayPaymentId makes this idempotent across webhook retries.
+        if (user.referredBy && payment?.id && Number.isFinite(payment.amount) && payment.amount > 0) {
+          const grossAmount = payment.amount / 100;
+          const commissionAmount = Math.round(grossAmount * 0.20 * 100) / 100;
+          try {
+            await ReferralEarning.updateOne(
+              { razorpayPaymentId: payment.id },
+              { $setOnInsert: {
+                referrerId: user.referredBy,
+                referredUserId: user._id,
+                razorpayPaymentId: payment.id,
+                grossAmount,
+                commissionRate: 20,
+                commissionAmount,
+                currency: payment.currency || "INR",
+                status: "eligible",
+              } },
+              { upsert: true }
+            );
+          } catch (earningError) {
+            if (earningError.code !== 11000) throw earningError;
+          }
+        }
       }
     }
 
