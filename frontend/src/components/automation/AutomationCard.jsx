@@ -2,189 +2,89 @@ import {
   Bot,
   Pencil,
   Trash2,
-  CheckCircle,
+  CheckCircle2,
   XCircle,
   Hash,
   MessageSquare,
 } from "lucide-react";
 
-function AutomationCard({
-  automation,
-  onEdit,
-  onDelete,
-}) {
+function AutomationCard({ automation, onEdit, onDelete }) {
+  const active = automation.status === "active";
+  const keywords = Array.isArray(automation.keywords) ? automation.keywords : [];
+
   return (
-    <div
-      style={{
-        background: "#fff",
-        border: "1px solid #E5E7EB",
-        borderRadius: "16px",
-        padding: "24px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-        transition: "0.2s",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "20px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-          }}
-        >
-          <Bot color="#7C3AED" />
-
-          <h3
-            style={{
-              margin: 0,
-            }}
-          >
-            {automation.keywords.length > 0
-              ? automation.keywords[0]
-              : "Automation"}
-          </h3>
+    <article className="group min-w-0 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.035)] transition duration-200 hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-[0_12px_30px_rgba(15,23,42,0.07)] sm:p-6">
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700">
+            <Bot size={19} strokeWidth={1.9} aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h3 className="truncate text-sm font-semibold text-slate-900">
+              {keywords.length > 0 ? keywords[0] : "Any comment automation"}
+            </h3>
+            <p className="mt-0.5 text-xs text-slate-500">Instagram automation</p>
+          </div>
         </div>
-
-        <span
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            color:
-              automation.status === "active"
-                ? "#16A34A"
-                : "#DC2626",
-            fontWeight: "600",
-          }}
-        >
-          {automation.status === "active" ? (
-            <CheckCircle size={18} />
-          ) : (
-            <XCircle size={18} />
-          )}
-
-          {automation.status}
+        <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+          active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+        }`}>
+          {active ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+          {active ? "Active" : automation.status || "Inactive"}
         </span>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gap: "14px",
-          marginBottom: "22px",
-        }}
-      >
+      <div className="space-y-4">
         <div>
-          <strong>Keywords</strong>
-
-          <p
-            style={{
-              margin: "6px 0 0",
-              color: "#6B7280",
-            }}
-          >
-            {automation.keywords.join(", ")}
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Keywords</p>
+          <p className="text-sm leading-5 text-slate-700">
+            {keywords.length ? keywords.join(", ") : <span className="text-slate-400">Any comment</span>}
           </p>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            gap: "30px",
-          }}
-        >
-          <div>
-            <strong>Match</strong>
-
-            <p
-              style={{
-                margin: "6px 0 0",
-                color: "#6B7280",
-              }}
-            >
-              <Hash size={14} /> {automation.matchType}
+        <div className="grid grid-cols-2 gap-4 border-y border-slate-100 py-3.5">
+          <div className="min-w-0">
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Match</p>
+            <p className="flex items-center gap-1.5 text-sm text-slate-700">
+              <Hash size={14} className="shrink-0 text-slate-400" />
+              <span className="truncate">{automation.matchType || "Any"}</span>
             </p>
           </div>
-
-          <div>
-            <strong>Trigger</strong>
-
-            <p
-              style={{
-                margin: "6px 0 0",
-                color: "#6B7280",
-              }}
-            >
-              {automation.triggerType}
+          <div className="min-w-0">
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">Trigger</p>
+            <p className="truncate text-sm text-slate-700">
+              {automation.triggerType === "specific-post" ? "Specific post" : automation.triggerType || "Comment"}
             </p>
           </div>
         </div>
 
         <div>
-          <strong>DM Message</strong>
-
-          <p
-            style={{
-              margin: "6px 0 0",
-              color: "#6B7280",
-              overflow: "hidden",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-            }}
-          >
-            <MessageSquare size={14} />{" "}
-            {automation.dmMessage || "No message"}
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+            <MessageSquare size={13} /> DM message
+          </p>
+          <p className="line-clamp-2 min-h-10 break-words text-sm leading-5 text-slate-600">
+            {automation.dmMessage || "No message configured"}
           </p>
         </div>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: "12px",
-        }}
-      >
+      <div className="mt-5 flex gap-2 border-t border-slate-100 pt-4">
         <button
+          type="button"
           onClick={() => onEdit(automation)}
-          style={{
-            flex: 1,
-            padding: "10px",
-            border: "none",
-            borderRadius: "10px",
-            cursor: "pointer",
-            background: "#F3E8FF",
-            color: "#7C3AED",
-            fontWeight: "600",
-          }}
+          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-violet-100 bg-violet-50 px-3 py-2.5 text-sm font-semibold text-violet-700 transition hover:border-violet-200 hover:bg-violet-100"
         >
-          <Pencil size={16} /> Edit
+          <Pencil size={15} aria-hidden="true" /> Edit
         </button>
-
         <button
+          type="button"
           onClick={() => onDelete(automation._id)}
-          style={{
-            flex: 1,
-            padding: "10px",
-            border: "none",
-            borderRadius: "10px",
-            cursor: "pointer",
-            background: "#FEE2E2",
-            color: "#DC2626",
-            fontWeight: "600",
-          }}
+          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-rose-100 bg-white px-3 py-2.5 text-sm font-semibold text-rose-600 transition hover:border-rose-200 hover:bg-rose-50"
         >
-          <Trash2 size={16} /> Delete
+          <Trash2 size={15} aria-hidden="true" /> Delete
         </button>
       </div>
-    </div>
+    </article>
   );
 }
 
