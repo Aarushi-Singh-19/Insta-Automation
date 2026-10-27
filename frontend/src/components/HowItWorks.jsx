@@ -1,9 +1,9 @@
-import { Instagram, SlidersHorizontal, MessageCircle, Send } from "lucide-react";
+import { MessageCircle, Zap, Search, Send } from "lucide-react";
 
 const steps = [
-  { Icon: Instagram, number: "01", title: "Connect Instagram", description: "Link the Instagram account you want to grow." },
-  { Icon: SlidersHorizontal, number: "02", title: "Set your trigger", description: "Choose a post and the keyword or comment rule." },
-  { Icon: MessageCircle, number: "03", title: "Someone comments", description: "TriggerDM detects a matching comment." },
+  { Icon: MessageCircle, number: "01", title: "Connect Instagram", description: "Link the Instagram account you want to grow." },
+  { Icon: Zap, number: "02", title: "Set your trigger", description: "Choose a post and the keyword or comment rule." },
+  { Icon: Search, number: "03", title: "Someone comments", description: "TriggerDM detects a matching comment." },
   { Icon: Send, number: "04", title: "A DM is delivered", description: "Your configured message is sent automatically." },
 ];
 
