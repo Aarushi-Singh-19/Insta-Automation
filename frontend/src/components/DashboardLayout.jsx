@@ -45,7 +45,7 @@ function DashboardLayout({ children }) {
             }`}>
               <Icon size={18} strokeWidth={1.9} aria-hidden="true" />
             </span>
-            <span className="truncate">{label}</span>
+            <span className="truncate" style={{ color: active ? "#7655db" : "#777280" }}>{label}</span>
           </Link>
         );
       })}
