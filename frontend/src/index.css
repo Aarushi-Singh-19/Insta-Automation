@@ -56,3 +56,5 @@
 .trust-pills span{border:1px solid #dcd2f3;background:#fff;border-radius:30px;padding:10px 14px;font-size:9px;color:#625875}
 @media(max-width:900px){.dashboard-body{grid-template-columns:130px minmax(0,1fr)}.dashboard-table{padding:10px}.dashboard-row{grid-template-columns:1.1fr .55fr 1.2fr .5fr .65fr;gap:5px;font-size:8px}.dashboard-row.table-head{font-size:6px}.dashboard-name b{font-size:8px}.trust-strip{grid-template-columns:1fr;gap:25px;padding:55px 30px}.trust-pills{align-items:flex-start}}
 @media(max-width:600px){.hero-inner{padding-top:55px}.hero h1{color:#191724}.dashboard-body{grid-template-columns:1fr}.dashboard-body aside{display:none}.dashboard-table{padding:7px;overflow-x:auto}.dashboard-row{min-width:570px}.dashboard-top{height:36px}.trust-strip{padding:48px 20px}.trust-pills span{font-size:8px;max-width:100%}}
+
+.brand-logo{display:block;width:36px;height:36px;flex:0 0 36px;border-radius:11px;object-fit:contain}.brand{gap:9px}.brand>span:last-child{color:var(--accent)}
