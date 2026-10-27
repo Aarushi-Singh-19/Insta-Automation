@@ -1,17 +1,38 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import {
-  LayoutDashboard, Bot, CircleUserRound, CreditCard, Settings,
+  LayoutDashboard, CircleUserRound, CreditCard, Settings,
   LogOut, ChevronDown, Menu, X, Zap,
 } from "lucide-react";
 
 const navigation = [
   { to: "/dashboard", label: "Overview", Icon: LayoutDashboard },
-  { to: "/automations", label: "Automations", Icon: Bot },
+  { to: "/automations", label: "Automations", Icon: InstagramSidebarIcon },
   { to: "/accounts", label: "Instagram Accounts", Icon: CircleUserRound },
   { to: "/billing", label: "Billing", Icon: CreditCard },
   { to: "/settings", label: "Settings", Icon: Settings },
 ];
+
+function InstagramSidebarIcon({ size = 19, strokeWidth = 1.9, ...props }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
 
 function DashboardLayout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
