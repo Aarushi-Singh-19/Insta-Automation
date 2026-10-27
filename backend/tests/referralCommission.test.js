@@ -63,3 +63,38 @@ test("duplicate-key race is treated as an already-recorded commission", async ()
   assert.equal(result.recorded, false);
   assert.equal(result.duplicate, true);
 });
+
+
+const { calculateRecoveryOffset } = require("../services/referralCommission");
+
+test("outstanding recovery is deducted from a new commission oldest-first", () => {
+  const sources = [
+    { _id: "oldest", recoveryDue: 15 },
+    { _id: "next", recoveryDue: 20 },
+  ];
+  const result = calculateRecoveryOffset(39.8, sources);
+  assert.equal(result.recoveryApplied, 35);
+  assert.equal(result.remainingCommission, 4.8);
+  assert.deepEqual(result.allocations.map(({ source, amount, remainingDue }) => ({
+    id: source._id, amount, remainingDue,
+  })), [
+    { id: "oldest", amount: 15, remainingDue: 0 },
+    { id: "next", amount: 20, remainingDue: 0 },
+  ]);
+});
+
+test("recovery offset cannot make a commission payable amount negative", () => {
+  const result = calculateRecoveryOffset(10, [
+    { _id: "recovery", recoveryDue: 25 },
+  ]);
+  assert.equal(result.recoveryApplied, 10);
+  assert.equal(result.remainingCommission, 0);
+  assert.equal(result.allocations[0].remainingDue, 15);
+});
+
+test("recovery offset rejects invalid commission or debt values", () => {
+  assert.throws(() => calculateRecoveryOffset(-1, []), RangeError);
+  assert.throws(() => calculateRecoveryOffset(10, [
+    { _id: "bad", recoveryDue: -5 },
+  ]), RangeError);
+});
