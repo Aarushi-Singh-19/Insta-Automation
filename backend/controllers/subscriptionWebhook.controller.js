@@ -407,14 +407,36 @@ const handleRazorpayWebhook = async (req, res) => {
               commissionReversal: reversalDelta
             }], { session });
 
+            const recoveryApplied = Number(earning.recoveryApplied || 0);
+            const targetRecoveryRestore = Math.min(
+              recoveryApplied,
+              Math.round((nextRefundedAmount / grossAmount * recoveryApplied) * 100) / 100
+            );
+            const recoveryRestoreDelta = Math.max(
+              0,
+              Number((targetRecoveryRestore - Number(earning.recoveryAppliedReversedAmount || 0)).toFixed(2))
+            );
+
             earning.originalCommissionAmount = originalCommission;
             earning.refundedAmount = nextRefundedAmount;
             earning.commissionReversedAmount = targetReversal;
+            earning.recoveryAppliedReversedAmount = targetRecoveryRestore;
 
             if (earning.status === "paid") {
+              // The reversal includes both cash previously paid and commission
+              // previously used to settle an older recovery. The full delta is
+              // owed again and will be offset against future commissions.
               earning.recoveryDue = Number((Number(earning.recoveryDue || 0) + reversalDelta).toFixed(2));
             } else {
-              earning.commissionAmount = Math.max(0, Number((originalCommission - targetReversal).toFixed(2)));
+              // Restore the portion of an earlier recovery offset that the
+              // refund invalidates, and remove only the remaining reversal
+              // from this earning's unpaid commission.
+              earning.recoveryDue = Number((Number(earning.recoveryDue || 0) + recoveryRestoreDelta).toFixed(2));
+              const recoveryStillApplied = Math.max(0, recoveryApplied - targetRecoveryRestore);
+              earning.commissionAmount = Math.max(
+                0,
+                Number((originalCommission - targetReversal - recoveryStillApplied).toFixed(2))
+              );
               if (earning.commissionAmount === 0) earning.status = "reversed";
             }
             await earning.save({ session });
