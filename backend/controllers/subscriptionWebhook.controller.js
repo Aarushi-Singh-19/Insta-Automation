@@ -7,7 +7,7 @@ const Payment = require("../models/Payment");
 const WebhookEvent = require("../models/WebhookEvent");
 const ReferralEarning = require("../models/ReferralEarning");
 const ReferralRefundRecord = require("../models/ReferralRefundRecord");
-const { calculateRefundCommissionReversal } = require("../services/referralRefundAccounting");
+const { calculateRefundCommissionReversal, calculateRecoveryRestore } = require("../services/referralRefundAccounting");
 
 const handleRazorpayWebhook = async (req, res) => {
   let eventId;
@@ -408,14 +408,12 @@ const handleRazorpayWebhook = async (req, res) => {
             }], { session });
 
             const recoveryApplied = Number(earning.recoveryApplied || 0);
-            const targetRecoveryRestore = Math.min(
+            const { targetRecoveryRestore, recoveryRestoreDelta } = calculateRecoveryRestore({
+              grossAmount,
               recoveryApplied,
-              Math.round((nextRefundedAmount / grossAmount * recoveryApplied) * 100) / 100
-            );
-            const recoveryRestoreDelta = Math.max(
-              0,
-              Number((targetRecoveryRestore - Number(earning.recoveryAppliedReversedAmount || 0)).toFixed(2))
-            );
+              previouslyRestoredAmount: Number(earning.recoveryAppliedReversedAmount || 0),
+              cumulativeRefundAmount: nextRefundedAmount,
+            });
 
             earning.originalCommissionAmount = originalCommission;
             earning.refundedAmount = nextRefundedAmount;
