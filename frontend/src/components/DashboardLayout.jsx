@@ -76,7 +76,7 @@ function DashboardLayout({ children }) {
   );
 
   return (
-    <div className="flex min-h-screen min-w-0 flex-col bg-[#F7F7FD] text-slate-900 md:flex-row">
+    <div className="flex min-h-screen min-w-0 flex-col bg-[#F5F3FB] text-slate-900 md:flex-row">
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-violet-100 bg-white px-4 py-3 md:hidden">
         <Link to="/dashboard" aria-label="TriggerDM overview" className="text-2xl font-extrabold tracking-tight text-slate-950">
           Trigger<span className="text-violet-600">DM</span>
@@ -133,7 +133,7 @@ function DashboardLayout({ children }) {
       <main className="min-w-0 flex-1 overflow-y-auto">
         <header className="sticky top-0 z-20 hidden h-[74px] items-center justify-end border-b border-slate-200/80 bg-white/90 px-6 backdrop-blur sm:px-8 md:flex lg:px-10">
           <div className="flex items-center gap-3 rounded-xl px-2 py-1.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-violet-600 text-sm font-semibold text-white">W</span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#7655db] text-sm font-semibold text-white">W</span>
             <span><span className="block text-sm font-semibold text-slate-900">Workspace</span><span className="block text-xs text-slate-500">TriggerDM account</span></span>
             <ChevronDown size={15} className="text-slate-500" />
           </div>
