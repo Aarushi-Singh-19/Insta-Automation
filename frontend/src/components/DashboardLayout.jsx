@@ -34,7 +34,7 @@ function DashboardLayout({ children }) {
   );
 
   const renderNavigation = (mobile = false) => (
-    <nav aria-label="Main navigation" className="space-y-2.5">
+    <nav aria-label="Main navigation" className="space-y-1.5">
       {navigation.map(({ to, label, Icon }) => {
         const active = location.pathname === to;
         return (
@@ -43,7 +43,7 @@ function DashboardLayout({ children }) {
             to={to}
             onClick={mobile ? () => setMobileMenuOpen(false) : undefined}
             aria-current={active ? "page" : undefined}
-            className={`group flex min-h-[52px] items-center gap-4 rounded-2xl px-4 py-3 text-[15px] font-medium transition-all duration-150 ${
+            className={`group flex min-h-[46px] items-center gap-3 rounded-xl px-3 py-2 text-[14px] font-medium transition-all duration-150 ${
               active
                 ? "bg-[#eee8ff] text-[#7655db] shadow-sm"
                 : "text-[#777280] hover:bg-[#f2edff] hover:text-[#191724]"
@@ -81,11 +81,11 @@ function DashboardLayout({ children }) {
         to="/dashboard"
         onClick={mobile ? () => setMobileMenuOpen(false) : undefined}
         aria-label="TriggerDM overview"
-        className="mb-11 block px-2"
+        className="mb-8 block px-1"
       >
         {brand}
       </Link>
-      <div className="mb-4 px-3 text-[10px] font-bold uppercase tracking-[0.19em] text-[#a19aaa]">
+      <div className="mb-3 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-[#a19aaa]">
         Workspace
       </div>
       {renderNavigation(mobile)}
@@ -119,7 +119,7 @@ function DashboardLayout({ children }) {
         </button>
       </header>
 
-      <aside className="hidden w-[272px] shrink-0 flex-col border-r border-[#e9e4eb] bg-[#faf9f6] px-5 py-7 md:flex lg:px-6">
+      <aside className="hidden w-[232px] shrink-0 flex-col border-r border-[#e9e4eb] bg-[#faf9f6] px-4 py-6 md:flex xl:w-[244px]">
         {sidebar()}
       </aside>
 
