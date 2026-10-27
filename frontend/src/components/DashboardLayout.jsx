@@ -62,7 +62,7 @@ function DashboardLayout({ children }) {
   const brand = <span className="text-[25px] font-extrabold tracking-[-0.055em] text-[#191724]">Trigger<span className="text-[#7655db]">DM</span></span>;
 
   return (
-    <div className="tdm-workspace flex min-h-screen min-w-0 flex-col bg-[#f2efff] text-[#191724] md:flex-row">
+    <div className="tdm-workspace-light flex min-h-screen min-w-0 flex-col bg-[#f2efff] text-[#191724] md:flex-row">
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#e9e4eb] bg-[#faf9f6] px-4 py-3 md:hidden">
         <Link to="/dashboard" aria-label="TriggerDM overview">{brand}</Link>
         <button type="button" onClick={() => setMobileMenuOpen((open) => !open)}
