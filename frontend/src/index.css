@@ -58,3 +58,41 @@
 @media(max-width:600px){.hero-inner{padding-top:55px}.hero h1{color:#191724}.dashboard-body{grid-template-columns:1fr}.dashboard-body aside{display:none}.dashboard-table{padding:7px;overflow-x:auto}.dashboard-row{min-width:570px}.dashboard-top{height:36px}.trust-strip{padding:48px 20px}.trust-pills span{font-size:8px;max-width:100%}}
 
 .brand-logo{display:block;width:36px;height:36px;flex:0 0 36px;border-radius:11px;object-fit:contain}.brand{gap:9px}.brand>span:last-child{color:var(--accent)}
+
+
+/* Shared cool-lavender product UI: authentication and app workspace */
+.auth-page {
+  background:
+    radial-gradient(ellipse at 12% 8%, rgba(221, 214, 254, .58), transparent 36%),
+    radial-gradient(ellipse at 90% 88%, rgba(251, 207, 232, .42), transparent 32%),
+    #f8f9ff;
+}
+.auth-card {
+  background: rgba(255,255,255,.94);
+  border-color: #e8e5f2;
+  box-shadow: 0 22px 60px rgba(54, 38, 93, .11), 0 3px 10px rgba(54,38,93,.04);
+}
+.auth-brand { color: #201a35; letter-spacing: -1.7px; }
+.auth-brand span {
+  background: linear-gradient(110deg, #e83da7 0%, #a43cf0 65%, #743bfa 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.auth-input {
+  background: #fff;
+  border-color: #ded9eb;
+  color: #201a35;
+  transition: border-color .18s, box-shadow .18s;
+}
+.auth-input::placeholder { color: #a19aaf; }
+.auth-input:focus {
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 4px rgba(167,139,250,.16);
+}
+.auth-submit {
+  background: linear-gradient(105deg, #e83da7 0%, #bd35d4 48%, #8b35f4 100%);
+  box-shadow: 0 8px 18px rgba(167,56,216,.2);
+  transition: transform .18s, box-shadow .18s, opacity .18s;
+}
+.auth-submit:hover { transform: translateY(-1px); box-shadow: 0 11px 24px rgba(167,56,216,.27); }
