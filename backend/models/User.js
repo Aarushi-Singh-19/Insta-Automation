@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const crypto = require("crypto");
 
 const userSchema = new mongoose.Schema(
   {
@@ -17,6 +18,9 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+
+    referralCode: { type: String, unique: true, sparse: true, index: true, default: () => crypto.randomBytes(5).toString("hex").toUpperCase() },
+    referredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
 
     passwordResetTokenHash: {
       type: String,
