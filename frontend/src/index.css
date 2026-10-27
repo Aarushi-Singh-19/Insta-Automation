@@ -211,3 +211,5 @@ main .rounded-2xl.border, main .rounded-xl.border, main .rounded-\[28px\].border
 @media (max-width: 767px) {
   .tdm-workspace main > div { padding: 1.1rem !important; }
 }
+
+.brand-mark{display:inline-flex;width:36px;height:36px;flex:0 0 36px;align-items:center;justify-content:center;border-radius:11px;background:#7652e8;color:#fff;box-shadow:0 2px 5px rgba(86,55,180,.18)}
