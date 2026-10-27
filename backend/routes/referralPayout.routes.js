@@ -87,14 +87,24 @@ router.patch("/admin/requests/:id", authMiddleware, adminMiddleware, async (req,
         const error = new Error("Payout request not found."); error.statusCode = 404; throw error;
       }
       if (action === "approve" || action === "reject") {
-        if (payout.status !== "requested") {
-          const error = new Error("Only requested payouts can be approved or rejected."); error.statusCode = 409; throw error;
+        const canApprove = action === "approve" && payout.status === "requested";
+        const canReject = action === "reject" && ["requested", "approved"].includes(payout.status);
+        if (!canApprove && !canReject) {
+          const error = new Error(
+            action === "approve"
+              ? "Only requested payouts can be approved."
+              : "Only requested or approved payouts can be rejected before payment."
+          );
+          error.statusCode = 409;
+          throw error;
         }
         payout.status = action === "approve" ? "approved" : "rejected";
         payout.reviewedAt = new Date();
         payout.reviewedBy = req.user.id;
         payout.adminNote = typeof req.body.note === "string" ? req.body.note.trim().slice(0, 500) : null;
         if (action === "reject") {
+          // A refund can change reserved earnings after approval. Allow admins
+          // to cancel the unpaid request and release any earnings still reserved.
           await ReferralEarning.updateMany(
             { _id: { $in: payout.earningIds }, referrerId: payout.referrerId, status: "requested" },
             { $set: { status: "eligible" } }, { session }
