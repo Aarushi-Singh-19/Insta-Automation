@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, SlidersHorizontal, MoreVertical, Plus, Zap, ExternalLink, MessageSquareText } from "lucide-react";
+import { Search, SlidersHorizontal, MoreVertical, Plus, Zap, ExternalLink, Instagram } from "lucide-react";
 import API from "../services/api";
 import DashboardLayout from "../components/DashboardLayout";
 
@@ -941,7 +941,7 @@ function Automations() {
                   return (
                     <div key={automation._id} className="grid grid-cols-1 gap-3 px-4 py-4 transition hover:bg-slate-50/70 sm:px-6 xl:grid-cols-[minmax(170px,1.35fr)_minmax(105px,0.7fr)_minmax(130px,1fr)_90px_minmax(90px,0.65fr)_100px] xl:items-center xl:gap-4">
                       <div className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700"><MessageSquareText size={18} strokeWidth={1.8} /></span>
+                        <span aria-label="Instagram" title="Instagram" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white shadow-sm"><Instagram size={21} strokeWidth={2.1} /></span>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-slate-900">{title}</p>
                           <p className="mt-1 line-clamp-1 text-xs text-slate-500">{automation.dmMessage || "No DM message configured"}</p>
