@@ -96,3 +96,49 @@
   transition: transform .18s, box-shadow .18s, opacity .18s;
 }
 .auth-submit:hover { transform: translateY(-1px); box-shadow: 0 11px 24px rgba(167,56,216,.27); }
+
+
+/* TriggerDM workspace — consistent with the cool-lavender public landing page */
+:root {
+  --workspace-bg: #f5f3fb;
+  --workspace-surface: #ffffff;
+  --workspace-line: #e7e2ef;
+  --workspace-ink: #201a32;
+  --workspace-muted: #777187;
+  --workspace-accent: #7655db;
+}
+body { font-family: 'DM Sans', Inter, system-ui, sans-serif; color: var(--workspace-ink); }
+main .bg-\[\#F7F7FD\], .min-h-screen.bg-\[\#F7F7FD\] { background: var(--workspace-bg) !important; }
+main .text-slate-950, main .text-slate-900 { color: var(--workspace-ink) !important; }
+main .text-slate-600, main .text-slate-500 { color: var(--workspace-muted) !important; }
+main .border-slate-200, main .border-slate-200\/80, main .border-violet-100 { border-color: var(--workspace-line) !important; }
+main .bg-gradient-to-r.from-pink-500.to-purple-600,
+main .bg-gradient-to-r.from-pink-500.to-purple-600:hover {
+  background: var(--workspace-accent) !important;
+}
+main button[class*="bg-gradient-to-r"],
+main a[class*="bg-gradient-to-r"] {
+  background: var(--workspace-accent) !important;
+  box-shadow: 0 5px 16px rgba(79, 55, 143, .14);
+}
+main button[class*="bg-gradient-to-r"]:hover,
+main a[class*="bg-gradient-to-r"]:hover { background: #6544c8 !important; }
+main .bg-pink-500, main .text-pink-600 { color: var(--workspace-accent) !important; }
+main .bg-violet-600, main .bg-purple-600 { background-color: var(--workspace-accent) !important; }
+main .text-violet-700, main .text-violet-600, main .text-purple-600 { color: var(--workspace-accent) !important; }
+main .bg-\[\#f3edff\], main .bg-violet-50, main .bg-purple-50 { background-color: #f0ebfc !important; }
+main .hover\:bg-\[\#faf7ff\]:hover, main .hover\:bg-violet-50:hover { background-color: #f7f4fd !important; }
+main .rounded-2xl.border, main .rounded-xl.border, main .rounded-\[28px\].border {
+  border-color: var(--workspace-line) !important;
+}
+.auth-page {
+  background: radial-gradient(ellipse at 12% 8%, rgba(221,214,254,.48), transparent 36%), #f5f3fb !important;
+}
+.auth-card { border-color: var(--workspace-line) !important; box-shadow: 0 18px 48px rgba(54,38,93,.09) !important; }
+.auth-brand span {
+  background: none !important; color: var(--workspace-accent) !important;
+  -webkit-text-fill-color: var(--workspace-accent) !important;
+}
+.auth-submit { background: var(--workspace-accent) !important; box-shadow: 0 5px 16px rgba(79,55,143,.16) !important; }
+.auth-submit:hover { background: #6544c8 !important; }
+.auth-input:focus { border-color: #a99ad6 !important; box-shadow: 0 0 0 3px rgba(118,85,219,.12) !important; }
