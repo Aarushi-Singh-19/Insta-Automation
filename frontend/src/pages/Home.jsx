@@ -11,6 +11,7 @@ function Home() {
       <Navbar />
       <Hero />
       <Features />
+      <HowItWorks />
       <Pricing />
       <Footer />
     </>
