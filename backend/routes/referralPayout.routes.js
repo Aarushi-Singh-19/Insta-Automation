@@ -25,7 +25,7 @@ router.post("/requests", authMiddleware, async (req, res) => {
   try {
     let created;
     await session.withTransaction(async () => {
-      const earnings = await ReferralEarning.find({ referrerId: req.user.id, status: "eligible" }).session(session);
+      const earnings = await ReferralEarning.find({ referrerId: req.user.id, status: "eligible", commissionAmount: { $gt: 0 } }).session(session);
       const amount = Number(earnings.reduce((sum, earning) => sum + earning.commissionAmount, 0).toFixed(2));
       if (amount < MINIMUM_PAYOUT) {
         const error = new Error("You need at least ₹199 in eligible earnings to request a payout.");
@@ -35,7 +35,7 @@ router.post("/requests", authMiddleware, async (req, res) => {
 
       const earningIds = earnings.map((earning) => earning._id);
       const reserved = await ReferralEarning.updateMany(
-        { _id: { $in: earningIds }, referrerId: req.user.id, status: "eligible" },
+        { _id: { $in: earningIds }, referrerId: req.user.id, status: "eligible", commissionAmount: { $gt: 0 } },
         { $set: { status: "requested" } },
         { session }
       );
