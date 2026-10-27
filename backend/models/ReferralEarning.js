@@ -11,6 +11,8 @@ const schema = new mongoose.Schema({
   refundedAmount: { type: Number, default: 0, min: 0 },
   commissionReversedAmount: { type: Number, default: 0, min: 0 },
   recoveryDue: { type: Number, default: 0, min: 0 },
+  recoveryApplied: { type: Number, default: 0, min: 0 },
+  recoveryAppliedReversedAmount: { type: Number, default: 0, min: 0 },
   currency: { type: String, default: "INR" },
   status: { type: String, enum: ["eligible", "requested", "paid", "reversed"], default: "eligible", index: true },
   paidAt: { type: Date, default: null },
