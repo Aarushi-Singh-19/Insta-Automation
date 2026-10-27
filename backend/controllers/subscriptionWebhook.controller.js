@@ -248,16 +248,39 @@ const handleRazorpayWebhook = async (req, res) => {
           type: "subscription.charged",
         });
 
-        if (user.referredBy && payment?.id && Number.isFinite(payment.amount) && payment.amount > 0) {
+        // Only award referral commission for a successfully captured ₹199 INR
+        // subscription payment. Unexpected amounts/currencies must not qualify.
+        if (
+          user.referredBy &&
+          payment?.id &&
+          payment.status === "captured" &&
+          payment.currency === "INR" &&
+          payment.amount === 19900
+        ) {
           const grossAmount = payment.amount / 100;
           const commissionAmount = Math.round(grossAmount * 0.20 * 100) / 100;
+
           try {
             await ReferralEarning.updateOne(
               { razorpayPaymentId: payment.id },
-              { $setOnInsert: { referrerId: user.referredBy, referredUserId: user._id, razorpayPaymentId: payment.id, grossAmount, commissionRate: 20, commissionAmount, currency: payment.currency || "INR", status: "eligible" } },
+              {
+                $setOnInsert: {
+                  referrerId: user.referredBy,
+                  referredUserId: user._id,
+                  razorpayPaymentId: payment.id,
+                  grossAmount,
+                  commissionRate: 20,
+                  commissionAmount,
+                  currency: payment.currency,
+                  status: "eligible",
+                },
+              },
               { upsert: true }
             );
-          } catch (earningError) { if (earningError.code !== 11000) throw earningError; }
+          } catch (earningError) {
+            // A concurrent webhook may have inserted this payment already.
+            if (earningError.code !== 11000) throw earningError;
+          }
         }
       }
     }
