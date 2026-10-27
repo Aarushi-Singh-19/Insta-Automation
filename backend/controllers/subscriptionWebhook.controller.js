@@ -1,10 +1,12 @@
 
 const crypto = require("crypto");
+const mongoose = require("mongoose");
 
 const User = require("../models/User");
 const Payment = require("../models/Payment");
 const WebhookEvent = require("../models/WebhookEvent");
 const ReferralEarning = require("../models/ReferralEarning");
+const ReferralRefundRecord = require("../models/ReferralRefundRecord");
 
 const handleRazorpayWebhook = async (req, res) => {
   let eventId;
@@ -366,13 +368,68 @@ const handleRazorpayWebhook = async (req, res) => {
       }
     }
 
-    // Reverse referral earnings when Razorpay confirms a refund.
-    // Conservatively reverse the earning for any processed refund against that payment.
-    if (eventType === "refund.processed" && refund?.payment_id) {
-      await ReferralEarning.updateOne(
-        { razorpayPaymentId: refund.payment_id, status: { $ne: "paid" } },
-        { $set: { status: "reversed" } }
-      );
+    // Proportionally reverse referral commission for each unique processed refund.
+    // A commission already paid is retained in paid history and the recovery amount
+    // is tracked separately; it is never silently erased.
+    if (eventType === "refund.processed" && refund?.payment_id && refund?.id &&
+        Number.isFinite(refund.amount) && refund.amount > 0) {
+      const existingRefund = await ReferralRefundRecord.findOne({ razorpayRefundId: refund.id }).lean();
+      if (!existingRefund) {
+        const session = await mongoose.startSession();
+        try {
+          await session.withTransaction(async () => {
+            const earning = await ReferralEarning.findOne({
+              razorpayPaymentId: refund.payment_id
+            }).session(session);
+            if (!earning) return;
+
+            const originalCommission = Number(
+              earning.originalCommissionAmount ?? earning.commissionAmount
+            );
+            const grossAmount = Number(earning.grossAmount);
+            if (!(originalCommission >= 0) || !(grossAmount > 0)) return;
+
+            const refundAmount = refund.amount / 100;
+            const nextRefundedAmount = Math.min(
+              grossAmount,
+              Number((Number(earning.refundedAmount || 0) + refundAmount).toFixed(2))
+            );
+            const targetReversal = Math.min(
+              originalCommission,
+              Math.round((nextRefundedAmount / grossAmount * originalCommission) * 100) / 100
+            );
+            const reversalDelta = Math.max(
+              0,
+              Number((targetReversal - Number(earning.commissionReversedAmount || 0)).toFixed(2))
+            );
+
+            await ReferralRefundRecord.create([{
+              razorpayRefundId: refund.id,
+              razorpayPaymentId: refund.payment_id,
+              amount: refundAmount,
+              commissionReversal: reversalDelta
+            }], { session });
+
+            earning.originalCommissionAmount = originalCommission;
+            earning.refundedAmount = nextRefundedAmount;
+            earning.commissionReversedAmount = targetReversal;
+
+            if (earning.status === "paid") {
+              earning.recoveryDue = Number((Number(earning.recoveryDue || 0) + reversalDelta).toFixed(2));
+            } else {
+              earning.commissionAmount = Math.max(0, Number((originalCommission - targetReversal).toFixed(2)));
+              if (earning.commissionAmount === 0) earning.status = "reversed";
+            }
+            await earning.save({ session });
+          });
+        } catch (refundError) {
+          // A concurrent delivery of the same refund is harmless due to the
+          // unique refund ID; all other failures must be retried by Razorpay.
+          if (refundError.code !== 11000) throw refundError;
+        } finally {
+          await session.endSession();
+        }
+      }
     }
 
     // 13. Mark event processed
