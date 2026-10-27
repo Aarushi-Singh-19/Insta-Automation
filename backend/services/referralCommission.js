@@ -128,4 +128,5 @@ module.exports = {
   buildReferralEarning,
   recordReferralCommission,
   applyOutstandingRecovery,
+  calculateRecoveryOffset,
 };
