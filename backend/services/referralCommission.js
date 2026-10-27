@@ -1,3 +1,27 @@
+function calculateRecoveryOffset(commissionAmount, recoverySources) {
+  let remainingCommission = Number(commissionAmount);
+  if (!Number.isFinite(remainingCommission) || remainingCommission < 0) {
+    throw new RangeError("Invalid commission amount for recovery offset");
+  }
+  let recoveryApplied = 0;
+  const allocations = [];
+
+  for (const source of recoverySources) {
+    if (remainingCommission <= 0) break;
+    const due = Number(source.recoveryDue || 0);
+    if (!Number.isFinite(due) || due < 0) {
+      throw new RangeError("Invalid outstanding recovery amount");
+    }
+    const applied = Number(Math.min(remainingCommission, due).toFixed(2));
+    if (applied <= 0) continue;
+    allocations.push({ source, amount: applied, remainingDue: Number((due - applied).toFixed(2)) });
+    remainingCommission = Number((remainingCommission - applied).toFixed(2));
+    recoveryApplied = Number((recoveryApplied + applied).toFixed(2));
+  }
+
+  return { remainingCommission, recoveryApplied, allocations };
+}
+
 async function applyOutstandingRecovery({ ReferralEarning, earning, session }) {
   const recoverySources = await ReferralEarning.find({
     referrerId: earning.referrerId,
@@ -5,23 +29,14 @@ async function applyOutstandingRecovery({ ReferralEarning, earning, session }) {
     recoveryDue: { $gt: 0 },
   }).sort({ createdAt: 1, _id: 1 }).session(session);
 
-  let remainingCommission = Number(earning.commissionAmount || 0);
-  let recoveryApplied = 0;
-
-  for (const source of recoverySources) {
-    if (remainingCommission <= 0) break;
-    const due = Number(source.recoveryDue || 0);
-    const applied = Math.min(remainingCommission, due);
-    if (applied <= 0) continue;
-
-    source.recoveryDue = Number((due - applied).toFixed(2));
-    await source.save({ session });
-    remainingCommission = Number((remainingCommission - applied).toFixed(2));
-    recoveryApplied = Number((recoveryApplied + applied).toFixed(2));
+  const allocation = calculateRecoveryOffset(earning.commissionAmount, recoverySources);
+  for (const item of allocation.allocations) {
+    item.source.recoveryDue = item.remainingDue;
+    await item.source.save({ session });
   }
 
-  earning.recoveryApplied = recoveryApplied;
-  earning.commissionAmount = remainingCommission;
+  earning.recoveryApplied = allocation.recoveryApplied;
+  earning.commissionAmount = allocation.remainingCommission;
   await earning.save({ session });
 }
 
