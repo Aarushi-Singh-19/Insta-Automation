@@ -1,3 +1,30 @@
+async function applyOutstandingRecovery({ ReferralEarning, earning, session }) {
+  const recoverySources = await ReferralEarning.find({
+    referrerId: earning.referrerId,
+    _id: { $ne: earning._id },
+    recoveryDue: { $gt: 0 },
+  }).sort({ createdAt: 1, _id: 1 }).session(session);
+
+  let remainingCommission = Number(earning.commissionAmount || 0);
+  let recoveryApplied = 0;
+
+  for (const source of recoverySources) {
+    if (remainingCommission <= 0) break;
+    const due = Number(source.recoveryDue || 0);
+    const applied = Math.min(remainingCommission, due);
+    if (applied <= 0) continue;
+
+    source.recoveryDue = Number((due - applied).toFixed(2));
+    await source.save({ session });
+    remainingCommission = Number((remainingCommission - applied).toFixed(2));
+    recoveryApplied = Number((recoveryApplied + applied).toFixed(2));
+  }
+
+  earning.recoveryApplied = recoveryApplied;
+  earning.commissionAmount = remainingCommission;
+  await earning.save({ session });
+}
+
 function isEligibleReferralPayment(user, payment) {
   return Boolean(
     user?.referredBy &&
@@ -12,27 +39,62 @@ function buildReferralEarning(user, payment) {
   if (!isEligibleReferralPayment(user, payment)) return null;
 
   const grossAmount = payment.amount / 100;
+  const commissionAmount = Math.round(grossAmount * 20) / 100;
   return {
     referrerId: user.referredBy,
     referredUserId: user._id,
     razorpayPaymentId: payment.id,
     grossAmount,
     commissionRate: 20,
-    commissionAmount: Math.round(grossAmount * 20) / 100,
-    originalCommissionAmount: Math.round(grossAmount * 20) / 100,
+    commissionAmount,
+    originalCommissionAmount: commissionAmount,
+    recoveryApplied: 0,
+    recoveryAppliedReversedAmount: 0,
     currency: payment.currency,
     status: "eligible",
   };
 }
 
 async function recordReferralCommission({ ReferralEarning, user, payment }) {
-  const earning = buildReferralEarning(user, payment);
-  if (!earning) return { eligible: false, recorded: false };
+  const earningData = buildReferralEarning(user, payment);
+  if (!earningData) return { eligible: false, recorded: false };
+
+  // Production Mongoose models use a transaction so the payment commission and
+  // any recovery offset commit together. Lightweight test doubles use the
+  // fallback path below.
+  if (ReferralEarning.db?.startSession) {
+    const session = await ReferralEarning.db.startSession();
+    try {
+      let outcome = { eligible: true, recorded: false, duplicate: false };
+      await session.withTransaction(async () => {
+        const result = await ReferralEarning.updateOne(
+          { razorpayPaymentId: earningData.razorpayPaymentId },
+          { $setOnInsert: earningData },
+          { upsert: true, session }
+        );
+        if (!result.upsertedCount) {
+          outcome = { eligible: true, recorded: false, duplicate: true };
+          return;
+        }
+        const earning = await ReferralEarning.findOne({
+          razorpayPaymentId: earningData.razorpayPaymentId,
+        }).session(session);
+        if (earning) await applyOutstandingRecovery({ ReferralEarning, earning, session });
+        outcome = { eligible: true, recorded: true, duplicate: false };
+      });
+      return outcome;
+    } catch (error) {
+      if (error.code === 11000) return { eligible: true, recorded: false, duplicate: true };
+      throw error;
+    } finally {
+      await session.endSession();
+    }
+  }
 
   try {
     const result = await ReferralEarning.updateOne(
-      { razorpayPaymentId: earning.razorpayPaymentId },
-      { $setOnInsert: earning },
+      { razorpayPaymentId: earningData.razorpayPaymentId },
+      { $setOnInsert: earningData },
       { upsert: true }
     );
     return {
@@ -41,13 +103,14 @@ async function recordReferralCommission({ ReferralEarning, user, payment }) {
       duplicate: !result.upsertedCount,
     };
   } catch (error) {
-    // The unique payment ID index is the final safeguard against concurrent
-    // webhook deliveries attempting to create the same commission.
-    if (error.code === 11000) {
-      return { eligible: true, recorded: false, duplicate: true };
-    }
+    if (error.code === 11000) return { eligible: true, recorded: false, duplicate: true };
     throw error;
   }
 }
 
-module.exports = { isEligibleReferralPayment, buildReferralEarning, recordReferralCommission };
+module.exports = {
+  isEligibleReferralPayment,
+  buildReferralEarning,
+  recordReferralCommission,
+  applyOutstandingRecovery,
+};
