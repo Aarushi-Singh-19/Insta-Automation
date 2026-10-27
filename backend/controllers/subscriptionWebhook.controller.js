@@ -73,6 +73,7 @@ const handleRazorpayWebhook = async (req, res) => {
 
     const subscription = event.payload?.subscription?.entity;
     const payment = event.payload?.payment?.entity;
+    const refund = event.payload?.refund?.entity;
 
     // 3. Claim the event. Unique eventId prevents duplicate claims.
     const now = new Date();
@@ -390,6 +391,15 @@ const handleRazorpayWebhook = async (req, res) => {
 
         await user.save();
       }
+    }
+
+    // Reverse referral earnings when Razorpay confirms a refund.
+    // Conservatively reverse the earning for any processed refund against that payment.
+    if (eventType === "refund.processed" && refund?.payment_id) {
+      await ReferralEarning.updateOne(
+        { razorpayPaymentId: refund.payment_id, status: { $ne: "paid" } },
+        { $set: { status: "reversed" } }
+      );
     }
 
     // 13. Mark event processed
