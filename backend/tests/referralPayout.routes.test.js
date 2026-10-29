@@ -148,3 +148,34 @@ test("refuses to mark an approved payout paid when a refund changed the reserved
     loaded.restore();
   }
 });
+
+test("refuses to mark an approved payout paid after its earning was fully refunded", async () => {
+  const payout = {
+    _id: "payout-id",
+    referrerId: "referrer-id",
+    earningIds: ["fully-refunded-earning"],
+    amount: 199,
+    status: "approved",
+    async save() { return this; }
+  };
+  const calls = [];
+  const loaded = loadRouterWithMocks({
+    payout,
+    earnings: [], // A fully refunded earning is now "reversed", not "requested".
+    updateMany: (...args) => calls.push(args)
+  });
+
+  try {
+    const result = await invoke(loaded.handler, {
+      action: "paid",
+      transferReference: "TEST-NOT-A-REAL-TRANSFER"
+    });
+    assert.equal(result.statusCode, 409);
+    assert.equal(result.body.success, false);
+    assert.match(result.body.message, /no longer reserved|changed/i);
+    assert.equal(payout.status, "approved");
+    assert.equal(calls.length, 0, "Must not mark any earning paid");
+  } finally {
+    loaded.restore();
+  }
+});
