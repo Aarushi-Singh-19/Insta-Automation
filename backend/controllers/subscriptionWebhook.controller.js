@@ -8,6 +8,7 @@ const WebhookEvent = require("../models/WebhookEvent");
 const ReferralEarning = require("../models/ReferralEarning");
 const ReferralRefundRecord = require("../models/ReferralRefundRecord");
 const { calculateRefundCommissionReversal, calculateRecoveryRestore } = require("../services/referralRefundAccounting");
+const { recordReferralCommission } = require("../services/referralCommission");
 
 const handleRazorpayWebhook = async (req, res) => {
   let eventId;
