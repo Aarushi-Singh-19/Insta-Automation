@@ -25,7 +25,7 @@ router.post("/requests", authMiddleware, async (req, res) => {
   try {
     let created;
     await session.withTransaction(async () => {
-      const earnings = await ReferralEarning.find({ referrerId: req.user.id, status: "eligible" }).session(session);
+      const earnings = await ReferralEarning.find({ referrerId: req.user.id, status: "eligible", commissionAmount: { $gt: 0 } }).session(session);
       const amount = Number(earnings.reduce((sum, earning) => sum + earning.commissionAmount, 0).toFixed(2));
       if (amount < MINIMUM_PAYOUT) {
         const error = new Error("You need at least ₹199 in eligible earnings to request a payout.");
@@ -35,7 +35,7 @@ router.post("/requests", authMiddleware, async (req, res) => {
 
       const earningIds = earnings.map((earning) => earning._id);
       const reserved = await ReferralEarning.updateMany(
-        { _id: { $in: earningIds }, referrerId: req.user.id, status: "eligible" },
+        { _id: { $in: earningIds }, referrerId: req.user.id, status: "eligible", commissionAmount: { $gt: 0 } },
         { $set: { status: "requested" } },
         { session }
       );
@@ -87,14 +87,24 @@ router.patch("/admin/requests/:id", authMiddleware, adminMiddleware, async (req,
         const error = new Error("Payout request not found."); error.statusCode = 404; throw error;
       }
       if (action === "approve" || action === "reject") {
-        if (payout.status !== "requested") {
-          const error = new Error("Only requested payouts can be approved or rejected."); error.statusCode = 409; throw error;
+        const canApprove = action === "approve" && payout.status === "requested";
+        const canReject = action === "reject" && ["requested", "approved"].includes(payout.status);
+        if (!canApprove && !canReject) {
+          const error = new Error(
+            action === "approve"
+              ? "Only requested payouts can be approved."
+              : "Only requested or approved payouts can be rejected before payment."
+          );
+          error.statusCode = 409;
+          throw error;
         }
         payout.status = action === "approve" ? "approved" : "rejected";
         payout.reviewedAt = new Date();
         payout.reviewedBy = req.user.id;
         payout.adminNote = typeof req.body.note === "string" ? req.body.note.trim().slice(0, 500) : null;
         if (action === "reject") {
+          // A refund can change reserved earnings after approval. Allow admins
+          // to cancel the unpaid request and release any earnings still reserved.
           await ReferralEarning.updateMany(
             { _id: { $in: payout.earningIds }, referrerId: payout.referrerId, status: "requested" },
             { $set: { status: "eligible" } }, { session }
