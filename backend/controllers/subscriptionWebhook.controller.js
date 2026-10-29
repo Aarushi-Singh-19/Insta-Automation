@@ -382,7 +382,9 @@ const handleRazorpayWebhook = async (req, res) => {
             const earning = await ReferralEarning.findOne({
               razorpayPaymentId: refund.payment_id
             }).session(session);
-            if (!earning) return;
+            if (!earning) {
+              throw new Error("Refund commission earning not found; retry webhook later");
+            }
 
             const originalCommission = Number(
               earning.originalCommissionAmount ?? earning.commissionAmount
