@@ -96,7 +96,7 @@ router.patch("/admin/requests/:id", authMiddleware, adminMiddleware, async (req,
   try {
     let updated;
     await session.withTransaction(async () => {
-      const payout = await ReferralPayoutRequest.findById(req.params.id).session(session);
+      const payout = await ReferralPayoutRequest.findById(req.params.id).select("+payoutUpiEncrypted").session(session);
       if (!payout) {
         const error = new Error("Payout request not found."); error.statusCode = 404; throw error;
       }
