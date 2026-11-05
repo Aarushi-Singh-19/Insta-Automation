@@ -43,7 +43,7 @@ function loadRouterWithMocks({ payout, updateMany, earnings = [] }) {
     find: () => ({ session: async () => earnings })
   };
   const fakePayouts = {
-    findById: () => ({ session: async () => payout })
+    findById: () => ({ select: () => ({ session: async () => payout }) })
   };
 
   function mock(id, exports) {
