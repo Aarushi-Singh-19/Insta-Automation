@@ -8,9 +8,13 @@ const uri = process.env.REFERRAL_TEST_MONGODB_URI;
 const dbName = "triggerdm_referral_integration_test";
 
 test("real MongoDB: duplicate payment IDs and concurrent payout reservations", { skip: !uri && "Set REFERRAL_TEST_MONGODB_URI to an isolated test database" }, async () => {
-  const parsed = new URL(uri);
-  const actualDb = decodeURIComponent(parsed.pathname.replace(/^\//, ""));
+  // MongoDB replica-set URIs can contain comma-separated hosts, which WHATWG URL rejects.
+  // Validate the explicit database path without logging credentials or connecting first.
+  const dbPath = uri.match(/^mongodb(?:\+srv)?:\/\/[^/]+\/([^?]*)/);
+  assert.ok(dbPath, "Test URI must include an explicit database name");
+  const actualDb = decodeURIComponent(dbPath[1]);
   assert.equal(actualDb, dbName, "Refusing to run against any database other than the dedicated integration-test database");
+  assert.notEqual(process.env.MONGO_URI, uri, "Test URI must not match application database URI");
   assert.notEqual(process.env.MONGODB_URI, uri, "Test URI must not match application database URI");
   const connection = await mongoose.createConnection(uri, { serverSelectionTimeoutMS: 6000 }).asPromise();
   const suffix = new mongoose.Types.ObjectId().toString();
