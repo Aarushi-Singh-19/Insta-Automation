@@ -37,7 +37,8 @@ app.use(cors({
   origin: [
     "http://localhost:5173",
     "https://triggerdm.in",
-    "https://www.triggerdm.in"
+    "https://www.triggerdm.in",
+    "https://triggerdm-staging-frontend.onrender.com"
   ],
   methods: [
     "GET",
@@ -75,6 +76,8 @@ app.use(
 app.use("/api/follow", followVerificationRoutes);
 app.use("/api/test", testRoutes);
 app.use("/api/billing", billingRoutes);
+app.use("/api/referrals", require("./routes/referrals.routes"));
+app.use("/api/referrals/payouts", require("./routes/referralPayout.routes"));
 app.use("/api/webhook", webhookRoutes);
 app.use("/api/instagram", instagramRoutes);
 app.use("/api/analytics", analyticsRoutes);
