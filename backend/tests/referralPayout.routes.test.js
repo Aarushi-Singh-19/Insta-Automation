@@ -124,6 +124,7 @@ test("refuses to mark an approved payout paid when a refund changed the reserved
     referrerId: "referrer-id",
     earningIds: ["earning-id"],
     amount: 199,
+    payoutUpiEncrypted: "test-encrypted-destination",
     status: "approved",
     async save() { return this; }
   };
@@ -155,6 +156,7 @@ test("refuses to mark an approved payout paid after its earning was fully refund
     referrerId: "referrer-id",
     earningIds: ["fully-refunded-earning"],
     amount: 199,
+    payoutUpiEncrypted: "test-encrypted-destination",
     status: "approved",
     async save() { return this; }
   };
@@ -200,7 +202,7 @@ test("admin approves a requested payout without marking earnings paid", async ()
 test("admin marks approved payout paid only with a confirmed transfer reference and matching reserved earnings", async () => {
   const payout = {
     _id: "payout-id", referrerId: "referrer-id", earningIds: ["earning-id"],
-    amount: 199, status: "approved",
+    amount: 199, payoutUpiEncrypted: "test-encrypted-destination", status: "approved",
     async save() { return this; }
   };
   const calls = [];
