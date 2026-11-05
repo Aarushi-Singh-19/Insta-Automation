@@ -198,13 +198,14 @@ function Admin() {
             </div>
             {payoutError && <p role="alert" className="m-5 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{payoutError}</p>}
             <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50 text-left text-slate-500"><tr><th className="px-5 py-3">Creator</th><th className="px-5 py-3">Amount</th><th className="px-5 py-3">Requested</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Transfer reference / actions</th></tr></thead>
+              <thead className="bg-slate-50 text-left text-slate-500"><tr><th className="px-5 py-3">Creator</th><th className="px-5 py-3">Amount</th><th className="px-5 py-3">Requested</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">UPI destination</th><th className="px-5 py-3">Transfer reference / actions</th></tr></thead>
               <tbody className="divide-y divide-slate-100">
                 {payoutRequests.map((request) => <tr key={request._id}>
                   <td className="px-5 py-4"><div className="font-medium">{request.referrerId?.name || "Creator"}</div><div className="text-slate-500">{request.referrerId?.email || "—"}</div></td>
                   <td className="px-5 py-4 font-semibold">{formatCurrency(Math.round((Number(request.amount) || 0) * 100))}</td>
                   <td className="px-5 py-4 whitespace-nowrap">{request.requestedAt ? new Date(request.requestedAt).toLocaleDateString("en-IN") : "—"}</td>
                   <td className="px-5 py-4 capitalize">{request.status}</td>
+                  <td className="px-5 py-4"><div className="font-medium">{request.payoutAccountName || "Not provided"}</div><div className="break-all text-xs text-slate-600">{request.payoutUpiId || "Legacy request — verify destination before payment"}</div></td>
                   <td className="min-w-[270px] px-5 py-4">
                     {request.status === "approved" && <input value={transferReferences[request._id] || ""} onChange={(event) => setTransferReferences((current) => ({ ...current, [request._id]: event.target.value }))} placeholder="Confirmed transfer reference" className="mb-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />}
                     <div className="flex flex-wrap gap-2">
@@ -214,7 +215,7 @@ function Admin() {
                     </div>
                   </td>
                 </tr>)}
-                {!payoutRequests.length && <tr><td colSpan="5" className="px-5 py-8 text-center text-slate-500">No payout requests yet.</td></tr>}
+                {!payoutRequests.length && <tr><td colSpan="6" className="px-5 py-8 text-center text-slate-500">No payout requests yet.</td></tr>}
               </tbody>
             </table></div>
           </section>
