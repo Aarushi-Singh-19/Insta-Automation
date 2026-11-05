@@ -179,3 +179,50 @@ test("refuses to mark an approved payout paid after its earning was fully refund
     loaded.restore();
   }
 });
+
+test("admin approves a requested payout without marking earnings paid", async () => {
+  const payout = {
+    _id: "payout-id", referrerId: "referrer-id", earningIds: ["earning-id"],
+    amount: 199, status: "requested",
+    async save() { return this; }
+  };
+  const calls = [];
+  const loaded = loadRouterWithMocks({ payout, updateMany: (...args) => calls.push(args) });
+  try {
+    const result = await invoke(loaded.handler, { action: "approve" });
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.body.success, true);
+    assert.equal(payout.status, "approved");
+    assert.equal(calls.length, 0, "Approval must not transfer funds or mark earnings paid");
+  } finally { loaded.restore(); }
+});
+
+test("admin marks approved payout paid only with a confirmed transfer reference and matching reserved earnings", async () => {
+  const payout = {
+    _id: "payout-id", referrerId: "referrer-id", earningIds: ["earning-id"],
+    amount: 199, status: "approved",
+    async save() { return this; }
+  };
+  const calls = [];
+  const loaded = loadRouterWithMocks({
+    payout, earnings: [{ _id: "earning-id", commissionAmount: 199, status: "requested" }],
+    updateMany: (...args) => calls.push(args)
+  });
+  try {
+    const missingReference = await invoke(loaded.handler, { action: "paid" });
+    assert.equal(missingReference.statusCode, 400);
+    assert.equal(payout.status, "approved");
+    assert.equal(calls.length, 0);
+
+    const result = await invoke(loaded.handler, {
+      action: "paid", transferReference: "TEST-TRANSFER-NOT-REAL"
+    });
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.body.success, true);
+    assert.equal(payout.status, "paid");
+    assert.equal(payout.transferReference, "TEST-TRANSFER-NOT-REAL");
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0][1].$set.status, "paid");
+    assert.equal(calls[0][2].session !== undefined, true);
+  } finally { loaded.restore(); }
+});
