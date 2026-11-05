@@ -3,6 +3,8 @@ import { useState } from "react";
 import API from "../services/api";
 
 function Signup() {
+  const referralCode = new URLSearchParams(window.location.search).get("ref");
+  if (referralCode) localStorage.setItem("triggerdm_referral_code", referralCode.trim().toUpperCase());
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -14,7 +16,9 @@ function Signup() {
     if (loading) return;
     setLoading(true);
     try {
-      await API.post("/auth/signup", { name, email, password });
+      const code = new URLSearchParams(window.location.search).get("ref") || localStorage.getItem("triggerdm_referral_code") || "";
+      await API.post("/auth/signup", { name, email, password, referralCode: code.trim().toUpperCase() });
+      localStorage.removeItem("triggerdm_referral_code");
       alert("Account created successfully!");
       navigate("/login");
     } catch (err) {
