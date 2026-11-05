@@ -202,7 +202,7 @@ function Admin() {
               <tbody className="divide-y divide-slate-100">
                 {payoutRequests.map((request) => <tr key={request._id}>
                   <td className="px-5 py-4"><div className="font-medium">{request.referrerId?.name || "Creator"}</div><div className="text-slate-500">{request.referrerId?.email || "—"}</div></td>
-                  <td className="px-5 py-4 font-semibold">{formatCurrency(Math.round((Number(request.amount) || 0) * 100))}</td>
+                  <td className="px-5 py-4 font-semibold">{formatCurrency(request.amount)}</td>
                   <td className="px-5 py-4 whitespace-nowrap">{request.requestedAt ? new Date(request.requestedAt).toLocaleDateString("en-IN") : "—"}</td>
                   <td className="px-5 py-4 capitalize">{request.status}</td>
                   <td className="px-5 py-4"><div className="font-medium">{request.payoutAccountName || "Not provided"}</div><div className="break-all text-xs text-slate-600">{request.payoutUpiId || "Legacy request — verify destination before payment"}</div></td>
