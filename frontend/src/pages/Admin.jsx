@@ -77,6 +77,17 @@ function Admin() {
     }
   };
 
+  const confirmPaidPayout = (request) => {
+    const reference = (transferReferences[request._id] || "").trim();
+    if (!reference) return;
+    const amount = formatCurrency(request.amount);
+    const destination = request.payoutUpiId || "the creator's UPI ID";
+    const confirmed = window.confirm(
+      `Have you successfully transferred ${amount} to ${request.payoutAccountName || "the creator"} (${destination})?\n\nCheck that your payment app shows a successful transfer and that the reference is correct.\n\nClick OK only if real money has been sent. Marking paid does NOT send money.`
+    );
+    if (confirmed) updatePayout(request._id, "paid");
+  };
+
   const updatePayout = async (requestId, action) => {
     setPayoutBusyId(requestId); setPayoutError("");
     try {
@@ -210,7 +221,7 @@ function Admin() {
                     {request.status === "approved" && <input value={transferReferences[request._id] || ""} onChange={(event) => setTransferReferences((current) => ({ ...current, [request._id]: event.target.value }))} placeholder="Confirmed transfer reference" className="mb-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />}
                     <div className="flex flex-wrap gap-2">
                       {request.status === "requested" && <><button disabled={payoutBusyId === request._id} onClick={() => updatePayout(request._id, "approve")} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Approve</button><button disabled={payoutBusyId === request._id} onClick={() => updatePayout(request._id, "reject")} className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Reject</button></>}
-                      {request.status === "approved" && <button disabled={payoutBusyId === request._id || !(transferReferences[request._id] || "").trim()} onClick={() => updatePayout(request._id, "paid")} className="rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Mark paid</button>}
+                      {request.status === "approved" && <button disabled={payoutBusyId === request._id || !(transferReferences[request._id] || "").trim()} onClick={() => confirmPaidPayout(request)} className="rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Mark paid</button>}
                       {request.transferReference && <span className="self-center break-all text-xs text-slate-500">Ref: {request.transferReference}</span>}
                     </div>
                   </td>
