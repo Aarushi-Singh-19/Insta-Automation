@@ -37,7 +37,8 @@ app.use(cors({
   origin: [
     "http://localhost:5173",
     "https://triggerdm.in",
-    "https://www.triggerdm.in"
+    "https://www.triggerdm.in",
+    "https://triggerdm-staging-frontend.onrender.com"
   ],
   methods: [
     "GET",
