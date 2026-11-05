@@ -57,12 +57,19 @@ const sanitizeUser = (user) => {
 const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
+    const referralCode = String(req.body.referralCode || "").trim().toUpperCase();
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: "All fields required" });
     }
 
-    const existingUser = await User.findOne({ email });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    let referrer = null;
+    if (referralCode) {
+      referrer = await User.findOne({ referralCode }).select("_id");
+      if (!referrer) return res.status(400).json({ message: "Invalid referral code." });
+    }
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
@@ -76,8 +83,9 @@ trialEndDate.setDate(trialEndDate.getDate() + 7);
 
 const user = await User.create({
   name,
-  email,
+  email: normalizedEmail,
   password: hashedPassword,
+  referredBy: referrer ? referrer._id : null,
 
   subscriptionStatus: "trial",
   currentPlan: "trial",
@@ -108,7 +116,7 @@ const login = async (req, res) => {
       return res.status(400).json({ message: "Email and password required" });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: String(email).trim().toLowerCase() });
 
     if (!user) {
       return res.status(400).json({ message: "User not found" });
