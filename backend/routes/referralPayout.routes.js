@@ -5,6 +5,7 @@ const adminMiddleware = require("../middleware/adminMiddleware");
 const ReferralEarning = require("../models/ReferralEarning");
 const ReferralPayoutRequest = require("../models/ReferralPayoutRequest");
 const User = require("../models/User");
+const { validateUpi, validateAccountName, encryptUpi, decryptUpi } = require("../services/referralPayoutDestination");
 
 const router = express.Router();
 const MINIMUM_PAYOUT = 199;
@@ -21,6 +22,14 @@ router.get("/requests", authMiddleware, async (req, res) => {
 });
 
 router.post("/requests", authMiddleware, async (req, res) => {
+  let upi, accountName, encrypted;
+  try {
+    upi = validateUpi(req.body?.upiId);
+    accountName = validateAccountName(req.body?.accountHolderName);
+    encrypted = encryptUpi(upi);
+  } catch (error) {
+    return res.status(error.statusCode || 503).json({ success: false, message: error.statusCode ? error.message : "Payout destination is temporarily unavailable." });
+  }
   const session = await mongoose.startSession();
   try {
     let created;
@@ -46,7 +55,8 @@ router.post("/requests", authMiddleware, async (req, res) => {
       }
 
       [created] = await ReferralPayoutRequest.create([{
-        referrerId: req.user.id, earningIds, amount, status: "requested"
+        referrerId: req.user.id, earningIds, amount, status: "requested",
+        payoutMethod: "upi", payoutUpiEncrypted: encrypted, payoutUpiLast4: upi.slice(-4), payoutAccountName: accountName
       }], { session });
     });
     return res.status(201).json({ success: true, request: created });
@@ -62,8 +72,13 @@ router.post("/requests", authMiddleware, async (req, res) => {
 router.get("/admin/requests", authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const requests = await ReferralPayoutRequest.find({})
+      .select("+payoutUpiEncrypted")
       .populate("referrerId", "name email").sort({ requestedAt: -1 }).lean();
-    return res.json({ success: true, requests });
+    const adminRequests = requests.map(({ payoutUpiEncrypted, ...request }) => ({
+      ...request,
+      payoutUpiId: payoutUpiEncrypted ? decryptUpi(payoutUpiEncrypted) : null
+    }));
+    return res.json({ success: true, requests: adminRequests });
   } catch (error) {
     console.error("ADMIN REFERRAL PAYOUT LIST ERROR:", error);
     return res.status(500).json({ success: false, message: "Unable to load payout requests." });
