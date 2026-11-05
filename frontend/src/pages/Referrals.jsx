@@ -11,7 +11,7 @@ const landingReferralLink = (value) => {
   try {
     const url = new URL(value, window.location.origin);
     const code = url.searchParams.get("ref");
-    return code ? `${window.location.origin}/?ref=${encodeURIComponent(code)}` : value;
+    return code ? `${window.location.origin}/signup?ref=${encodeURIComponent(code)}` : value;
   } catch {
     return value;
   }
