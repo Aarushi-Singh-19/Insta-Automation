@@ -1,6 +1,7 @@
 import Automations from "./pages/Automations";
 import Accounts from "./pages/Accounts";
 import Billing from "./pages/Billing";
+import Referrals from "./pages/Referrals";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -34,6 +35,7 @@ function App() {
         <Route path="/automations" element={<ProtectedRoute><Automations /></ProtectedRoute>} />
         <Route path="/accounts" element={<ProtectedRoute><Accounts /></ProtectedRoute>} />
         <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+        <Route path="/referrals" element={<ProtectedRoute><Referrals /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
         <Route path="/privacy" element={<Privacy />} />
