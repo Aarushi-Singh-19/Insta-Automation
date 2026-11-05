@@ -23,6 +23,9 @@ function Referrals() {
   const [copied, setCopied] = useState(false);
   const [payoutRequests, setPayoutRequests] = useState([]);
   const [payoutBusy, setPayoutBusy] = useState(false);
+  const [showPayoutForm, setShowPayoutForm] = useState(false);
+  const [upiId, setUpiId] = useState("");
+  const [accountHolderName, setAccountHolderName] = useState("");
   const [payoutMessage, setPayoutMessage] = useState("");
 
   useEffect(() => {
@@ -63,18 +66,29 @@ function Referrals() {
       <section className={card + " mt-6"}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="text-lg font-bold text-[#191724]">Manual payouts</h2><p className="mt-1 text-sm text-[#777280]">Minimum payout: ₹199. Transfers are processed manually after review.</p></div>
-          <button type="button" disabled={!data || data.eligibleBalance < 199 || payoutBusy} onClick={async () => {
-            setPayoutBusy(true); setPayoutMessage(""); setError("");
-            try {
-              const response = await API.post("/referrals/payouts/requests", {});
-              setPayoutMessage("Payout request submitted for " + money(response.data.request.amount) + ".");
-              const [summary, history] = await Promise.all([API.get("/referrals/summary"), API.get("/referrals/payouts/requests")]);
-              setData(summary.data); setPayoutRequests(history.data.requests || []);
-            } catch (err) {
-              setPayoutMessage(err.response?.data?.message || "Unable to submit payout request.");
-            } finally { setPayoutBusy(false); }
-          }} className="rounded-xl bg-[#7655db] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{payoutBusy ? "Submitting…" : "Request payout"}</button>
+          <button type="button" disabled={!data || data.eligibleBalance < 199 || payoutBusy} onClick={() => setShowPayoutForm((current) => !current)} className="rounded-xl bg-[#7655db] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{showPayoutForm ? "Cancel" : "Request payout"}</button>
         </div>
+        {showPayoutForm && <form className="mt-5 grid max-w-xl gap-3" onSubmit={async (event) => {
+          event.preventDefault();
+          if (!window.confirm("Submit a payout request to the UPI ID entered? Check it carefully before continuing.")) return;
+          setPayoutBusy(true); setPayoutMessage(""); setError("");
+          try {
+            const response = await API.post("/referrals/payouts/requests", { upiId: upiId.trim(), accountHolderName: accountHolderName.trim() });
+            setPayoutMessage("Payout request submitted for " + money(response.data.request.amount) + ".");
+            setShowPayoutForm(false); setUpiId(""); setAccountHolderName("");
+            const [summary, history] = await Promise.all([API.get("/referrals/summary"), API.get("/referrals/payouts/requests")]);
+            setData(summary.data); setPayoutRequests(history.data.requests || []);
+          } catch (err) {
+            setPayoutMessage(err.response?.data?.message || "Unable to submit payout request.");
+          } finally { setPayoutBusy(false); }
+        }}>
+          <label className="text-sm font-semibold text-[#191724]" htmlFor="payout-name">UPI account holder name</label>
+          <input id="payout-name" required maxLength={100} autoComplete="name" value={accountHolderName} onChange={(event) => setAccountHolderName(event.target.value)} placeholder="Name registered with UPI" className="rounded-xl border border-[#e8e3ed] px-3 py-3 text-sm" />
+          <label className="text-sm font-semibold text-[#191724]" htmlFor="payout-upi">UPI ID (VPA)</label>
+          <input id="payout-upi" required maxLength={100} autoComplete="off" value={upiId} onChange={(event) => setUpiId(event.target.value)} placeholder="name@bank" className="rounded-xl border border-[#e8e3ed] px-3 py-3 text-sm" />
+          <p className="text-xs text-[#777280]">Check your UPI ID carefully. Never enter a UPI PIN or OTP. Transfers are manual after review.</p>
+          <button type="submit" disabled={payoutBusy} className="rounded-xl bg-[#7655db] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">{payoutBusy ? "Submitting…" : "Submit payout request"}</button>
+        </form>}
         {payoutMessage && <p role="status" className="mt-3 rounded-lg bg-[#f7f4ff] p-3 text-sm text-[#51466f]">{payoutMessage}</p>}
         {data && data.eligibleBalance < 199 && <p className="mt-3 text-sm text-[#777280]">You need another {money(199 - data.eligibleBalance)} in eligible earnings before you can request a payout.</p>}
         <div className="mt-4 overflow-x-auto">
