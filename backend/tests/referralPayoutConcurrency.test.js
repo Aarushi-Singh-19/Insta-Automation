@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 
 test("simultaneous payout requests cannot reserve the same earnings twice", async () => {
+  process.env.REFERRAL_PAYOUT_ENCRYPTION_KEY = "a".repeat(64);
   const root = path.resolve(__dirname, "..");
   const routePath = require.resolve(path.join(root, "routes", "referralPayout.routes.js"));
   const ids = {
@@ -62,7 +63,7 @@ test("simultaneous payout requests cannot reserve the same earnings twice", asyn
     const invoke = async () => {
       let code = 200;
       let payload;
-      await postHandler({ user: { id: "referrer-1" } }, {
+      await postHandler({ user: { id: "referrer-1" }, body: { upiId: "tester@okbank", accountHolderName: "Test User" } }, {
         status(n) { code = n; return this; },
         json(x) { payload = x; return this; }
       });
