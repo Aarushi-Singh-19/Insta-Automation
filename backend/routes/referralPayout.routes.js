@@ -4,7 +4,6 @@ const authMiddleware = require("../middleware/authMiddleware");
 const adminMiddleware = require("../middleware/adminMiddleware");
 const ReferralEarning = require("../models/ReferralEarning");
 const ReferralPayoutRequest = require("../models/ReferralPayoutRequest");
-const User = require("../models/User");
 const { validateUpi, validateAccountName, encryptUpi, decryptUpi } = require("../services/referralPayoutDestination");
 
 const router = express.Router();
@@ -14,7 +13,7 @@ router.get("/requests", authMiddleware, async (req, res) => {
   try {
     const requests = await ReferralPayoutRequest.find({ referrerId: req.user.id })
       .sort({ requestedAt: -1 }).lean();
-    return res.json({ success: true, requests });
+    return res.json({ success: true, requests: requests.map(({ payoutUpiEncrypted, ...request }) => request) });
   } catch (error) {
     console.error("REFERRAL PAYOUT HISTORY ERROR:", error);
     return res.status(500).json({ success: false, message: "Unable to load payout history." });
@@ -59,7 +58,7 @@ router.post("/requests", authMiddleware, async (req, res) => {
         payoutMethod: "upi", payoutUpiEncrypted: encrypted, payoutUpiLast4: upi.slice(-4), payoutAccountName: accountName
       }], { session });
     });
-    return res.status(201).json({ success: true, request: created });
+    return res.status(201).json({ success: true, request: { _id: created._id, amount: created.amount, status: created.status, requestedAt: created.requestedAt } });
   } catch (error) {
     if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
     console.error("REFERRAL PAYOUT REQUEST ERROR:", error);
@@ -129,6 +128,9 @@ router.patch("/admin/requests/:id", authMiddleware, adminMiddleware, async (req,
         if (payout.status !== "approved") {
           const error = new Error("Only approved payouts can be marked paid."); error.statusCode = 409; throw error;
         }
+        if (!payout.payoutUpiEncrypted) {
+          const error = new Error("This payout has no verified UPI destination. Do not mark it paid."); error.statusCode = 409; throw error;
+        }
         const reference = String(req.body.transferReference || "").trim().slice(0, 160);
         if (!reference) {
           const error = new Error("Enter the confirmed bank transfer reference before marking paid."); error.statusCode = 400; throw error;
@@ -156,7 +158,7 @@ router.patch("/admin/requests/:id", authMiddleware, adminMiddleware, async (req,
       await payout.save({ session });
       updated = payout;
     });
-    return res.json({ success: true, request: updated });
+    return res.json({ success: true, request: { _id: updated._id, status: updated.status, amount: updated.amount, transferReference: updated.transferReference } });
   } catch (error) {
     if (error.statusCode) return res.status(error.statusCode).json({ success: false, message: error.message });
     console.error("ADMIN REFERRAL PAYOUT UPDATE ERROR:", error);
