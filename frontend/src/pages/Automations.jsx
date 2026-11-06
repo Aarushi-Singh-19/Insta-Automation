@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, SlidersHorizontal, MoreVertical, Plus, Zap, ExternalLink } from "lucide-react";
+import { Search, SlidersHorizontal, Trash2, Plus, Zap, ExternalLink } from "lucide-react";
 import API from "../services/api";
 import DashboardLayout from "../components/DashboardLayout";
 
@@ -965,7 +965,7 @@ function Automations() {
                       </div>
                       <div className="flex gap-2 lg:justify-end">
                         <button type="button" onClick={() => handleEditAutomation(automation)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700">Edit</button>
-                        <button type="button" onClick={() => { if (window.confirm("Delete this automation? This cannot be undone.")) handleDeleteAutomation(automation._id); }} aria-label={`Delete ${title} automation`} className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"><MoreVertical size={17} /></button>
+                        <button type="button" onClick={() => { if (window.confirm("Delete this automation? This cannot be undone.")) handleDeleteAutomation(automation._id); }} aria-label={`Delete ${title} automation`} title="Delete automation" className="flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-500 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-200"><Trash2 size={16} /></button>
                       </div>
                     </div>
                   );
