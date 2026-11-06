@@ -317,7 +317,7 @@ console.log("🔥🔥🔥 HELPER ENTERED 🔥🔥🔥");
 
   try {
     const response = await axios.post(
-      `https://graph.instagram.com/v25.0/${instagramUserId}/subscribed_apps`,
+      `https://graph.instagram.com/v25.0/me/subscribed_apps`,
       new URLSearchParams({
         subscribed_fields:
   "comments,messages,messaging_postbacks",
@@ -349,7 +349,7 @@ const getInstagramSubscriptions = async (
 
   try {
     const response = await axios.get(
-      `https://graph.instagram.com/v25.0/${instagramUserId}/subscribed_apps`,
+      `https://graph.instagram.com/v25.0/me/subscribed_apps`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -375,7 +375,7 @@ const getInstagramSubscriptions = async (
 // const subscribeInstagramAccount = async (instagramUserId, accessToken) => {
 //   try {
 //     const response = await axios.post(
-//       `https://graph.instagram.com/v25.0/${instagramUserId}/subscribed_apps`,
+//       `https://graph.instagram.com/v25.0/me/subscribed_apps`,
 //       new URLSearchParams({
 //         subscribed_fields: "comments,messages",
 //       }),
