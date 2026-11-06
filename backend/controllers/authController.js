@@ -50,6 +50,22 @@ const sanitizeUser = (user) => {
     delete userObj[field];
   });
 
+  // Return an effective status without mutating payment state. Razorpay webhooks
+  // remain authoritative for renewals, cancellations and payment events.
+  const now = new Date();
+  if (
+    userObj.subscriptionStatus === "active" &&
+    (!userObj.planEndDate || new Date(userObj.planEndDate) <= now)
+  ) {
+    userObj.subscriptionStatus = "expired";
+  }
+  if (
+    userObj.subscriptionStatus === "trial" &&
+    userObj.trialEndDate && new Date(userObj.trialEndDate) <= now
+  ) {
+    userObj.subscriptionStatus = "expired";
+  }
+
   return userObj;
 };
 
