@@ -306,7 +306,28 @@ const handleRazorpayWebhook = async (req, res) => {
     throw new Error("Captured payment verification failed");
   }
 
-  const subscriptionId = verified.subscription_id;
+ let subscriptionId = verified.subscription_id;
+
+if (!subscriptionId && verified.invoice_id) {
+  const invoice = await razorpay.invoices.fetch(verified.invoice_id);
+
+  if (
+    invoice?.id !== verified.invoice_id ||
+    invoice.payment_id !== verified.id ||
+    invoice.status !== "paid" ||
+    invoice.amount !== verified.amount ||
+    invoice.currency !== verified.currency ||
+    !invoice.subscription_id
+  ) {
+    throw new Error("Payment invoice verification failed");
+  }
+
+  subscriptionId = invoice.subscription_id;
+}
+
+if (!subscriptionId) {
+  throw new Error("Captured payment has no verified subscription");
+}
 
   if (subscriptionId) {
     const user = await User.findOne({

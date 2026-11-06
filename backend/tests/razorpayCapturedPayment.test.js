@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 const path = require("node:path");
 
-test("records a verified captured payment when webhook omits subscription_id", async () => {
+test("records a captured payment using its verified invoice subscription", async () => {
   const root = path.resolve(__dirname, "..");
   const controller = require.resolve(path.join(root, "controllers/subscriptionWebhook.controller.js"));
   const names = ["User", "Payment", "WebhookEvent", "ReferralEarning", "ReferralRefundRecord"];
@@ -36,17 +36,32 @@ test("records a verified captured payment when webhook omits subscription_id", a
       create: async () => ({}),
       findOneAndUpdate: async () => ({})
     });
-    mock(ids.razorpay, {
-      payments: {
-        fetch: async () => ({
-          id: "pay_test",
-          status: "captured",
-          amount: 19900,
-          currency: "INR",
-          subscription_id: "sub_test"
-        })
-      }
-    });
+   mock(ids.razorpay, {
+  payments: {
+    fetch: async () => ({
+      id: "pay_test",
+      status: "captured",
+      amount: 19900,
+      currency: "INR",
+      invoice_id: "inv_test"
+      // Intentionally no subscription_id
+    })
+  },
+  invoices: {
+    fetch: async (invoiceId) => {
+      assert.equal(invoiceId, "inv_test");
+
+      return {
+        id: "inv_test",
+        payment_id: "pay_test",
+        subscription_id: "sub_test",
+        amount: 19900,
+        currency: "INR",
+        status: "paid"
+      };
+    }
+  }
+});
     mock(ids.ReferralEarning, {});
     mock(ids.ReferralRefundRecord, {});
     mock(ids.commission, { recordReferralCommission: async () => {} });
