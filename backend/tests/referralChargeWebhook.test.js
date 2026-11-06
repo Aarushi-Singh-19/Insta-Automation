@@ -12,7 +12,8 @@ test("subscription charge invokes referral commission recording successfully", a
     WebhookEvent: require.resolve(path.join(root, "models", "WebhookEvent.js")),
     ReferralEarning: require.resolve(path.join(root, "models", "ReferralEarning.js")),
     ReferralRefundRecord: require.resolve(path.join(root, "models", "ReferralRefundRecord.js")),
-    commission: require.resolve(path.join(root, "services", "referralCommission.js"))
+   commission: require.resolve(path.join(root, "services", "referralCommission.js")),
+razorpay: require.resolve(path.join(root, "services", "razorpayService.js"))
   };
   const originals = new Map([...Object.values(ids), controller].map(id => [id, require.cache[id]]));
   const oldSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
@@ -21,6 +22,18 @@ test("subscription charge invokes referral commission recording successfully", a
   const mock = (id, exports) => { require.cache[id] = { id, filename: id, loaded: true, exports }; };
   try {
     process.env.RAZORPAY_WEBHOOK_SECRET = "mock-test-secret";
+
+    mock(ids.razorpay, {
+  payments: {
+    fetch: async () => ({
+      id: "pay_mock",
+      subscription_id: "sub_mock",
+      status: "captured",
+      currency: "INR",
+      amount: 19900
+    })
+  }
+});
     mock(ids.User, { findOne: async () => user });
     mock(ids.Payment, { updateOne: async () => ({}) });
     mock(ids.WebhookEvent, {

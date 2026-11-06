@@ -1,6 +1,7 @@
 
 const crypto = require("crypto");
 const mongoose = require("mongoose");
+const razorpay = require("../services/razorpayService");
 
 const User = require("../models/User");
 const Payment = require("../models/Payment");
@@ -78,6 +79,22 @@ const handleRazorpayWebhook = async (req, res) => {
     const subscription = event.payload?.subscription?.entity;
     const payment = event.payload?.payment?.entity;
     const refund = event.payload?.refund?.entity;
+
+    // Confirm charged payments against the API credentials of this deployment.
+    // A valid webhook signature alone does not identify Razorpay Test vs Live Mode.
+    // Reject before claiming the event or mutating any subscription/commission state.
+    if (eventType === "subscription.charged") {
+      if (!subscription?.id || !payment?.id || payment.status !== "captured" ||
+          !Number.isFinite(payment.amount) || !payment.currency) {
+        return res.status(400).json({ success: false, message: "Invalid charged payment payload" });
+      }
+      const verified = await razorpay.payments.fetch(payment.id);
+      if (verified?.id !== payment.id || verified.status !== "captured" ||
+          verified.amount !== payment.amount || verified.currency !== payment.currency ||
+          verified.subscription_id !== subscription.id) {
+        return res.status(400).json({ success: false, message: "Payment verification mismatch" });
+      }
+    }
 
     // 3. Claim the event. Unique eventId prevents duplicate claims.
     const now = new Date();
@@ -277,21 +294,59 @@ const handleRazorpayWebhook = async (req, res) => {
 
     // 8. Payment captured. This records payment history only;
     // subscription lifecycle events control subscription access.
-    if (eventType === "payment.captured" && payment?.subscription_id) {
-      const user = await User.findOne({
-        razorpaySubscriptionId: payment.subscription_id,
-      });
+   if (eventType === "payment.captured" && payment?.id) {
+  const verified = await razorpay.payments.fetch(payment.id);
 
-      if (user) {
-        await recordPayment({
-          user,
-          paymentEntity: payment,
-          subscriptionId: payment.subscription_id,
-          status: "captured",
-          type: "payment.captured",
-        });
-      }
+  if (
+    verified?.id !== payment.id ||
+    verified.status !== "captured" ||
+    verified.amount !== payment.amount ||
+    verified.currency !== payment.currency
+  ) {
+    throw new Error("Captured payment verification failed");
+  }
+
+ let subscriptionId = verified.subscription_id;
+
+if (!subscriptionId && verified.invoice_id) {
+  const invoice = await razorpay.invoices.fetch(verified.invoice_id);
+
+  if (
+    invoice?.id !== verified.invoice_id ||
+    invoice.payment_id !== verified.id ||
+    invoice.status !== "paid" ||
+    invoice.amount !== verified.amount ||
+    invoice.currency !== verified.currency ||
+    !invoice.subscription_id
+  ) {
+    throw new Error("Payment invoice verification failed");
+  }
+
+  subscriptionId = invoice.subscription_id;
+}
+
+if (!subscriptionId) {
+  throw new Error("Captured payment has no verified subscription");
+}
+
+  if (subscriptionId) {
+    const user = await User.findOne({
+      razorpaySubscriptionId: subscriptionId,
+    });
+
+    if (!user) {
+      throw new Error("Subscription user not found; retry webhook");
     }
+
+    await recordPayment({
+      user,
+      paymentEntity: verified,
+      subscriptionId,
+      status: "captured",
+      type: "payment.captured",
+    });
+  }
+}
 
     // 9. Payment failed
     if (eventType === "payment.failed" && payment?.subscription_id) {
