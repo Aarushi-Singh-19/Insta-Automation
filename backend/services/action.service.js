@@ -45,7 +45,7 @@ class ActionService {
     }
 
     return await instagramApiService.replyToComment({
-      accessToken: account.pageAccessToken,
+      accessToken: account.accessToken,
       commentId,
       message,
     });
