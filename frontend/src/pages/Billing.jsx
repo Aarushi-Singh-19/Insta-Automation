@@ -44,6 +44,8 @@ const fetchPaymentHistory = async () => {
   }
 };
 
+const displaySubscriptionStatus = user?.subscriptionStatus === "active" && (!user?.planEndDate || new Date(user.planEndDate) <= new Date()) ? "expired" : user?.subscriptionStatus;
+
 const daysRemaining = user?.trialEndDate
   ? Math.max(
       0,
@@ -96,18 +98,18 @@ const daysRemaining = user?.trialEndDate
       fontWeight: "600",
       marginBottom: "28px",
       background:
-        user?.subscriptionStatus === "active"
+        displaySubscriptionStatus === "active"
           ? "#DCFCE7"
           : "#FEF3C7",
       color:
-        user?.subscriptionStatus === "active"
+        displaySubscriptionStatus === "active"
           ? "#166534"
           : "#92400E",
     }}
   >
-    {user?.subscriptionStatus === "active"
+    {displaySubscriptionStatus === "active"
       ? "✓ Active Subscription"
-      : "● Trial"}
+      : displaySubscriptionStatus === "trial" ? "● Trial" : "● Subscription Expired"}
   </span>
 
   <div style={{ marginBottom: "24px" }}>
@@ -134,7 +136,7 @@ const daysRemaining = user?.trialEndDate
     </div>
   </div>
 
-  {user?.subscriptionStatus === "trial" && (
+  {displaySubscriptionStatus === "trial" && (
     <div>
       <div
         style={{
@@ -157,7 +159,7 @@ const daysRemaining = user?.trialEndDate
     </div>
   )}
 
-  {user?.subscriptionStatus === "active" && (
+  {displaySubscriptionStatus === "active" && (
     <div>
       <div
         style={{
@@ -275,7 +277,7 @@ const daysRemaining = user?.trialEndDate
   </div>
 
   <div style={{ marginTop: "auto" }}>
-{user?.subscriptionStatus === "active" ? (
+{displaySubscriptionStatus === "active" ? (
   <div
     style={{
       background: "#F3F4F6",
