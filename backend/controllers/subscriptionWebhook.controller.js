@@ -1,6 +1,7 @@
 
 const crypto = require("crypto");
 const mongoose = require("mongoose");
+const razorpay = require("../services/razorpayService");
 
 const User = require("../models/User");
 const Payment = require("../models/Payment");
@@ -78,6 +79,22 @@ const handleRazorpayWebhook = async (req, res) => {
     const subscription = event.payload?.subscription?.entity;
     const payment = event.payload?.payment?.entity;
     const refund = event.payload?.refund?.entity;
+
+    // Confirm charged payments against the API credentials of this deployment.
+    // A valid webhook signature alone does not identify Razorpay Test vs Live Mode.
+    // Reject before claiming the event or mutating any subscription/commission state.
+    if (eventType === "subscription.charged") {
+      if (!subscription?.id || !payment?.id || payment.status !== "captured" ||
+          !Number.isFinite(payment.amount) || !payment.currency) {
+        return res.status(400).json({ success: false, message: "Invalid charged payment payload" });
+      }
+      const verified = await razorpay.payments.fetch(payment.id);
+      if (verified?.id !== payment.id || verified.status !== "captured" ||
+          verified.amount !== payment.amount || verified.currency !== payment.currency ||
+          verified.subscription_id !== subscription.id) {
+        return res.status(400).json({ success: false, message: "Payment verification mismatch" });
+      }
+    }
 
     // 3. Claim the event. Unique eventId prevents duplicate claims.
     const now = new Date();
