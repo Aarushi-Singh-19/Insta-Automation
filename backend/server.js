@@ -113,6 +113,7 @@ const start = async () => {
       // Production uses Instagram webhooks as the event source. Polling is
       // opt-in only, so a missed webhook cannot trigger repeated replies from
       // repeatedly scanning old comments.
+      require("./services/scopedCommentRecoveryPoller").start();
       if (process.env.ENABLE_INSTAGRAM_POLLING === "true") {
         await pollingService.startPolling();
       } else {
