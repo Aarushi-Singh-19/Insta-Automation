@@ -96,7 +96,7 @@ function Referrals() {
           <ol className="mt-4 space-y-4 text-sm text-[#625d6d]">
             <li className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f0eaff] font-bold text-[#7655db]">1</span><span><strong className="text-[#191724]">Share your link</strong><br />Your referral code is unique to your account.</span></li>
             <li className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f0eaff] font-bold text-[#7655db]">2</span><span><strong className="text-[#191724]">They subscribe</strong><br />A commission is recorded only after a successful payment is confirmed by Razorpay.</span></li>
-            <li className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f0eaff] font-bold text-[#7655db]">3</span><span><strong className="text-[#191724]">Build your balance</strong><br />The minimum payout threshold is ₹199. Bank payouts will be enabled after payout onboarding and verification.</span></li>
+            <li className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f0eaff] font-bold text-[#7655db]">3</span><span><strong className="text-[#191724]">Build your balance</strong><br />The minimum payout threshold is ₹199. Once you reach ₹199, request a manual payout. An admin will review it before any bank transfer.</span></li>
           </ol>
           <div className="mt-5 rounded-xl border border-[#eee8fa] p-3 text-xs leading-5 text-[#777280]">Referral earnings are tracked here. Bank transfers are not automatic yet.</div>
         </div>
