@@ -102,7 +102,11 @@ const start = async () => {
     await connectDB();
 
     // Start BullMQ worker only after DB connection
-    require("./workers/action.worker");
+    if (process.env.ENABLE_ACTION_WORKER !== "false") {
+      require("./workers/action.worker");
+    } else {
+      console.log("Action worker disabled by ENABLE_ACTION_WORKER=false");
+    }
 
     app.listen(PORT, async () => {
       console.log(`✅ Server running on port ${PORT}`);
