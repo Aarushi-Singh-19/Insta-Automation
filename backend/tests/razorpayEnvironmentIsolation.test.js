@@ -24,7 +24,7 @@ test("rejects a signed test-account charge before any database writes", async ()
     mock(ids.razorpay, { payments: { fetch: async () => { throw new Error("Payment not found in live account"); } } });
     mock(ids.User, { findOne: async () => { writes++; return null; } });
     mock(ids.Payment, { updateOne: async () => { writes++; } });
-    mock(ids.WebhookEvent, { findOne: async () => { writes++; return null; }, create: async () => { writes++; } });
+    mock(ids.WebhookEvent, { findOne: async () => { writes++; return null; }, create: async () => { writes++; }, findOneAndUpdate: async () => null });
     mock(ids.ReferralEarning, {});
     mock(ids.ReferralRefundRecord, {});
     mock(ids.commission, { recordReferralCommission: async () => { writes++; } });
