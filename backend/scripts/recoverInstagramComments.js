@@ -16,12 +16,12 @@ const maxAgeMinutes = Number(process.env.RECOVERY_MAX_AGE_MINUTES || 30);
 const maxComments = Number(process.env.RECOVERY_MAX_COMMENTS || 20);
 
 async function main() {
-  if (!username || !/^\\d+$/.test(postId)) throw new Error("RECOVERY_IG_USERNAME and numeric RECOVERY_POST_ID are required");
+  if (!username || !/^\d+$/.test(postId)) throw new Error("RECOVERY_IG_USERNAME and numeric RECOVERY_POST_ID are required");
   if (!Number.isInteger(maxAgeMinutes) || maxAgeMinutes < 1 || maxAgeMinutes > 60) throw new Error("RECOVERY_MAX_AGE_MINUTES must be 1..60");
   if (!Number.isInteger(maxComments) || maxComments < 1 || maxComments > 50) throw new Error("RECOVERY_MAX_COMMENTS must be 1..50");
   if (!process.env.MONGO_URI) throw new Error("MONGO_URI missing");
   await mongoose.connect(process.env.MONGO_URI);
-  const accounts = await InstagramAccount.find({ status: "active", username: new RegExp("^" + username.replace(/[.*+?^\x24{}()|[\\]\\]/g, "\\$&") + "$", "i") });
+  const accounts = (await InstagramAccount.find({ status: "active" })).filter(a => String(a.username || "").replace(/^@/, "").toLowerCase() === username);
   if (accounts.length !== 1) throw new Error("Expected exactly one matching active Instagram account");
   const account = accounts[0];
   const campaigns = await Campaign.find({ userId: account.userId, status: "active", postIds: postId }).select("_id");
