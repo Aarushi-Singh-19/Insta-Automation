@@ -294,21 +294,38 @@ const handleRazorpayWebhook = async (req, res) => {
 
     // 8. Payment captured. This records payment history only;
     // subscription lifecycle events control subscription access.
-    if (eventType === "payment.captured" && payment?.subscription_id) {
-      const user = await User.findOne({
-        razorpaySubscriptionId: payment.subscription_id,
-      });
+   if (eventType === "payment.captured" && payment?.id) {
+  const verified = await razorpay.payments.fetch(payment.id);
 
-      if (user) {
-        await recordPayment({
-          user,
-          paymentEntity: payment,
-          subscriptionId: payment.subscription_id,
-          status: "captured",
-          type: "payment.captured",
-        });
-      }
+  if (
+    verified?.id !== payment.id ||
+    verified.status !== "captured" ||
+    verified.amount !== payment.amount ||
+    verified.currency !== payment.currency
+  ) {
+    throw new Error("Captured payment verification failed");
+  }
+
+  const subscriptionId = verified.subscription_id;
+
+  if (subscriptionId) {
+    const user = await User.findOne({
+      razorpaySubscriptionId: subscriptionId,
+    });
+
+    if (!user) {
+      throw new Error("Subscription user not found; retry webhook");
     }
+
+    await recordPayment({
+      user,
+      paymentEntity: verified,
+      subscriptionId,
+      status: "captured",
+      type: "payment.captured",
+    });
+  }
+}
 
     // 9. Payment failed
     if (eventType === "payment.failed" && payment?.subscription_id) {
