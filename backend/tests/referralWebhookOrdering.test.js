@@ -13,6 +13,7 @@ test("refund arriving before commission must not be acknowledged as processed", 
     WebhookEvent: require.resolve(path.join(root, "models", "WebhookEvent.js")),
     ReferralEarning: require.resolve(path.join(root, "models", "ReferralEarning.js")),
     ReferralRefundRecord: require.resolve(path.join(root, "models", "ReferralRefundRecord.js")),
+    razorpay: require.resolve(path.join(root, "services", "razorpayService.js")),
   };
   const ids = [...Object.values(dependencies), require.resolve(controllerPath)];
   const previous = new Map(ids.map(id => [id, require.cache[id]]));
@@ -27,6 +28,7 @@ test("refund arriving before commission must not be acknowledged as processed", 
         endSession: async () => {}
       })
     });
+    mock(dependencies.razorpay, { payments: { fetch: async () => { throw new Error("Unexpected Razorpay API call"); } } });
     mock(dependencies.User, {});
     mock(dependencies.Payment, {});
     mock(dependencies.WebhookEvent, {
