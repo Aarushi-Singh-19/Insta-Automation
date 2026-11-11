@@ -3,7 +3,7 @@
 // would silently lose comments, DMs, payments, or referral commissions.
 import { verifyInstagramChallenge, verifyHmacSha256 } from "./webhook-security.js";
 import { consumeActionBatch } from "./action-queue.js";
-import { proxyRequest } from "./upstream-proxy.js";
+import { proxyRequest, cors } from "./upstream-proxy.js";
 import { runtimeReadiness } from "./runtime-readiness.js";
 import { extractInstagramEvents } from "./instagram-events.js";
 import { validateStagingMongoConfig, probeStagingMongo, inspectStagingCollections, inspectStagingDocumentShapes } from "./staging-mongodb.js";
@@ -20,7 +20,6 @@ import { toggleStagingRule } from "./staging-rule-toggle.js";
 import { updateStagingRule } from "./staging-rule-update.js";
 import { planPendingInbox } from "./staging-inbox-planner.js";
 
-const json = (data, status = 200) => Response.json(data, { status });
 
 export default {
   async queue(batch, env) {
@@ -30,6 +29,11 @@ export default {
   },
   async fetch(request, env) {
     const url = new URL(request.url);
+    const allowedCors = cors(request.headers.get("Origin"));
+    const json = (data, status = 200) => Response.json(data, {
+      status, headers: { ...allowedCors, "Cache-Control": "no-store" }
+    });
+
     if (request.method === "GET" && url.pathname === "/__cloudflare/health") {
       return json(runtimeReadiness(env));
     }
