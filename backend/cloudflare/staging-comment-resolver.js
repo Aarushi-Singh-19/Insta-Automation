@@ -6,7 +6,7 @@ export async function resolveStagingComment({ db, comment }) {
       !/^\d+$/.test(String(comment.entryId || ""))) return null;
   // The webhook entry identifies the Instagram account, not a user-provided ID.
   const accounts = await db.collection("instagramaccounts")
-    .find({ instagramId: String(comment.entryId) })
+    .find({ instagramBusinessId: String(comment.entryId) })
     .project({ _id: 1, userId: 1 }).limit(2).toArray();
   if (accounts.length !== 1 || !ObjectId.isValid(accounts[0].userId)) return null;
   const account = accounts[0];
@@ -28,6 +28,6 @@ export async function resolveStagingComment({ db, comment }) {
     _id: new ObjectId(String(campaign.ruleIds[0])),
     userId: new ObjectId(String(account.userId)),
     isActive: true
-  }, { projection: { _id: 1, userId: 1, isActive: 1, triggerType: 1, keywords: 1 } });
+  }, { projection: { _id: 1, userId: 1, isActive: 1, triggerType: 1, triggerKeywords: 1 } });
   return rule ? { campaign, rule } : null;
 }
