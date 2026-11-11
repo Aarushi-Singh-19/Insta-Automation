@@ -19,6 +19,7 @@ import { deleteStagingRule } from "./staging-rule-delete.js";
 import { toggleStagingRule } from "./staging-rule-toggle.js";
 import { updateStagingRule } from "./staging-rule-update.js";
 import { planPendingInbox } from "./staging-inbox-planner.js";
+import { prepareStagingActionOutbox } from "./staging-action-outbox.js";
 
 
 export default {
@@ -292,6 +293,20 @@ export default {
       } catch (error) {
         console.error("Staging planning failed", error?.name || "Error");
         return json({ error: "Staging planning unavailable" }, 503);
+      }
+    }
+    // Protected staging-only action preparation. No Graph calls or queue sends.
+    if (url.pathname === "/__cloudflare/staging-prepare-actions" && request.method === "POST") {
+      if (env?.ENABLE_STAGING_ACTION_PREPARATION !== "true" || !env?.STAGING_PROBE_TOKEN ||
+          request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      try {
+        const result = await prepareStagingActionOutbox({ env, MongoClient, limit: 10 });
+        return json({ ok: true, ...result });
+      } catch (error) {
+        console.error("Staging action preparation failed", error?.name || "Error");
+        return json({ error: "Staging action preparation unavailable" }, 503);
       }
     }
     // Opt-in isolated ingestion test. Not the live Meta callback URL.
