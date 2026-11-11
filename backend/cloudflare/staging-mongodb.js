@@ -69,7 +69,17 @@ export async function inspectStagingDocumentShapes(env, MongoClient) {
     const db = client.db(dbName);
     const result = {};
     for (const name of allowed) {
-      const sample = await db.collection(name).findOne({}, { projection: Object.fromEntries(keys[name].map(k => [k, 1])) });
+      let sample;
+      try {
+        sample = await db.collection(name).findOne({}, { projection: Object.fromEntries(keys[name].map(k => [k, 1])) });
+      } catch (error) {
+        // Report only an allowlisted operation stage and error class; never raw
+        // MongoDB error messages, hosts, credentials, or document contents.
+        const category = error?.name === "MongoServerError" ? "DATABASE_QUERY_REJECTED"
+          : error?.name === "MongoNetworkError" ? "DATABASE_NETWORK_ERROR"
+          : "DATABASE_QUERY_FAILED";
+        return { ok: false, database: dbName, connected: true, failedCollection: name, category };
+      }
       result[name] = sample === null ? { sampleAvailable: false } : {
         sampleAvailable: true,
         fields: Object.fromEntries(keys[name].map(k => [k, sample[k] === undefined ? "absent" : Array.isArray(sample[k]) ? "array" : sample[k] === null ? "null" : sample[k]?._bsontype === "ObjectId" ? "objectId" : typeof sample[k]]))
