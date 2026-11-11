@@ -175,7 +175,7 @@ export default {
         const result = await updateStagingRule({ env, MongoClient, authenticatedUserId: userId, ruleId: url.pathname.split("/").at(-1), input });
         return json(result.body, result.status);
       } catch (error) {
-        if (["INVALID_RULE", "INVALID_RULE_FIELD"].includes(error?.message)) return json({ message: "Invalid rule fields" }, 400);
+        if (["INVALID_RULE", "INVALID_RULE_FIELD", "CONFLICTING_KEYWORDS"].includes(error?.message)) return json({ message: "Invalid rule fields" }, 400);
         console.error("Native staging rule update failed", error?.name || "Error");
         return json({ message: "Staging rules unavailable" }, 503);
       }
@@ -231,7 +231,7 @@ export default {
         const result = await createStagingRule({ env, MongoClient, authenticatedUserId: userId, input });
         return json(result.body, result.status);
       } catch (error) {
-        if (["INVALID_RULE", "INVALID_RULE_FIELD"].includes(error?.message)) return json({ message: "Invalid rule fields" }, 400);
+        if (["INVALID_RULE", "INVALID_RULE_FIELD", "CONFLICTING_KEYWORDS"].includes(error?.message)) return json({ message: "Invalid rule fields" }, 400);
         console.error("Native staging rule creation failed", error?.name || "Error");
         return json({ message: "Staging rules unavailable" }, 503);
       }
