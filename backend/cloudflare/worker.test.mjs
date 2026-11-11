@@ -116,3 +116,18 @@ test("native JSON responses allow only configured frontend origins", async () =>
   }), fakeEnv);
   assert.equal(blocked.headers.get("access-control-allow-origin"), null);
 });
+
+test("native API preflight is answered at the edge without an upstream", async () => {
+  const origin = "https://triggerdm-staging-frontend.onrender.com";
+  for (const path of ["/api/auth/login", "/api/auth/me", "/api/rules", "/api/rules/507f1f77bcf86cd799439011/toggle"]) {
+    const response = await worker.fetch(new Request("https://example.workers.dev" + path, {
+      method: "OPTIONS", headers: { Origin: origin, "Access-Control-Request-Method": "POST" }
+    }), fakeEnv);
+    assert.equal(response.status, 204, path);
+    assert.equal(response.headers.get("access-control-allow-origin"), origin);
+  }
+  const denied = await worker.fetch(new Request("https://example.workers.dev/api/auth/login", {
+    method: "OPTIONS", headers: { Origin: "https://untrusted.example" }
+  }), fakeEnv);
+  assert.equal(denied.status, 403);
+});
