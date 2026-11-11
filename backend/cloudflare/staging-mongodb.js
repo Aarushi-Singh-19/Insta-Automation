@@ -11,6 +11,10 @@ export function validateStagingMongoConfig(env) {
   if (typeof uri !== "string" || !/^mongodb(?:\+srv)?:\/\//.test(uri)) {
     throw new Error("STAGING_MONGODB_URI_REQUIRED");
   }
+  // Reject URI paths pointing at a different database, even though db(dbName) is explicit.
+  const parsed = new URL(uri);
+  const uriDatabase = decodeURIComponent(parsed.pathname.slice(1));
+  if (uriDatabase && uriDatabase !== dbName) throw new Error("STAGING_URI_DATABASE_MISMATCH");
   // Explicit database selection prevents accidental production collection reads.
   // URI default databases are ignored; only the named staging DB is used.
   return { uri, dbName };
