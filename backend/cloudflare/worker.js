@@ -9,7 +9,7 @@ import { extractInstagramEvents } from "./instagram-events.js";
 import { validateStagingMongoConfig, probeStagingMongo, inspectStagingCollections, inspectStagingDocumentShapes } from "./staging-mongodb.js";
 import { MongoClient } from "mongodb";
 import { persistInstagramInbox } from "./staging-webhook-inbox.js";
-import { verifySessionJwt } from "./session-jwt.js";
+import { verifySessionJwt, getTriggerDmUserId } from "./session-jwt.js";
 import { listOwnCampaigns } from "./staging-campaigns.js";
 import { planPendingInbox } from "./staging-inbox-planner.js";
 
@@ -65,10 +65,9 @@ export default {
       try {
         claims = await verifySessionJwt(authorization.slice(7), env.STAGING_JWT_SECRET);
       } catch { return json({ error: "Unauthorized" }, 401); }
-      const userId = claims?.sub;
-      if (typeof userId !== "string" || !/^[a-f0-9]{24}$/i.test(userId)) {
-        return json({ error: "Unauthorized" }, 401);
-      }
+      let userId;
+      try { userId = getTriggerDmUserId(claims); }
+      catch { return json({ error: "Unauthorized" }, 401); }
       const limitValue = url.searchParams.get("limit");
       const limit = limitValue === null ? 20 : Number(limitValue);
       if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
