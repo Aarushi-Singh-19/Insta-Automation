@@ -2,10 +2,16 @@
 // Webhook POSTs deliberately return 501: acknowledging an event without processing it
 // would silently lose comments, DMs, payments, or referral commissions.
 import { verifyInstagramChallenge, verifyHmacSha256 } from "./webhook-security.js";
+import { consumeActionBatch } from "./action-queue.js";
 
 const json = (data, status = 200) => Response.json(data, { status });
 
 export default {
+  async queue(batch, env) {
+    // Fail closed: no real DB/Instagram executor has been wired to this runtime.
+    // Retrying preserves events until a validated executor is deployed.
+    return consumeActionBatch(batch);
+  },
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/__cloudflare/health") {
