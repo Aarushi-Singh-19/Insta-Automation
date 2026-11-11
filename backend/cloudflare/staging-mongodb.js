@@ -64,27 +64,48 @@ export async function inspectStagingDocumentShapes(env, MongoClient) {
     campaigns: ["userId", "instagramAccountId", "ruleIds", "automationId", "triggerType", "status", "postIds", "instagramMediaId"],
     rules: ["userId", "isActive", "triggerType", "keywords"]
   };
+  let stage = "connect";
+  let result;
+  let failure;
   try {
     await client.connect();
+    stage = "query";
     const db = client.db(dbName);
-    const result = {};
+    const shapes = {};
     for (const name of allowed) {
-      let sample;
-      try {
-        sample = await db.collection(name).findOne({}, { projection: Object.fromEntries(keys[name].map(k => [k, 1])) });
-      } catch (error) {
-        // Report only an allowlisted operation stage and error class; never raw
-        // MongoDB error messages, hosts, credentials, or document contents.
-        const category = error?.name === "MongoServerError" ? "DATABASE_QUERY_REJECTED"
-          : error?.name === "MongoNetworkError" ? "DATABASE_NETWORK_ERROR"
-          : "DATABASE_QUERY_FAILED";
-        return { ok: false, database: dbName, connected: true, failedCollection: name, category };
-      }
-      result[name] = sample === null ? { sampleAvailable: false } : {
+      stage = "query:" + name;
+      const sample = await db.collection(name).findOne({}, {
+        projection: Object.fromEntries(keys[name].map(k => [k, 1]))
+      });
+      shapes[name] = sample === null ? { sampleAvailable: false } : {
         sampleAvailable: true,
-        fields: Object.fromEntries(keys[name].map(k => [k, sample[k] === undefined ? "absent" : Array.isArray(sample[k]) ? "array" : sample[k] === null ? "null" : sample[k]?._bsontype === "ObjectId" ? "objectId" : typeof sample[k]]))
+        fields: Object.fromEntries(keys[name].map(k => [k,
+          sample[k] === undefined ? "absent"
+            : Array.isArray(sample[k]) ? "array"
+            : sample[k] === null ? "null"
+            : sample[k]?._bsontype === "ObjectId" ? "objectId"
+            : typeof sample[k]
+        ]))
       };
     }
-    return { ok: true, database: dbName, shapes: result };
-  } finally { await client.close(); }
+    result = { ok: true, database: dbName, connected: true, shapes };
+  } catch (error) {
+    const category = error?.name === "MongoServerError" ? "DATABASE_OPERATION_REJECTED"
+      : ["MongoNetworkError", "MongoServerSelectionError", "MongoNetworkTimeoutError"].includes(error?.name)
+        ? "DATABASE_NETWORK_ERROR" : "DATABASE_OPERATION_FAILED";
+    failure = {
+      ok: false, database: dbName, connected: stage !== "connect",
+      stage, category
+    };
+  }
+  try {
+    await client.close();
+  } catch {
+    // A cleanup failure must not mask a successful connection or a query failure.
+    if (!failure) failure = {
+      ok: false, database: dbName, connected: stage !== "connect",
+      stage: "cleanup", category: "DATABASE_CLEANUP_FAILED"
+    };
+  }
+  return failure || result;
 }
