@@ -28,3 +28,16 @@ test("queue handler retries without configured durable executor", async () => {
   assert.equal(message.acked, 0);
   assert.equal(message.retried, 1);
 });
+
+test("staging campaign endpoint is disabled unless explicitly opted in", async () => {
+  const request = new Request("https://example.workers.dev/__cloudflare/api/campaigns");
+  const response = await worker.fetch(request, fakeEnv);
+  assert.equal(response.status, 404);
+});
+test("enabled staging campaign endpoint rejects missing or invalid JWT", async () => {
+  const env = { ...fakeEnv, ENABLE_STAGING_CAMPAIGN_API: "true", STAGING_JWT_SECRET: "a-long-isolated-staging-secret-for-tests" };
+  const missing = await worker.fetch(new Request("https://example.workers.dev/__cloudflare/api/campaigns"), env);
+  assert.equal(missing.status, 401);
+  const invalid = await worker.fetch(new Request("https://example.workers.dev/__cloudflare/api/campaigns", { headers: { Authorization: "Bearer not.a.jwt" } }), env);
+  assert.equal(invalid.status, 401);
+});
