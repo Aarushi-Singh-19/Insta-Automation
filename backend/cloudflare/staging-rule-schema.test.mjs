@@ -2,15 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { validateRule } from "./staging-rule-create.js";
 
-test("maps TriggerDM keywords to both compatible staging fields", () => {
+test("maps API keywords alias to the canonical Rule.js field", () => {
   assert.deepEqual(validateRule({ keywords: ["test"] }), {
-    keywords: ["test"], triggerKeywords: ["test"]
+    triggerKeywords: ["test"]
   });
 });
 
-test("maps older staging triggerKeywords to production keywords", () => {
+test("preserves canonical Rule.js triggerKeywords", () => {
   assert.deepEqual(validateRule({ triggerKeywords: ["hello"] }), {
-    triggerKeywords: ["hello"], keywords: ["hello"]
+    triggerKeywords: ["hello"]
   });
 });
 
