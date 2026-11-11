@@ -24,7 +24,7 @@ export function extractInstagramEvents(payload) {
       if (ownerId && authorId && ownerId === authorId) continue;
       const eventId = value.id == null ? "" : String(value.id);
       const postId = value.media?.id ?? value.media_id;
-      if (!eventId || postId == null || String(postId).trim() === "") continue;
+      if (!/^\d+$/.test(ownerId) || !/^\d+$/.test(eventId) || !/^\d+$/.test(String(postId || ""))) continue;
       comments.push({
         entryId: ownerId,
         eventId,
