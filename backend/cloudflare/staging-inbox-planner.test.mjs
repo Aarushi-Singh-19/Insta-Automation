@@ -45,5 +45,5 @@ test("atomically claims comment, persists plan, never executes Instagram action"
 });
 test("rejects missing resolver and excessive batch size", async () => {
   await assert.rejects(planPendingInbox({ env, MongoClient: class {}, limit: 51, resolveCampaignAndRule: async () => null }), /INVALID_LIMIT/);
-  await assert.rejects(planPendingInbox({ env, MongoClient: class {} }), /Resolver required/);
+  await assert.rejects(planPendingInbox({ env, MongoClient: null }), /MongoClient required/);
 });
