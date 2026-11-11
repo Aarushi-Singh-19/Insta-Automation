@@ -15,8 +15,9 @@ export async function resolveStagingComment({ db, comment }) {
     status: "active",
     instagramAccountId: String(comment.entryId),
     $or: [
-      { instagramMediaId: String(comment.postId) },
-      { postIds: String(comment.postId) }
+      { triggerType: "any-post" },
+      { triggerType: "specific-post", instagramMediaId: String(comment.postId) },
+      { triggerType: "specific-post", postIds: String(comment.postId) }
     ]
   }).project({ _id: 1, userId: 1, ruleIds: 1, status: 1, triggerType: 1, instagramMediaId: 1, postIds: 1 })
     .limit(2).toArray();
