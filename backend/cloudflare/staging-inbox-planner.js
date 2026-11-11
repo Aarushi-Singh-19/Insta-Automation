@@ -24,6 +24,8 @@ export async function planPendingInbox({ env, MongoClient, resolveCampaignAndRul
         { $set: { status: "planning", planningStartedAt: new Date() } },
         { sort: { receivedAt: 1, _id: 1 }, returnDocument: "after" }
       );
+      // MongoDB driver v6 returns the document directly; older drivers may
+      // return { value }. Do not treat an empty claim as a real inbox event.
       const item = claimed?.value ?? claimed;
       if (!item?._id) break;
       try {
