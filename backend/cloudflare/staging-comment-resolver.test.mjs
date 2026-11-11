@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { ObjectId } from "mongodb";
 import { resolveStagingComment } from "./staging-comment-resolver.js";
 const uid = new ObjectId(), rid = new ObjectId(), cid = new ObjectId();
-const comment = { entryId: "123456", postId: "789012" };
+const comment = { entryId: "123456", postId: "789012", commentText: "test", eventId: "123" };
 function dbFor({ accounts = [{ _id: new ObjectId(), instagramBusinessId: comment.entryId, userId: uid }],
   campaigns = [{ _id: cid, userId: uid, ruleIds: [rid], status: "active", triggerType: "specific-post", instagramMediaId: comment.postId }],
   rule = { _id: rid, userId: uid, isActive: true, triggerType: "keyword", triggerKeywords: ["test"] } } = {}) {
@@ -23,10 +23,10 @@ function dbFor({ accounts = [{ _id: new ObjectId(), instagramBusinessId: comment
       ]);
       return { project() { return { limit() { return { toArray: async () => campaigns }; } }; } };
     } };
-    if (name === "rules") return { async findOne(query) {
-      assert.equal(String(query._id), String(rid));
+    if (name === "rules") return { async find(query) {
+      assert.ok(query._id.$in.some(id => String(id) === String(rid)));
       assert.equal(String(query.userId), String(uid));
-      return rule;
+      return { project() { return { toArray: async () => rule ? (Array.isArray(rule) ? rule : [rule]) : [] }; } };
     } };
     throw Error("Unexpected collection");
   } };
@@ -45,7 +45,8 @@ test("rejects malformed webhook IDs without querying database", async () => {
   assert.equal(await resolveStagingComment({ db: dbFor(), comment: { ...comment, entryId: "bad" } }), null);
 });
 
-test("does not select an arbitrary rule from a multi-rule campaign", async () => {
+test("selects first matching owned rule from multi-rule campaign", async () => {
   const second = new ObjectId();
-  assert.equal(await resolveStagingComment({ db: dbFor({ campaigns: [{ _id: cid, userId: uid, ruleIds: [rid, second] }] }), comment }), null);
+  const result = await resolveStagingComment({ db: dbFor({ campaigns: [{ _id: cid, userId: uid, ruleIds: [second, rid] }] }), comment });
+  assert.equal(String(result.rule._id), String(rid));
 });
