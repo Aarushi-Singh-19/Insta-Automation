@@ -16,6 +16,11 @@ function dbFor({ accounts = [{ _id: new ObjectId(), instagramId: comment.entryId
       assert.equal(String(query.userId), String(uid));
       assert.equal(query.status, "active");
       assert.equal(query.instagramAccountId, comment.entryId);
+      assert.deepEqual(query.$or, [
+        { triggerType: "any-post" },
+        { triggerType: "specific-post", instagramMediaId: comment.postId },
+        { triggerType: "specific-post", postIds: comment.postId }
+      ]);
       return { project() { return { limit() { return { toArray: async () => campaigns }; } }; } };
     } };
     if (name === "rules") return { async findOne(query) {
