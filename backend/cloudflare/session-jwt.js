@@ -35,3 +35,15 @@ export async function verifySessionJwt(token, secret, { now = Date.now(), issuer
   if (audience !== undefined && !(Array.isArray(payload.aud) ? payload.aud.includes(audience) : payload.aud === audience)) throw new Error("INVALID_TOKEN");
   return payload;
 }
+
+// Existing TriggerDM Express sessions use { id: ObjectId } rather than { sub }.
+// Accept either claim only after signature and expiry validation; never trust a
+// caller-provided user ID. Reject conflicting claims rather than choosing one.
+export function getTriggerDmUserId(claims) {
+  const id = claims?.id;
+  const sub = claims?.sub;
+  if (id !== undefined && sub !== undefined && id !== sub) throw new Error("CONFLICTING_USER_CLAIMS");
+  const value = id ?? sub;
+  if (typeof value !== "string" || !/^[a-f0-9]{24}$/i.test(value)) throw new Error("INVALID_USER_ID");
+  return value.toLowerCase();
+}
