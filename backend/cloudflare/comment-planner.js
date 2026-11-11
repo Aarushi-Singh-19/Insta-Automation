@@ -12,13 +12,13 @@ export function planCommentAutomation({ comment, campaign, rule }) {
   } else if (trigger !== "any-post") {
     return { matched: false, reason: "UNSUPPORTED_CAMPAIGN_TRIGGER" };
   }
-  const keywords = Array.isArray(rule.keywords) ? rule.keywords.map(normalized).filter(Boolean) : [];
+  const keywords = Array.isArray(rule.triggerKeywords) ? rule.keywords.map(normalized).filter(Boolean) : [];
   const mode = rule.triggerType || "keyword";
   if (mode === "keyword") {
     if (!keywords.length || !keywords.some(word => normalized(comment.commentText).includes(word))) {
       return { matched: false, reason: "KEYWORD_MISMATCH" };
     }
-  } else if (mode !== "all") return { matched: false, reason: "UNSUPPORTED_RULE_TRIGGER" };
+  } else if (mode !== "any_comment") return { matched: false, reason: "UNSUPPORTED_RULE_TRIGGER" };
   // Plan contains identifiers only; sensitive tokens never leave storage.
   return { matched: true, plan: {
     eventId: String(comment.eventId), postId: String(comment.postId),
