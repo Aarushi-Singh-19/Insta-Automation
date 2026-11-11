@@ -11,6 +11,7 @@ import { MongoClient } from "mongodb";
 import { persistInstagramInbox } from "./staging-webhook-inbox.js";
 import { verifySessionJwt, getTriggerDmUserId } from "./session-jwt.js";
 import { listOwnCampaigns } from "./staging-campaigns.js";
+import { getStagingCurrentUser } from "./staging-current-user.js";
 import { planPendingInbox } from "./staging-inbox-planner.js";
 
 const json = (data, status = 200) => Response.json(data, { status });
@@ -51,6 +52,23 @@ export default {
         // Never leak connection strings, database credentials or Atlas hostnames.
         console.error("Staging MongoDB connectivity probe failed", error?.name || "Error");
         return json({ ok: false, connected: false, error: "STAGING_DATABASE_CONNECTION_FAILED" }, 503);
+      }
+    }
+    // Native auth/me staging canary. Off by default; never touches production.
+    if (url.pathname === "/api/auth/me" && request.method === "GET" && env?.ENABLE_NATIVE_STAGING_AUTH_ME === "true") {
+      if (!env?.STAGING_JWT_SECRET) return json({ error: "Native staging auth unavailable" }, 503);
+      const authorization = request.headers.get("Authorization") || "";
+      if (!authorization.startsWith("Bearer ")) return json({ message: "No token provided" }, 401);
+      let userId;
+      try {
+        userId = getTriggerDmUserId(await verifySessionJwt(authorization.slice(7), env.STAGING_JWT_SECRET));
+      } catch { return json({ message: "Invalid token" }, 401); }
+      try {
+        const user = await getStagingCurrentUser({ env, MongoClient, authenticatedUserId: userId });
+        return user ? json({ user }) : json({ message: "User not found" }, 404);
+      } catch (error) {
+        console.error("Native staging current user failed", error?.name || "Error");
+        return json({ message: "Staging user service unavailable" }, 503);
       }
     }
     // Isolated staging route: verified JWT only; never accepts a caller-supplied
