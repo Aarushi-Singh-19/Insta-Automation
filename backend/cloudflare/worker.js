@@ -20,6 +20,7 @@ import { toggleStagingRule } from "./staging-rule-toggle.js";
 import { updateStagingRule } from "./staging-rule-update.js";
 import { planPendingInbox } from "./staging-inbox-planner.js";
 import { prepareStagingActionOutbox } from "./staging-action-outbox.js";
+import { executeStagingActions } from "./staging-action-executor.js";
 
 
 export default {
@@ -307,6 +308,21 @@ export default {
       } catch (error) {
         console.error("Staging action preparation failed", error?.name || "Error");
         return json({ error: "Staging action preparation unavailable" }, 503);
+      }
+    }
+    // Operator-only staging executor. Explicitly disabled by default. Never
+    // enable until staging end-to-end tests and manual reconciliation are ready.
+    if (url.pathname === "/__cloudflare/staging-execute-actions" && request.method === "POST") {
+      if (env?.ENABLE_STAGING_INSTAGRAM_SEND !== "true" || !env?.STAGING_PROBE_TOKEN ||
+          request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      try {
+        const result = await executeStagingActions({ env, MongoClient, fetchImpl: fetch, limit: 5 });
+        return json({ ok: true, ...result });
+      } catch (error) {
+        console.error("Staging action execution failed", error?.name || "Error");
+        return json({ error: "Staging action execution unavailable" }, 503);
       }
     }
     // Opt-in isolated ingestion test. Not the live Meta callback URL.
