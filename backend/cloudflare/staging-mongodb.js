@@ -55,19 +55,24 @@ export async function inspectStagingCollections(env, MongoClient) {
 // Operator-only, read-only schema diagnostic. Returns field names and BSON types,
 // never field values, account IDs, tokens, email addresses or documents.
 export async function inspectStagingDocumentShapes(env, MongoClient) {
-  const { uri, dbName } = validateStagingMongoConfig(env);
-  if (typeof MongoClient !== "function") throw new TypeError("MongoClient required");
-  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+  let dbName = null;
+  let client = null;
   const allowed = ["instagramaccounts", "campaigns", "rules"];
   const keys = {
     instagramaccounts: ["instagramId", "igUserId", "instagramUserId", "userId", "pageId"],
     campaigns: ["userId", "instagramAccountId", "ruleIds", "automationId", "triggerType", "status", "postIds", "instagramMediaId"],
     rules: ["userId", "isActive", "triggerType", "keywords"]
   };
-  let stage = "connect";
+  let stage = "configuration";
   let result;
   let failure;
   try {
+    const config = validateStagingMongoConfig(env);
+    dbName = config.dbName;
+    stage = "client-construction";
+    if (typeof MongoClient !== "function") throw new TypeError("MongoClient required");
+    client = new MongoClient(config.uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+    stage = "connect";
     await client.connect();
     stage = "query";
     const db = client.db(dbName);
@@ -94,16 +99,16 @@ export async function inspectStagingDocumentShapes(env, MongoClient) {
       : ["MongoNetworkError", "MongoServerSelectionError", "MongoNetworkTimeoutError"].includes(error?.name)
         ? "DATABASE_NETWORK_ERROR" : "DATABASE_OPERATION_FAILED";
     failure = {
-      ok: false, database: dbName, connected: stage !== "connect",
+      ok: false, database: dbName, connected: stage === "query" || stage.startsWith("query:"),
       stage, category
     };
   }
   try {
-    await client.close();
+    if (client) await client.close();
   } catch {
     // A cleanup failure must not mask a successful connection or a query failure.
     if (!failure) failure = {
-      ok: false, database: dbName, connected: stage !== "connect",
+      ok: false, database: dbName, connected: stage === "query" || stage.startsWith("query:"),
       stage: "cleanup", category: "DATABASE_CLEANUP_FAILED"
     };
   }
