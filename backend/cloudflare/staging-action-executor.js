@@ -52,8 +52,8 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, limit
         instagramBusinessId: String(inbox.event.entryId), userId: campaign.userId, status: "active"
       });
       const user = await db.collection("users").findOne({ _id: campaign.userId });
-      if (!account || !user || !account.accessToken || !account.pageAccessToken) { summary.blocked++; continue; }
-      if (campaign.instagramAccountId && campaign.instagramAccountId !== account.instagramBusinessId) {
+      if (!account || !user || !account.accessToken || (campaign.settings?.enableDM !== false && !account.pageAccessToken)) { summary.blocked++; continue; }
+      if (campaign.instagramAccountId && String(campaign.instagramAccountId) !== String(account.instagramBusinessId)) {
         summary.blocked++; continue;
       }
       if (campaign.triggerType === "specific-post" &&
