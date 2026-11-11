@@ -25,3 +25,5 @@ A true Cloudflare-native deployment still needs the full API rewritten or a veri
 - Preserve signature verification and raw bodies for Meta/Razorpay webhooks.
 - Keep the production Render deployment and rollback available.
 - Do not infer full application readiness from passing unit tests alone.
+
+Deployment trigger note (2026-11-11): Push to the isolated migration branch to request a fresh Cloudflare Git build; verify the build's branch and entrypoint before testing. A Git push does not guarantee Cloudflare will build or activate it.
