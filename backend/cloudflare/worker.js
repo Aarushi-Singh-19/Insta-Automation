@@ -3,6 +3,7 @@
 // would silently lose comments, DMs, payments, or referral commissions.
 import { verifyInstagramChallenge, verifyHmacSha256 } from "./webhook-security.js";
 import { consumeActionBatch } from "./action-queue.js";
+import { proxyRequest } from "./upstream-proxy.js";
 
 const json = (data, status = 200) => Response.json(data, { status });
 
@@ -17,6 +18,9 @@ export default {
     if (request.method === "GET" && url.pathname === "/__cloudflare/health") {
       return json({ ok: true, runtime: "cloudflare", mode: "probe-only" });
     }
+    // Explicit hybrid mode: all API requests, including raw signed webhooks,
+    // are passed to the unchanged Express backend. No edge acknowledgments.
+    if (env?.UPSTREAM_ORIGIN) return proxyRequest(request, env);
     if (url.pathname === "/api/webhook/instagram") {
       if (request.method === "GET") {
         const challenge = verifyInstagramChallenge(request.url, env?.VERIFY_TOKEN);
