@@ -51,3 +51,30 @@ export async function inspectStagingCollections(env, MongoClient) {
     await client.close();
   }
 }
+
+// Operator-only, read-only schema diagnostic. Returns field names and BSON types,
+// never field values, account IDs, tokens, email addresses or documents.
+export async function inspectStagingDocumentShapes(env, MongoClient) {
+  const { uri, dbName } = validateStagingMongoConfig(env);
+  if (typeof MongoClient !== "function") throw new TypeError("MongoClient required");
+  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+  const allowed = ["instagramaccounts", "campaigns", "rules"];
+  const keys = {
+    instagramaccounts: ["instagramId", "igUserId", "instagramUserId", "userId", "pageId"],
+    campaigns: ["userId", "instagramAccountId", "ruleIds", "automationId", "triggerType", "status", "postIds", "instagramMediaId"],
+    rules: ["userId", "isActive", "triggerType", "keywords"]
+  };
+  try {
+    await client.connect();
+    const db = client.db(dbName);
+    const result = {};
+    for (const name of allowed) {
+      const sample = await db.collection(name).findOne({}, { projection: Object.fromEntries(keys[name].map(k => [k, 1])) });
+      result[name] = sample === null ? { sampleAvailable: false } : {
+        sampleAvailable: true,
+        fields: Object.fromEntries(keys[name].map(k => [k, sample[k] === undefined ? "absent" : Array.isArray(sample[k]) ? "array" : sample[k] === null ? "null" : sample[k]?._bsontype === "ObjectId" ? "objectId" : typeof sample[k]]))
+      };
+    }
+    return { ok: true, database: dbName, shapes: result };
+  } finally { await client.close(); }
+}
