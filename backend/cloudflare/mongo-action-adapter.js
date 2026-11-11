@@ -15,9 +15,11 @@ export function createMongoActionDependencies({ User, ActionLog, InstagramAccoun
       // A unique index on (eventId, actionType) is REQUIRED. Never reset a
       // processing/success record to queued, which could resend an Instagram DM.
       const now = new Date();
+      // Failed/processing records are not automatically reclaimed: an upstream
+      // Graph API call may have succeeded before its result was persisted.
       try {
         const result = await ActionLog.findOneAndUpdate(
-          { ...key, status: { $in: ["queued", "failed"] } },
+          { ...key, status: "queued" },
           { $set: { status: "processing", updatedAt: now },
             $setOnInsert: { ...key, campaignId: data.campaignId, ruleId: String(data.ruleId),
               userId: String(data.userId), metricsUpdated: false, createdAt: now } },
@@ -28,6 +30,7 @@ export function createMongoActionDependencies({ User, ActionLog, InstagramAccoun
         if (error?.code !== 11000) throw error;
         const existing = await ActionLog.findOne(key);
         if (existing?.status === "success") return { state: "success" };
+        if (existing?.status === "failed") return { state: "ambiguous" };
         // Processing claims are never stolen without a carefully designed lease.
         return { state: "busy" };
       }
