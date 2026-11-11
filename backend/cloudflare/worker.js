@@ -97,6 +97,34 @@ export default {
         }
       });
     }
+    // Operator-only staging ingress diagnostics; aggregate counts only, no user data.
+    if (request.method === "GET" && url.pathname === "/__cloudflare/staging-inbox-status") {
+      if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      try {
+        const { uri, dbName } = validateStagingMongoConfig(env);
+        const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+        try {
+          await client.connect();
+          const db = client.db(dbName);
+          const inbox = db.collection("cloudflare_staging_webhook_inbox");
+          const plans = db.collection("cloudflare_staging_action_plans");
+          const [pending, planning, planned, ignored, needsReview, awaitingAuthorization] = await Promise.all([
+            inbox.countDocuments({ status: "pending" }),
+            inbox.countDocuments({ status: "planning" }),
+            inbox.countDocuments({ status: "planned" }),
+            inbox.countDocuments({ status: "ignored" }),
+            inbox.countDocuments({ status: "needs_review" }),
+            plans.countDocuments({ status: "awaiting_authorization" })
+          ]);
+          return json({ ok: true, database: dbName, inbox: { pending, planning, planned, ignored, needsReview }, plans: { awaitingAuthorization }, instagramMessagesSent: false });
+        } finally { await client.close(); }
+      } catch (error) {
+        console.error("Staging inbox diagnostic failed", error?.name || "Error");
+        return json({ ok: false, error: "STAGING_INBOX_STATUS_UNAVAILABLE" }, 503);
+      }
+    }
     // Native staging login canary; disabled until isolated credentials are configured.
     if (url.pathname === "/api/auth/login" && request.method === "POST" && env?.ENABLE_NATIVE_STAGING_LOGIN === "true") {
       if (!env?.STAGING_JWT_SECRET) return json({ message: "Staging login unavailable" }, 503);
