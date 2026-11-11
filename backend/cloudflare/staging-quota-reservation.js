@@ -4,6 +4,7 @@
 // until the transaction commits and the reservation is returned.
 import { ObjectId } from "mongodb";
 import { validateStagingMongoConfig } from "./staging-mongodb.js";
+import { withStagingTransactionRetry } from "./staging-transaction-retry.js";
 
 export async function reserveStagingDmQuota({ env, MongoClient, userId, actionId, periodStart, periodEnd, limit }) {
   const { uri, dbName } = validateStagingMongoConfig(env);
@@ -23,7 +24,7 @@ export async function reserveStagingDmQuota({ env, MongoClient, userId, actionId
     await client.connect();
     const db = client.db(dbName);
     let result;
-    await session.withTransaction(async () => {
+    await withStagingTransactionRetry(() => session.withTransaction(async () => {
       const reservations = db.collection("cloudflare_staging_dm_reservations");
       const buckets = db.collection("cloudflare_staging_dm_quota");
       const existing = await reservations.findOne({ _id: reservationId }, { session });
@@ -52,7 +53,7 @@ export async function reserveStagingDmQuota({ env, MongoClient, userId, actionId
         bucketId, status: "reserved", createdAt: now
       }, { session });
       result = { reserved: true, duplicate: false, reservationId };
-    });
+    }), { maxAttempts: 3 });
     return result;
   } finally {
     await session.endSession();
