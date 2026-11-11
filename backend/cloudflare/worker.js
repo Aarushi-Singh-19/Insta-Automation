@@ -4,6 +4,7 @@
 import { verifyInstagramChallenge, verifyHmacSha256 } from "./webhook-security.js";
 import { consumeActionBatch } from "./action-queue.js";
 import { proxyRequest } from "./upstream-proxy.js";
+import { runtimeReadiness } from "./runtime-readiness.js";
 
 const json = (data, status = 200) => Response.json(data, { status });
 
@@ -16,7 +17,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/__cloudflare/health") {
-      return json({ ok: true, runtime: "cloudflare", mode: "probe-only" });
+      return json(runtimeReadiness(env));
     }
     // Explicit hybrid mode: all API requests, including raw signed webhooks,
     // are passed to the unchanged Express backend. No edge acknowledgments.
