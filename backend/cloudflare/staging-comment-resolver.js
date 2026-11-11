@@ -19,7 +19,7 @@ export async function resolveStagingComment({ db, comment }) {
       { triggerType: "specific-post", instagramMediaId: String(comment.postId) },
       { triggerType: "specific-post", postIds: String(comment.postId) }
     ] }]
-  }).project({ _id: 1, userId: 1, ruleIds: 1, status: 1, triggerType: 1, instagramMediaId: 1, postIds: 1 })
+  }).project({ _id: 1, userId: 1, ruleIds: 1, status: 1, triggerType: 1, instagramMediaId: 1, postIds: 1, settings: 1, gate: 1 })
     .limit(2).toArray();
   // Never choose arbitrarily among multiple campaigns.
   if (campaigns.length !== 1 || !Array.isArray(campaigns[0].ruleIds) || campaigns[0].ruleIds.length < 1 || !campaigns[0].ruleIds.every(id => ObjectId.isValid(id))) return null;
@@ -29,7 +29,7 @@ export async function resolveStagingComment({ db, comment }) {
   const ids = campaign.ruleIds.map(id => new ObjectId(String(id)));
   const rules = await db.collection("rules").find({
     _id: { $in: ids }, userId: new ObjectId(String(account.userId)), isActive: true
-  }).project({ _id: 1, userId: 1, isActive: 1, triggerType: 1, triggerKeywords: 1, keywords: 1 }).toArray();
+  }).project({ _id: 1, userId: 1, isActive: 1, triggerType: 1, triggerKeywords: 1, keywords: 1, replies: 1, replyMode: 1 }).toArray();
   const byId = new Map(rules.map(rule => [String(rule._id), rule]));
   const text = String(comment.commentText || "").toLowerCase().trim();
   for (const id of ids) {
