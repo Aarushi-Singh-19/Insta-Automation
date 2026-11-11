@@ -23,7 +23,7 @@ function dbFor({ accounts = [{ _id: new ObjectId(), instagramBusinessId: comment
       ]);
       return { project() { return { limit() { return { toArray: async () => campaigns }; } }; } };
     } };
-    if (name === "rules") return { async find(query) {
+    if (name === "rules") return { find(query) {
       assert.ok(query._id.$in.some(id => String(id) === String(rid)));
       assert.equal(String(query.userId), String(uid));
       return { project() { return { toArray: async () => rule ? (Array.isArray(rule) ? rule : [rule]) : [] }; } };
