@@ -29,3 +29,7 @@ test("rejects unauthorized fields and malformed rule inputs", async () => {
     await assert.rejects(createStagingRule({ env, MongoClient: class {}, authenticatedUserId: id, input }));
   }
 });
+
+test("rejects missing authenticated user before opening database", async () => {
+  await assert.rejects(createStagingRule({ env, MongoClient: class {}, authenticatedUserId: "invalid", input: {} }), /AUTHENTICATED_USER_REQUIRED/);
+});
