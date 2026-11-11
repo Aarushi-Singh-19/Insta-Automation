@@ -23,16 +23,16 @@ export function createActionExecutor(deps) {
       const key = { eventId: String(data.commentId), actionType: action.type };
       const claim = await deps.claimAction(key, data);
       if (claim?.state === "success") continue; // durable prior success
-      if (claim?.state !== "claimed") throw new Error("ACTION_NOT_CLAIMED");
+      if (claim?.state !== "claimed") throw new Error("ACTION_NOT_CLAIMED_" + (claim?.state || "unknown"));
 
       try {
         const account = await deps.getInstagramAccount(data.userId);
         if (!account) throw new Error("NO_INSTAGRAM_ACCOUNT_CONNECTED");
         const normalize = value => String(value || "").replace(/^@/, "").trim().toLowerCase();
         const ownComment = (normalize(data.username) && normalize(data.username) === normalize(account.username)) ||
-          (data.recipientId && String(data.recipientId) === String(account.instagramBusinessId));
+          (action.recipientId && String(action.recipientId) === String(account.instagramBusinessId));
         if (!ownComment) {
-          await deps.executeAction(action, { ...data, instagramAccount: account });
+          await deps.executeAction(action, { ...data, isGateResume: job.name === "process-gate-resume", instagramAccount: account });
         }
         // markSuccess must commit durable idempotency status before returning.
         const recorded = await deps.markSuccess(key, { skippedSelfComment: Boolean(ownComment) });
