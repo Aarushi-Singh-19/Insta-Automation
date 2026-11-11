@@ -8,6 +8,7 @@ import { runtimeReadiness } from "./runtime-readiness.js";
 import { extractInstagramEvents } from "./instagram-events.js";
 import { validateStagingMongoConfig, probeStagingMongo, inspectStagingCollections } from "./staging-mongodb.js";
 import { MongoClient } from "mongodb";
+import { persistInstagramInbox } from "./staging-webhook-inbox.js";
 import { verifySessionJwt } from "./session-jwt.js";
 import { listOwnCampaigns } from "./staging-campaigns.js";
 
@@ -76,6 +77,33 @@ export default {
       } catch (error) {
         console.error("Staging campaign query failed", error?.name || "Error");
         return json({ error: "Staging campaign service unavailable" }, 503);
+      }
+    }
+    // Opt-in isolated ingestion test. Not the live Meta callback URL.
+    // Requires both an operator token and a valid Meta HMAC signature.
+    if (url.pathname === "/__cloudflare/staging-ingest" && request.method === "POST") {
+      if (env?.ENABLE_STAGING_INGEST !== "true" || !env?.STAGING_PROBE_TOKEN || !env?.META_APP_SECRET) {
+        return json({ error: "Not found" }, 404);
+      }
+      if (request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      const raw = await request.text();
+      if (raw.length > 256000) return json({ error: "Payload too large" }, 413);
+      const signatureHeader = request.headers.get("x-hub-signature-256") || "";
+      const signature = signatureHeader.startsWith("sha256=") ? signatureHeader.slice(7) : "";
+      if (!await verifyHmacSha256(raw, signature, env.META_APP_SECRET)) {
+        return json({ error: "Invalid signature" }, 403);
+      }
+      let events;
+      try { events = extractInstagramEvents(JSON.parse(raw)); }
+      catch { return json({ error: "Invalid Instagram event envelope" }, 400); }
+      try {
+        const result = await persistInstagramInbox({ env, MongoClient, events });
+        return json({ ok: true, received: result.received, inserted: result.inserted });
+      } catch (error) {
+        console.error("Staging inbox write failed", error?.name || "Error");
+        return json({ error: "Durable staging storage unavailable" }, 503);
       }
     }
     // Never proxy webhook traffic during migration. A suspended upstream can
