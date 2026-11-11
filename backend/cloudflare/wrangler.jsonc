@@ -1,5 +1,5 @@
 {
-  "name": "triggerdm-migration-probe",
+  "name": "triggerdm-backend-staging",
   "main": "./worker.js",
   "compatibility_date": "2026-11-11",
   "compatibility_flags": ["nodejs_compat"],
