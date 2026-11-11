@@ -41,3 +41,20 @@ test("enabled staging campaign endpoint rejects missing or invalid JWT", async (
   const invalid = await worker.fetch(new Request("https://example.workers.dev/__cloudflare/api/campaigns", { headers: { Authorization: "Bearer not.a.jwt" } }), env);
   assert.equal(invalid.status, 401);
 });
+
+test("staging ingestion is disabled unless explicitly opted in", async () => {
+  const response = await worker.fetch(new Request("https://example.workers.dev/__cloudflare/staging-ingest", { method: "POST", body: "{}" }), fakeEnv);
+  assert.equal(response.status, 404);
+});
+test("staging ingestion rejects unsigned payload even with operator authorization", async () => {
+  const env = { ENABLE_STAGING_INGEST: "true", STAGING_PROBE_TOKEN: "test-token", META_APP_SECRET: "test-meta-secret" };
+  const response = await worker.fetch(new Request("https://example.workers.dev/__cloudflare/staging-ingest", {
+    method: "POST", headers: { Authorization: "Bearer test-token" }, body: "{}"
+  }), env);
+  assert.equal(response.status, 403);
+});
+test("staging ingestion rejects requests without operator token", async () => {
+  const env = { ENABLE_STAGING_INGEST: "true", STAGING_PROBE_TOKEN: "test-token", META_APP_SECRET: "test-meta-secret" };
+  const response = await worker.fetch(new Request("https://example.workers.dev/__cloudflare/staging-ingest", { method: "POST", body: "{}" }), env);
+  assert.equal(response.status, 404);
+});
