@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { planCommentAutomation } from "./comment-planner.js";
 const comment = { eventId: "123", postId: "456", commentText: "Please send TEST details" };
 const campaign = { _id: "campaign-1", status: "active", triggerType: "specific-post", instagramMediaId: "456" };
-const rule = { _id: "rule-1", isActive: true, triggerType: "keyword", keywords: ["test"] };
+const rule = { _id: "rule-1", isActive: true, triggerType: "keyword", triggerKeywords: ["test"] };
 test("matches case-insensitive keywords only for selected post", () => {
   const result = planCommentAutomation({ comment, campaign, rule });
   assert.equal(result.matched, true);
@@ -21,9 +21,9 @@ test("rejects unknown triggers rather than assuming all-posts", () => {
   assert.equal(planCommentAutomation({ comment, campaign, rule: { ...rule, triggerType: "surprise" } }).matched, false);
 });
 test("all-comments rule can match without keywords", () => {
-  const result = planCommentAutomation({ comment, campaign, rule: { ...rule, triggerType: "all", keywords: [] } });
+  const result = planCommentAutomation({ comment, campaign, rule: { ...rule, triggerType: "any_comment", triggerKeywords: [] } });
   assert.equal(result.matched, true);
 });
 test("keyword mismatch does not plan a DM", () => {
-  assert.equal(planCommentAutomation({ comment, campaign, rule: { ...rule, keywords: ["pricing"] } }).matched, false);
+  assert.equal(planCommentAutomation({ comment, campaign, rule: { ...rule, triggerKeywords: ["pricing"] } }).matched, false);
 });
