@@ -14,9 +14,10 @@ function usagePeriod(user, now) {
     if (!user.trialStartDate || !user.trialEndDate) return null;
     return { period: "trial", key: "trial:" + String(user.trialStartDate), limit: 500 };
   }
-  if (!user.subscriptionCurrentStart || !user.subscriptionCurrentEnd ||
-      new Date(user.subscriptionCurrentStart) > now || new Date(user.subscriptionCurrentEnd) <= now) return null;
-  return { period: "billing", key: "billing:" + String(user.subscriptionCurrentStart), limit: 10000 };
+  const start = user.subscriptionCurrentStart;
+  const end = user.subscriptionCurrentEnd || user.planEndDate;
+  if (!start || !end || new Date(start) > now || new Date(end) <= now) return null;
+  return { period: "billing", key: "billing:" + new Date(start).toISOString(), limit: 10000 };
 }
 export async function executeStagingActions({ env, MongoClient, fetchImpl, limit = 5, now = new Date() }) {
   const { uri, dbName } = validateStagingMongoConfig(env);
@@ -73,6 +74,11 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, limit
       const usage = { period: period?.period || "billing", sent: counter?.reserved || 0 };
       const authorization = authorizeCommentActions({ user, campaign, rule, account, usage, now });
       if (!authorization.authorized) { summary.blocked++; continue; }
+      // Atomically claim this outbox row before any provider call. Two Worker
+      // invocations must never concurrently send actions for the same comment.
+      const claim = await outbox.updateOne({ _id: item._id, status: "awaiting_authorization", authorized: false },
+        { $set: { status: "executing", executionStartedAt: new Date() } });
+      if (claim.modifiedCount !== 1) { summary.blocked++; continue; }
       // A claim is permanently consumed once an external request starts.
       // This prevents duplicate sends when a Worker crashes after Graph accepts it.
       for (const [kind, details] of [["reply", action.spec.reply], ["dm", action.spec.dm]]) {
@@ -123,9 +129,14 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, limit
       const required = [action.spec.reply && "reply", action.spec.dm && "dm"].filter(Boolean);
       const states = await Promise.all(required.map(kind => sends.findOne({ _id: String(item._id) + ":" + kind })));
       if (states.length && states.every(state => state?.status === "sent")) {
-        await outbox.updateOne({ _id: item._id, status: "awaiting_authorization" },
+        await outbox.updateOne({ _id: item._id, status: "executing" },
           { $set: { status: "completed", dispatched: true, completedAt: new Date() } });
         summary.completed++;
+      } else {
+        // Do not retry uncertain Graph outcomes automatically: a timeout may
+        // mean Meta accepted the send. Reconciliation is required.
+        await outbox.updateOne({ _id: item._id, status: "executing" },
+          { $set: { status: "needs_review", updatedAt: new Date() } });
       }
     }
     return summary;
