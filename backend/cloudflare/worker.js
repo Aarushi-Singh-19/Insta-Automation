@@ -47,9 +47,12 @@ export default {
         return json({ ok: false, connected: false, error: "STAGING_DATABASE_CONNECTION_FAILED" }, 503);
       }
     }
-    // Explicit hybrid mode: all API requests, including raw signed webhooks,
-    // are passed to the unchanged Express backend. No edge acknowledgments.
-    if (env?.UPSTREAM_ORIGIN) return proxyRequest(request, env);
+    // Never proxy webhook traffic during migration. A suspended upstream can
+    // respond unpredictably, and accepting payments/comments without durable
+    // processing would cause silent loss. Handle signature checks locally.
+    const isWebhook = url.pathname === "/api/webhook/instagram" ||
+      url.pathname === "/api/billing/razorpay-webhook";
+    if (env?.UPSTREAM_ORIGIN && !isWebhook) return proxyRequest(request, env);
     if (url.pathname === "/api/webhook/instagram") {
       if (request.method === "GET") {
         const challenge = verifyInstagramChallenge(request.url, env?.VERIFY_TOKEN);
