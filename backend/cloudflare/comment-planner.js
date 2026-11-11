@@ -12,7 +12,7 @@ export function planCommentAutomation({ comment, campaign, rule }) {
   } else if (trigger !== "any-post") {
     return { matched: false, reason: "UNSUPPORTED_CAMPAIGN_TRIGGER" };
   }
-  const keywords = Array.isArray(rule.triggerKeywords) ? rule.keywords.map(normalized).filter(Boolean) : [];
+  const keywords = Array.isArray(rule.triggerKeywords) ? rule.triggerKeywords.map(normalized).filter(Boolean) : [];
   const mode = rule.triggerType || "keyword";
   if (mode === "keyword") {
     if (!keywords.length || !keywords.some(word => normalized(comment.commentText).includes(word))) {
