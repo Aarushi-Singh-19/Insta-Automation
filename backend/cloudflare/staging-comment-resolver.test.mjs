@@ -1,0 +1,40 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { ObjectId } from "mongodb";
+import { resolveStagingComment } from "./staging-comment-resolver.js";
+const uid = new ObjectId(), rid = new ObjectId(), cid = new ObjectId();
+const comment = { entryId: "123456", postId: "789012" };
+function dbFor({ accounts = [{ _id: new ObjectId(), instagramId: comment.entryId, userId: uid }],
+  campaigns = [{ _id: cid, userId: uid, ruleId: rid, status: "active", triggerType: "specific-post", instagramMediaId: comment.postId }],
+  rule = { _id: rid, userId: uid, isActive: true, triggerType: "keyword", keywords: ["test"] } } = {}) {
+  return { collection(name) {
+    if (name === "instagramaccounts") return { find(query) {
+      assert.equal(query.instagramId, comment.entryId);
+      return { project() { return { limit() { return { toArray: async () => accounts }; } }; } };
+    } };
+    if (name === "campaigns") return { find(query) {
+      assert.equal(String(query.userId), String(uid));
+      assert.equal(query.status, "active");
+      return { project() { return { limit() { return { toArray: async () => campaigns }; } }; } };
+    } };
+    if (name === "rules") return { async findOne(query) {
+      assert.equal(String(query._id), String(rid));
+      assert.equal(String(query.userId), String(uid));
+      return rule;
+    } };
+    throw Error("Unexpected collection");
+  } };
+}
+test("resolves a unique account campaign and owned active rule", async () => {
+  const resolved = await resolveStagingComment({ db: dbFor(), comment });
+  assert.equal(String(resolved.campaign._id), String(cid));
+  assert.equal(String(resolved.rule._id), String(rid));
+});
+test("rejects ambiguous accounts or campaigns and missing rule", async () => {
+  assert.equal(await resolveStagingComment({ db: dbFor({ accounts: [{ userId: uid }, { userId: uid }] }), comment }), null);
+  assert.equal(await resolveStagingComment({ db: dbFor({ campaigns: [{ ruleId: rid }, { ruleId: rid }] }), comment }), null);
+  assert.equal(await resolveStagingComment({ db: dbFor({ rule: null }), comment }), null);
+});
+test("rejects malformed webhook IDs without querying database", async () => {
+  assert.equal(await resolveStagingComment({ db: dbFor(), comment: { ...comment, entryId: "bad" } }), null);
+});
