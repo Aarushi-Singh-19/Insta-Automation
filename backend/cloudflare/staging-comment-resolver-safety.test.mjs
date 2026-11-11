@@ -15,10 +15,10 @@ function fakeDb({ accounts = [{ userId }], campaigns = [campaign], rules = [{
   return { collection(name) {
     return { find(query) {
       assert.ok(data[name], "Unexpected collection");
-      if (name === "instagramaccounts") assert.equal(query.instagramBusinessId, "999");
+      if (name === "instagramaccounts") { assert.equal(query.instagramBusinessId, "999"); assert.equal(query.status, "active"); }
       if (name === "campaigns") {
         assert.equal(String(query.userId), String(userId));
-        assert.equal(query.instagramAccountId, "999");
+        assert.equal(query.$or[0].instagramAccountId, "999");
       }
       if (name === "rules") assert.equal(String(query.userId), String(userId));
       return { project() { return this; }, limit() { return this; },
