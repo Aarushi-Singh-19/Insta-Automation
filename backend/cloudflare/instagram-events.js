@@ -36,7 +36,8 @@ export function extractInstagramEvents(payload) {
       });
     }
     for (const item of Array.isArray(entry?.messaging) ? entry.messaging : []) {
-      if (!item?.postback) continue;
+      if (!item?.postback || !/^\d+$/.test(ownerId) || !/^\d+$/.test(String(item.sender?.id || "")) ||
+          !/^\d+$/.test(String(item.recipient?.id || ""))) continue;
       // Preserve full postback metadata for Follow Gate routing; never execute
       // directly in the ingress parser.
       postbacks.push({ entryId: ownerId, senderId: item.sender?.id || null,
