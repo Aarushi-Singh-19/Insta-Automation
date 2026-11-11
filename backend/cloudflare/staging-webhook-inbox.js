@@ -8,6 +8,7 @@ export async function persistInstagramInbox({ env, MongoClient, events, received
   const rows = [];
   for (const comment of events.comments) {
     if (!/^\d+$/.test(String(comment.eventId || ""))) throw new TypeError("INVALID_COMMENT_ID");
+    if (!/^\d+$/.test(String(comment.entryId || "")) || !/^\d+$/.test(String(comment.postId || ""))) throw new TypeError("INVALID_COMMENT_SOURCE");
     rows.push({ _id: "comment:" + comment.eventId, kind: "comment", event: comment });
   }
   for (const postback of events.postbacks) {
