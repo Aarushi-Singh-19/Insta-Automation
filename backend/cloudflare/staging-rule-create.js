@@ -17,16 +17,16 @@ export function validateRule(input) {
     if (data[key] !== undefined && (!Array.isArray(data[key]) || data[key].length > 50 ||
         data[key].some(value => typeof value !== "string" || value.length > 2000))) throw new Error("INVALID_RULE");
   }
-  // Render stores keyword rules in "keywords"; accept the migration alias
-  // but persist both fields so native and proxied staging routes agree.
+  // Rule.js stores triggerKeywords. Accept the older API alias, but only
+  // persist canonical Mongoose schema fields to avoid divergent rule data.
   if (data.keywords !== undefined && data.triggerKeywords !== undefined &&
       JSON.stringify(data.keywords) !== JSON.stringify(data.triggerKeywords)) {
     throw new Error("CONFLICTING_KEYWORDS");
   }
   if (data.keywords !== undefined || data.triggerKeywords !== undefined) {
     const keywords = data.keywords ?? data.triggerKeywords;
-    data.keywords = keywords;
     data.triggerKeywords = keywords;
+    delete data.keywords;
   }
   return data;
 }
@@ -37,7 +37,7 @@ export async function createStagingRule({ env, MongoClient, authenticatedUserId,
   const fields = validateRule(input);
   const now = new Date();
   const document = {
-    ruleName: "", priority: 1, triggerType: "keyword", triggerKeywords: [], keywords: [],
+    ruleName: "", priority: 1, triggerType: "keyword", triggerKeywords: [],
     replyMode: "single", replies: [], isActive: true,
     ...fields, userId: new ObjectId(authenticatedUserId), createdAt: now, updatedAt: now
   };
