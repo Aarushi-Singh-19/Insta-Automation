@@ -9,7 +9,7 @@ test("transactionally increments staging quota and creates one reservation", asy
   const calls = [];
   const session = { async withTransaction(fn) { calls.push("transaction"); await fn(); }, async endSession() { calls.push("end"); } };
   class Client {
-    startSession() { return session; }
+    startSession() { calls.push("session"); return session; }
     async connect() { calls.push("connect"); }
     db(name) { assert.equal(name, "triggerdm_staging"); return { collection: collection => {
       if (collection === "cloudflare_staging_dm_reservations") return {
@@ -30,7 +30,7 @@ test("transactionally increments staging quota and creates one reservation", asy
   const result = await reserveStagingDmQuota({ env, MongoClient: Client, userId, actionId: "comment:123:dm", periodStart: start, periodEnd: end, limit: 500 });
   assert.equal(result.reserved, true);
   assert.equal(result.duplicate, false);
-  assert.deepEqual(calls, ["connect", "transaction", "initialize", "increment", "insert", "end", "close"]);
+  assert.deepEqual(calls, ["connect", "session", "transaction", "initialize", "increment", "insert", "end", "close"]);
 });
 test("existing reservation is idempotent and does not increment quota", async () => {
   let updates = 0;
@@ -46,6 +46,8 @@ test("existing reservation is idempotent and does not increment quota", async ()
   }
   const result = await reserveStagingDmQuota({ env, MongoClient: Client, userId, actionId: "comment:123:dm", periodStart: start, periodEnd: end, limit: 500 });
   assert.equal(result.duplicate, true);
+  assert.equal(result.reserved, false);
+  assert.equal(result.reason, "ALREADY_RESERVED_RECONCILE_ACTION");
   assert.equal(updates, 0);
 });
 test("rejects invalid identifiers and limits before opening a session", async () => {
