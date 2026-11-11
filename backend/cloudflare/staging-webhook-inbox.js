@@ -5,6 +5,9 @@ export async function persistInstagramInbox({ env, MongoClient, events, received
   const { uri, dbName } = validateStagingMongoConfig(env);
   if (typeof MongoClient !== "function") throw new TypeError("MongoClient required");
   if (!events || !Array.isArray(events.comments) || !Array.isArray(events.postbacks)) throw new TypeError("INVALID_EVENTS");
+  // Reject oversized or malformed envelopes before any database writes.
+  // Meta may retry failed deliveries; bounded input prevents excessive work.
+  if (events.comments.length + events.postbacks.length > 1000) throw new TypeError("TOO_MANY_EVENTS");
   const rows = [];
   for (const comment of events.comments) {
     if (!/^\d+$/.test(String(comment.eventId || ""))) throw new TypeError("INVALID_COMMENT_ID");
