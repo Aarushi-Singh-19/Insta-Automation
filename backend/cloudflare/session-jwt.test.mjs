@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { webcrypto } from "node:crypto";
-import { verifySessionJwt } from "./session-jwt.js";
+import { verifySessionJwt, getTriggerDmUserId } from "./session-jwt.js";
 const cryptoApi = globalThis.crypto || webcrypto;
 const secret = "staging-test-secret-with-at-least-32-characters";
 const b64 = data => Buffer.from(JSON.stringify(data)).toString("base64url");
@@ -26,4 +26,14 @@ test("rejects issuer and audience mismatch", async () => {
   const token = await sign({ exp: 1800001000, iss: "wrong", aud: "wrong" });
   await assert.rejects(verifySessionJwt(token, secret, { now, issuer: "staging" }));
   await assert.rejects(verifySessionJwt(token, secret, { now, audience: "triggerdm" }));
+});
+
+test("maps existing Express id claim and rejects conflicting user identities", async () => {
+  const id = "507f1f77bcf86cd799439011";
+  const token = await sign({ id, exp: 1800001000 });
+  const claims = await verifySessionJwt(token, secret, { now });
+  assert.equal(getTriggerDmUserId(claims), id);
+  assert.equal(getTriggerDmUserId({ sub: id }), id);
+  assert.throws(() => getTriggerDmUserId({ id, sub: "507f191e810c19729de860ea" }), /CONFLICTING_USER_CLAIMS/);
+  assert.throws(() => getTriggerDmUserId({ id: "not-an-id" }), /INVALID_USER_ID/);
 });
