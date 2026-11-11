@@ -3,7 +3,7 @@ import { validateStagingMongoConfig } from "./staging-mongodb.js";
 
 export function validateRule(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("INVALID_RULE");
-  const fields = ["ruleName", "postId", "priority", "triggerType", "triggerKeywords", "replyMode", "replies", "isActive"];
+  const fields = ["ruleName", "postId", "priority", "triggerType", "triggerKeywords", "keywords", "replyMode", "replies", "isActive"];
   if (Object.keys(input).some(key => !fields.includes(key))) throw new Error("INVALID_RULE_FIELD");
   const data = {};
   for (const key of fields) if (Object.hasOwn(input, key)) data[key] = input[key];
@@ -13,9 +13,20 @@ export function validateRule(input) {
   if (data.triggerType !== undefined && !["keyword", "any_comment"].includes(data.triggerType)) throw new Error("INVALID_RULE");
   if (data.replyMode !== undefined && (typeof data.replyMode !== "string" || data.replyMode.length > 50)) throw new Error("INVALID_RULE");
   if (data.isActive !== undefined && typeof data.isActive !== "boolean") throw new Error("INVALID_RULE");
-  for (const key of ["triggerKeywords", "replies"]) {
+  for (const key of ["triggerKeywords", "keywords", "replies"]) {
     if (data[key] !== undefined && (!Array.isArray(data[key]) || data[key].length > 50 ||
         data[key].some(value => typeof value !== "string" || value.length > 2000))) throw new Error("INVALID_RULE");
+  }
+  // Render stores keyword rules in "keywords"; accept the migration alias
+  // but persist both fields so native and proxied staging routes agree.
+  if (data.keywords !== undefined && data.triggerKeywords !== undefined &&
+      JSON.stringify(data.keywords) !== JSON.stringify(data.triggerKeywords)) {
+    throw new Error("CONFLICTING_KEYWORDS");
+  }
+  if (data.keywords !== undefined || data.triggerKeywords !== undefined) {
+    const keywords = data.keywords ?? data.triggerKeywords;
+    data.keywords = keywords;
+    data.triggerKeywords = keywords;
   }
   return data;
 }
@@ -26,7 +37,7 @@ export async function createStagingRule({ env, MongoClient, authenticatedUserId,
   const fields = validateRule(input);
   const now = new Date();
   const document = {
-    ruleName: "", priority: 1, triggerType: "keyword", triggerKeywords: [],
+    ruleName: "", priority: 1, triggerType: "keyword", triggerKeywords: [], keywords: [],
     replyMode: "single", replies: [], isActive: true,
     ...fields, userId: new ObjectId(authenticatedUserId), createdAt: now, updatedAt: now
   };
