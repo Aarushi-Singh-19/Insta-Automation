@@ -12,7 +12,9 @@ export async function persistInstagramInbox({ env, MongoClient, events, received
   for (const comment of events.comments) {
     if (!/^\d+$/.test(String(comment.eventId || ""))) throw new TypeError("INVALID_COMMENT_ID");
     if (!/^\d+$/.test(String(comment.entryId || "")) || !/^\d+$/.test(String(comment.postId || ""))) throw new TypeError("INVALID_COMMENT_SOURCE");
-    rows.push({ _id: "comment:" + comment.eventId, kind: "comment", event: comment });
+    // A comment ID must never be accepted under two different Instagram owners.
+    // Include owner in the key so distinct account events cannot collide.
+    rows.push({ _id: "comment:" + comment.entryId + ":" + comment.eventId, kind: "comment", event: comment });
   }
   for (const postback of events.postbacks) {
     // Meta postback may have no event ID. Hash canonical payload for redelivery
