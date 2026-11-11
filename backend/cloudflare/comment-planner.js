@@ -9,7 +9,7 @@ export function planCommentAutomation({ comment, campaign, rule }) {
     const ids = Array.isArray(campaign.postIds) ? campaign.postIds.map(String) : [];
     if (campaign.instagramMediaId != null) ids.push(String(campaign.instagramMediaId));
     if (!ids.includes(String(comment.postId))) return { matched: false, reason: "WRONG_POST" };
-  } else if (trigger !== "all-posts") {
+  } else if (trigger !== "any-post") {
     return { matched: false, reason: "UNSUPPORTED_CAMPAIGN_TRIGGER" };
   }
   const keywords = Array.isArray(rule.keywords) ? rule.keywords.map(normalized).filter(Boolean) : [];
