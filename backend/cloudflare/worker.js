@@ -12,6 +12,7 @@ import { persistInstagramInbox } from "./staging-webhook-inbox.js";
 import { verifySessionJwt, getTriggerDmUserId } from "./session-jwt.js";
 import { listOwnCampaigns } from "./staging-campaigns.js";
 import { getStagingCurrentUser } from "./staging-current-user.js";
+import { listStagingRules } from "./staging-rules.js";
 import { planPendingInbox } from "./staging-inbox-planner.js";
 
 const json = (data, status = 200) => Response.json(data, { status });
@@ -69,6 +70,22 @@ export default {
       } catch (error) {
         console.error("Native staging current user failed", error?.name || "Error");
         return json({ message: "Staging user service unavailable" }, 503);
+      }
+    }
+    // Native rules canary; opt-in, read-only, staging database only.
+    if (url.pathname === "/api/rules" && request.method === "GET" && env?.ENABLE_NATIVE_STAGING_RULES === "true") {
+      if (!env?.STAGING_JWT_SECRET) return json({ success: false, message: "Staging rules unavailable" }, 503);
+      const auth = request.headers.get("Authorization") || "";
+      if (!auth.startsWith("Bearer ")) return json({ message: "No token provided" }, 401);
+      let userId;
+      try { userId = getTriggerDmUserId(await verifySessionJwt(auth.slice(7), env.STAGING_JWT_SECRET)); }
+      catch { return json({ message: "Invalid token" }, 401); }
+      try {
+        const data = await listStagingRules({ env, MongoClient, authenticatedUserId: userId });
+        return json({ success: true, data });
+      } catch (error) {
+        console.error("Native staging rules failed", error?.name || "Error");
+        return json({ success: false, message: "Staging rules unavailable" }, 503);
       }
     }
     // Isolated staging route: verified JWT only; never accepts a caller-supplied
