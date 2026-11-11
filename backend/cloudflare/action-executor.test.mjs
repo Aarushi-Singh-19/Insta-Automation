@@ -63,3 +63,15 @@ test("missing durable success cannot acknowledge message", async () => {
 test("rejects missing integration dependencies", () => {
   assert.throws(() => createActionExecutor({}), /Missing executor dependency/);
 });
+
+test("Follow Gate passes resume context to DM service", async () => {
+  const contexts = [];
+  const { execute } = fixture({ executeAction: async (_action, context) => { contexts.push(context); } });
+  await execute({ name: "process-gate-resume", data: { ...base, isGateResume: true, actions: [{ type: "send_dm", recipientId: "recipient-1", message: "Done" }] } });
+  assert.equal(contexts[0].isGateResume, true);
+});
+test("Follow Gate skips messaging own account by action recipient ID", async () => {
+  const { calls, execute } = fixture();
+  await execute({ name: "process-gate-resume", data: { ...base, isGateResume: true, actions: [{ type: "send_dm", recipientId: "owner-id", message: "Done" }] } });
+  assert.deepEqual(calls, []);
+});
