@@ -1,7 +1,7 @@
 import { ObjectId } from "mongodb";
 import { validateStagingMongoConfig } from "./staging-mongodb.js";
 
-function validateRule(input) {
+export function validateRule(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("INVALID_RULE");
   const fields = ["ruleName", "postId", "priority", "triggerType", "triggerKeywords", "replyMode", "replies", "isActive"];
   if (Object.keys(input).some(key => !fields.includes(key))) throw new Error("INVALID_RULE_FIELD");
