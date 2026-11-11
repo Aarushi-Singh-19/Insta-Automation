@@ -104,3 +104,15 @@ test("native staging rule mutation routes reject unauthenticated requests withou
     assert.equal(response.status, 401, method + " " + path);
   }
 });
+
+test("native JSON responses allow only configured frontend origins", async () => {
+  const allowed = await worker.fetch(new Request("https://example.workers.dev/__cloudflare/health", {
+    headers: { Origin: "https://triggerdm-staging-frontend.onrender.com" }
+  }), fakeEnv);
+  assert.equal(allowed.headers.get("access-control-allow-origin"), "https://triggerdm-staging-frontend.onrender.com");
+  assert.equal(allowed.headers.get("cache-control"), "no-store");
+  const blocked = await worker.fetch(new Request("https://example.workers.dev/__cloudflare/health", {
+    headers: { Origin: "https://untrusted.example" }
+  }), fakeEnv);
+  assert.equal(blocked.headers.get("access-control-allow-origin"), null);
+});
