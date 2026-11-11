@@ -2,8 +2,9 @@
 // Durable state transitions protect against concurrent workers and duplicate events.
 import { validateStagingMongoConfig } from "./staging-mongodb.js";
 import { planCommentAutomation } from "./comment-planner.js";
+import { resolveStagingComment } from "./staging-comment-resolver.js";
 
-export async function planPendingInbox({ env, MongoClient, resolveCampaignAndRule, limit = 10 }) {
+export async function planPendingInbox({ env, MongoClient, resolveCampaignAndRule = resolveStagingComment, limit = 10 }) {
   const { uri, dbName } = validateStagingMongoConfig(env);
   if (typeof MongoClient !== "function") throw new TypeError("MongoClient required");
   if (typeof resolveCampaignAndRule !== "function") throw new TypeError("Resolver required");
