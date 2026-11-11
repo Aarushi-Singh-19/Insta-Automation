@@ -378,8 +378,19 @@ export default {
         if (!valid) return json({ error: "Invalid signature" }, 403);
         try { extractInstagramEvents(JSON.parse(rawBody)); }
         catch { return json({ error: "Invalid Instagram event envelope" }, 400); }
-        // A valid event must NOT be acknowledged before durable processing exists.
-        return json({ error: "Webhook processing not migrated; do not configure Meta callback here" }, 501);
+        // Explicit opt-in only for a separate STAGING Meta app/callback.
+        // Durable inbox write precedes acknowledgment. Production remains on Render.
+        if (env?.ENABLE_NATIVE_STAGING_META_WEBHOOK !== "true") {
+          return json({ error: "Webhook processing not migrated; do not configure Meta callback here" }, 501);
+        }
+        try {
+          const events = extractInstagramEvents(JSON.parse(rawBody));
+          const stored = await persistInstagramInbox({ env, MongoClient, events });
+          return json({ ok: true, received: stored.received, inserted: stored.inserted });
+        } catch (error) {
+          console.error("Native staging webhook persistence failed", error?.name || "Error");
+          return json({ error: "Durable webhook persistence unavailable" }, 503);
+        }
       }
     }
     if (url.pathname === "/api/billing/razorpay-webhook" && request.method === "POST") {
