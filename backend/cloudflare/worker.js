@@ -16,6 +16,7 @@ import { listStagingRules } from "./staging-rules.js";
 import { loginStagingUser } from "./staging-login.js";
 import { createStagingRule } from "./staging-rule-create.js";
 import { deleteStagingRule } from "./staging-rule-delete.js";
+import { toggleStagingRule } from "./staging-rule-toggle.js";
 import { planPendingInbox } from "./staging-inbox-planner.js";
 
 const json = (data, status = 200) => Response.json(data, { status });
@@ -87,6 +88,22 @@ export default {
       } catch (error) {
         console.error("Native staging current user failed", error?.name || "Error");
         return json({ message: "Staging user service unavailable" }, 503);
+      }
+    }
+    // Native atomic rule toggle, staging only and disabled by default.
+    if (request.method === "PATCH" && /^\\/api\\/rules\\/[a-f0-9]{24}\\/toggle$/i.test(url.pathname) && env?.ENABLE_NATIVE_STAGING_RULE_TOGGLE === "true") {
+      if (!env?.STAGING_JWT_SECRET) return json({ message: "Staging rules unavailable" }, 503);
+      const auth = request.headers.get("Authorization") || "";
+      if (!auth.startsWith("Bearer ")) return json({ message: "No token provided" }, 401);
+      let userId;
+      try { userId = getTriggerDmUserId(await verifySessionJwt(auth.slice(7), env.STAGING_JWT_SECRET)); }
+      catch { return json({ message: "Invalid token" }, 401); }
+      try {
+        const result = await toggleStagingRule({ env, MongoClient, authenticatedUserId: userId, ruleId: url.pathname.split("/")[3] });
+        return json(result.body, result.status);
+      } catch (error) {
+        console.error("Native staging rule toggle failed", error?.name || "Error");
+        return json({ message: "Staging rules unavailable" }, 503);
       }
     }
     // Native rule deletion; isolated staging canary, off by default.
