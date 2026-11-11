@@ -4,12 +4,12 @@ import { ObjectId } from "mongodb";
 import { resolveStagingComment } from "./staging-comment-resolver.js";
 const uid = new ObjectId(), rid = new ObjectId(), cid = new ObjectId();
 const comment = { entryId: "123456", postId: "789012" };
-function dbFor({ accounts = [{ _id: new ObjectId(), instagramId: comment.entryId, userId: uid }],
+function dbFor({ accounts = [{ _id: new ObjectId(), instagramBusinessId: comment.entryId, userId: uid }],
   campaigns = [{ _id: cid, userId: uid, ruleIds: [rid], status: "active", triggerType: "specific-post", instagramMediaId: comment.postId }],
-  rule = { _id: rid, userId: uid, isActive: true, triggerType: "keyword", keywords: ["test"] } } = {}) {
+  rule = { _id: rid, userId: uid, isActive: true, triggerType: "keyword", triggerKeywords: ["test"] } } = {}) {
   return { collection(name) {
     if (name === "instagramaccounts") return { find(query) {
-      assert.equal(query.instagramId, comment.entryId);
+      assert.equal(query.instagramBusinessId, comment.entryId);
       return { project() { return { limit() { return { toArray: async () => accounts }; } }; } };
     } };
     if (name === "campaigns") return { find(query) {
@@ -43,4 +43,9 @@ test("rejects ambiguous accounts or campaigns and missing rule", async () => {
 });
 test("rejects malformed webhook IDs without querying database", async () => {
   assert.equal(await resolveStagingComment({ db: dbFor(), comment: { ...comment, entryId: "bad" } }), null);
+});
+
+test("does not select an arbitrary rule from a multi-rule campaign", async () => {
+  const second = new ObjectId();
+  assert.equal(await resolveStagingComment({ db: dbFor({ campaigns: [{ _id: cid, userId: uid, ruleIds: [rid, second] }] }), comment }), null);
 });
