@@ -6,19 +6,19 @@ export async function resolveStagingComment({ db, comment }) {
       !/^\d+$/.test(String(comment.entryId || ""))) return null;
   // The webhook entry identifies the Instagram account, not a user-provided ID.
   const accounts = await db.collection("instagramaccounts")
-    .find({ instagramBusinessId: String(comment.entryId) })
+    .find({ instagramBusinessId: String(comment.entryId), status: "active" })
     .project({ _id: 1, userId: 1 }).limit(2).toArray();
   if (accounts.length !== 1 || !ObjectId.isValid(accounts[0].userId)) return null;
   const account = accounts[0];
   const campaigns = await db.collection("campaigns").find({
     userId: new ObjectId(String(account.userId)),
     status: "active",
-    instagramAccountId: String(comment.entryId),
-    $or: [
+    $or: [{ instagramAccountId: String(comment.entryId) }, { instagramAccountId: { $exists: false } }, { instagramAccountId: null }],
+    $and: [{ $or: [
       { triggerType: "any-post" },
       { triggerType: "specific-post", instagramMediaId: String(comment.postId) },
       { triggerType: "specific-post", postIds: String(comment.postId) }
-    ]
+    ] }]
   }).project({ _id: 1, userId: 1, ruleIds: 1, status: 1, triggerType: 1, instagramMediaId: 1, postIds: 1 })
     .limit(2).toArray();
   // Never choose arbitrarily among multiple campaigns.
@@ -36,7 +36,7 @@ export async function resolveStagingComment({ db, comment }) {
     const rule = byId.get(String(id));
     if (!rule) continue;
     if (rule.triggerType === "any_comment") return { campaign, rule };
-    const keywords = Array.isArray(rule.keywords) ? rule.keywords : rule.triggerKeywords;
+    const keywords = Array.isArray(rule.triggerKeywords) ? rule.triggerKeywords : rule.keywords;
     if (Array.isArray(keywords) && keywords.some(keyword => {
       const value = String(keyword || "").toLowerCase().trim();
       return value && text.includes(value);
