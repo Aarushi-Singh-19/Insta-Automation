@@ -21,6 +21,9 @@ import { updateStagingRule } from "./staging-rule-update.js";
 import { planPendingInbox } from "./staging-inbox-planner.js";
 import { prepareStagingActionOutbox } from "./staging-action-outbox.js";
 import { executeStagingActions } from "./staging-action-executor.js";
+import { planCommentAutomation } from "./comment-planner.js";
+import { buildCommentActionSpec } from "./comment-action-spec.js";
+import { followGateDecision } from "./follow-gate-state.js";
 
 
 export default {
@@ -48,6 +51,31 @@ export default {
       });
     }
 
+    // Public read-only synthetic smoke test: no secrets, DB writes, Meta calls,
+    // user data, or simulated claims of successful real-world delivery.
+    if (request.method === "GET" && url.pathname === "/__cloudflare/instagram-self-test") {
+      const comment = { entryId: "123456", eventId: "789012", postId: "345678", commentText: "send guide" };
+      const campaign = { _id: "a".repeat(24), status: "active", triggerType: "specific-post",
+        instagramMediaId: comment.postId, settings: { enableReply: true, enableDM: true, dmMessage: "Here is the guide" },
+        gate: { gateType: "FOLLOW", status: "enabled" } };
+      const rule = { _id: "b".repeat(24), isActive: true, triggerType: "keyword",
+        triggerKeywords: ["guide"], replies: ["Check your DM"] };
+      const matched = planCommentAutomation({ comment, campaign, rule });
+      const action = buildCommentActionSpec({ comment, campaign, rule });
+      const rejected = planCommentAutomation({ comment: { ...comment, commentText: "unrelated" }, campaign, rule });
+      const gate = campaign.gate;
+      const checks = {
+        matchingComment: matched.matched === true,
+        unrelatedCommentRejected: rejected.matched === false,
+        replyPrepared: action.ready === true && action.spec?.reply?.message === "Check your DM",
+        dmPrepared: action.ready === true && action.spec?.dm?.message === "Here is the guide",
+        followGateBlocksUnverified: followGateDecision({ gate, followerStatus: false }).action === "request_follow",
+        followGateBypassesVerified: followGateDecision({ gate, followerStatus: true }).action === "deliver",
+        unknownFollowStatusHeld: followGateDecision({ gate }).action === "hold"
+      };
+      return json({ ok: Object.values(checks).every(Boolean), mode: "synthetic-read-only", checks,
+        realWebhookTested: false, realInstagramMessagesSent: false }, Object.values(checks).every(Boolean) ? 200 : 503);
+    }
     if (request.method === "GET" && url.pathname === "/__cloudflare/health") {
       return json(runtimeReadiness(env));
     }
