@@ -6,7 +6,7 @@ import { consumeActionBatch } from "./action-queue.js";
 import { proxyRequest } from "./upstream-proxy.js";
 import { runtimeReadiness } from "./runtime-readiness.js";
 import { extractInstagramEvents } from "./instagram-events.js";
-import { validateStagingMongoConfig, probeStagingMongo, inspectStagingCollections } from "./staging-mongodb.js";
+import { validateStagingMongoConfig, probeStagingMongo, inspectStagingCollections, inspectStagingDocumentShapes } from "./staging-mongodb.js";
 import { MongoClient } from "mongodb";
 import { persistInstagramInbox } from "./staging-webhook-inbox.js";
 import { verifySessionJwt } from "./session-jwt.js";
@@ -34,7 +34,7 @@ export default {
         return json({ ok: false, error: error.message, connected: false }, 503);
       }
     }
-    if (request.method === "GET" && ["/__cloudflare/staging-db-ping", "/__cloudflare/staging-schema"].includes(url.pathname)) {
+    if (request.method === "GET" && ["/__cloudflare/staging-db-ping", "/__cloudflare/staging-schema", "/__cloudflare/staging-field-shapes"].includes(url.pathname)) {
       // Never expose a public Atlas connectivity endpoint without an explicit
       // operator-managed secret. Prevent repeated anonymous database connections.
       if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
@@ -43,7 +43,9 @@ export default {
       try {
         const result = url.pathname === "/__cloudflare/staging-schema"
           ? await inspectStagingCollections(env, MongoClient)
-          : await probeStagingMongo(env, MongoClient);
+          : url.pathname === "/__cloudflare/staging-field-shapes"
+            ? await inspectStagingDocumentShapes(env, MongoClient)
+            : await probeStagingMongo(env, MongoClient);
         return json(result);
       } catch (error) {
         // Never leak connection strings, database credentials or Atlas hostnames.
