@@ -2,6 +2,12 @@
   "name": "triggerdm-backend-staging",
   "main": "./worker.js",
   "compatibility_date": "2026-11-11",
-  "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": true
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "keep_vars": true,
+  "vars": {
+    "MONGODB_STAGING_DB": "triggerdm_staging"
+  }
 }
