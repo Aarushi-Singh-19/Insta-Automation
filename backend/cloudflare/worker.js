@@ -5,6 +5,7 @@ import { verifyInstagramChallenge, verifyHmacSha256 } from "./webhook-security.j
 import { consumeActionBatch } from "./action-queue.js";
 import { proxyRequest } from "./upstream-proxy.js";
 import { runtimeReadiness } from "./runtime-readiness.js";
+import { extractInstagramEvents } from "./instagram-events.js";
 
 const json = (data, status = 200) => Response.json(data, { status });
 
@@ -35,6 +36,9 @@ export default {
         const signature = header.startsWith("sha256=") ? header.slice(7) : "";
         const valid = await verifyHmacSha256(rawBody, signature, env?.META_APP_SECRET);
         if (!valid) return json({ error: "Invalid signature" }, 403);
+        try { extractInstagramEvents(JSON.parse(rawBody)); }
+        catch { return json({ error: "Invalid Instagram event envelope" }, 400); }
+        // A valid event must NOT be acknowledged before durable processing exists.
         return json({ error: "Webhook processing not migrated; do not configure Meta callback here" }, 501);
       }
     }
