@@ -13,6 +13,7 @@ import { verifySessionJwt, getTriggerDmUserId } from "./session-jwt.js";
 import { listOwnCampaigns } from "./staging-campaigns.js";
 import { getStagingCurrentUser } from "./staging-current-user.js";
 import { listStagingRules } from "./staging-rules.js";
+import { loginStagingUser } from "./staging-login.js";
 import { planPendingInbox } from "./staging-inbox-planner.js";
 
 const json = (data, status = 200) => Response.json(data, { status });
@@ -53,6 +54,20 @@ export default {
         // Never leak connection strings, database credentials or Atlas hostnames.
         console.error("Staging MongoDB connectivity probe failed", error?.name || "Error");
         return json({ ok: false, connected: false, error: "STAGING_DATABASE_CONNECTION_FAILED" }, 503);
+      }
+    }
+    // Native staging login canary; disabled until isolated credentials are configured.
+    if (url.pathname === "/api/auth/login" && request.method === "POST" && env?.ENABLE_NATIVE_STAGING_LOGIN === "true") {
+      if (!env?.STAGING_JWT_SECRET) return json({ message: "Staging login unavailable" }, 503);
+      let body;
+      try { body = await request.json(); }
+      catch { return json({ message: "Invalid request body" }, 400); }
+      try {
+        const result = await loginStagingUser({ env, MongoClient, email: body?.email, password: body?.password });
+        return json(result.body, result.status);
+      } catch (error) {
+        console.error("Native staging login failed", error?.name || "Error");
+        return json({ message: "Staging login unavailable" }, 503);
       }
     }
     // Native auth/me staging canary. Off by default; never touches production.
