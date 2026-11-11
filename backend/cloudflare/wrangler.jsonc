@@ -1,0 +1,7 @@
+{
+  "name": "triggerdm-migration-probe",
+  "main": "./worker.js",
+  "compatibility_date": "2026-11-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true
+}
