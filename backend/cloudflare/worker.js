@@ -8,6 +8,8 @@ import { runtimeReadiness } from "./runtime-readiness.js";
 import { extractInstagramEvents } from "./instagram-events.js";
 import { validateStagingMongoConfig, probeStagingMongo, inspectStagingCollections } from "./staging-mongodb.js";
 import { MongoClient } from "mongodb";
+import { verifySessionJwt } from "./session-jwt.js";
+import { listOwnCampaigns } from "./staging-campaigns.js";
 
 const json = (data, status = 200) => Response.json(data, { status });
 
@@ -45,6 +47,35 @@ export default {
         // Never leak connection strings, database credentials or Atlas hostnames.
         console.error("Staging MongoDB connectivity probe failed", error?.name || "Error");
         return json({ ok: false, connected: false, error: "STAGING_DATABASE_CONNECTION_FAILED" }, 503);
+      }
+    }
+    // Isolated staging route: verified JWT only; never accepts a caller-supplied
+    // user ID. Requires an independent staging JWT secret and explicit opt-in.
+    if (url.pathname === "/__cloudflare/api/campaigns" && request.method === "GET") {
+      if (env?.ENABLE_STAGING_CAMPAIGN_API !== "true" || !env?.STAGING_JWT_SECRET) {
+        return json({ error: "Not found" }, 404);
+      }
+      const authorization = request.headers.get("Authorization") || "";
+      if (!authorization.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+      let claims;
+      try {
+        claims = await verifySessionJwt(authorization.slice(7), env.STAGING_JWT_SECRET);
+      } catch { return json({ error: "Unauthorized" }, 401); }
+      const userId = claims?.sub;
+      if (typeof userId !== "string" || !/^[a-f0-9]{24}$/i.test(userId)) {
+        return json({ error: "Unauthorized" }, 401);
+      }
+      const limitValue = url.searchParams.get("limit");
+      const limit = limitValue === null ? 20 : Number(limitValue);
+      if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+        return json({ error: "Invalid limit" }, 400);
+      }
+      try {
+        const campaigns = await listOwnCampaigns({ env, MongoClient, authenticatedUserId: userId, limit });
+        return json({ campaigns });
+      } catch (error) {
+        console.error("Staging campaign query failed", error?.name || "Error");
+        return json({ error: "Staging campaign service unavailable" }, 503);
       }
     }
     // Never proxy webhook traffic during migration. A suspended upstream can
