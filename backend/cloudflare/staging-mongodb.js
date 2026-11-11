@@ -100,7 +100,7 @@ export async function inspectStagingDocumentShapes(env, MongoClient) {
         ? "DATABASE_NETWORK_ERROR" : "DATABASE_OPERATION_FAILED";
     failure = {
       ok: false, database: dbName, connected: stage === "query" || stage.startsWith("query:"),
-      stage, category
+      stage, category: stage === "configuration" && ["STAGING_DATABASE_REQUIRED", "STAGING_MONGODB_URI_REQUIRED", "STAGING_URI_DATABASE_MISMATCH"].includes(error?.message) ? error.message : category
     };
   }
   try {
