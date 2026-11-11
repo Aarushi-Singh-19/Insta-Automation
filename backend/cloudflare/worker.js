@@ -76,6 +76,27 @@ export default {
         return json({ ok: false, connected: false, error: "STAGING_DATABASE_CONNECTION_FAILED" }, 503);
       }
     }
+    // Operator-only readiness check: reports configuration booleans, never secret values.
+    // Useful before enabling native auth without exposing internal state publicly.
+    if (request.method === "GET" && url.pathname === "/__cloudflare/staging-auth-readiness") {
+      if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      return json({
+        ok: true,
+        database: "triggerdm_staging",
+        jwtSecretConfigured: typeof env.STAGING_JWT_SECRET === "string" && env.STAGING_JWT_SECRET.length >= 16,
+        nativeRoutes: {
+          login: env.ENABLE_NATIVE_STAGING_LOGIN === "true",
+          authMe: env.ENABLE_NATIVE_STAGING_AUTH_ME === "true",
+          rulesRead: env.ENABLE_NATIVE_STAGING_RULES === "true",
+          rulesCreate: env.ENABLE_NATIVE_STAGING_RULE_CREATE === "true",
+          rulesUpdate: env.ENABLE_NATIVE_STAGING_RULE_UPDATE === "true",
+          rulesDelete: env.ENABLE_NATIVE_STAGING_RULE_DELETE === "true",
+          rulesToggle: env.ENABLE_NATIVE_STAGING_RULE_TOGGLE === "true"
+        }
+      });
+    }
     // Native staging login canary; disabled until isolated credentials are configured.
     if (url.pathname === "/api/auth/login" && request.method === "POST" && env?.ENABLE_NATIVE_STAGING_LOGIN === "true") {
       if (!env?.STAGING_JWT_SECRET) return json({ message: "Staging login unavailable" }, 503);
