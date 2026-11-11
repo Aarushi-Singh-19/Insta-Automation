@@ -6,6 +6,7 @@ import { consumeActionBatch } from "./action-queue.js";
 import { proxyRequest } from "./upstream-proxy.js";
 import { runtimeReadiness } from "./runtime-readiness.js";
 import { extractInstagramEvents } from "./instagram-events.js";
+import { validateStagingMongoConfig } from "./staging-mongodb.js";
 
 const json = (data, status = 200) => Response.json(data, { status });
 
@@ -19,6 +20,14 @@ export default {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/__cloudflare/health") {
       return json(runtimeReadiness(env));
+    }
+    if (request.method === "GET" && url.pathname === "/__cloudflare/staging-db-config") {
+      try {
+        const { dbName } = validateStagingMongoConfig(env);
+        return json({ ok: true, database: dbName, credentials: "configured", connected: false });
+      } catch (error) {
+        return json({ ok: false, error: error.message, connected: false }, 503);
+      }
     }
     // Explicit hybrid mode: all API requests, including raw signed webhooks,
     // are passed to the unchanged Express backend. No edge acknowledgments.
