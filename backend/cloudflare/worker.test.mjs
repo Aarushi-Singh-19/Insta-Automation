@@ -58,3 +58,13 @@ test("staging ingestion rejects requests without operator token", async () => {
   const response = await worker.fetch(new Request("https://example.workers.dev/__cloudflare/staging-ingest", { method: "POST", body: "{}" }), env);
   assert.equal(response.status, 404);
 });
+
+test("staging planner is disabled by default", async () => {
+  const response = await worker.fetch(new Request("https://example.workers.dev/__cloudflare/staging-plan", { method: "POST" }), fakeEnv);
+  assert.equal(response.status, 404);
+});
+test("staging planner rejects missing operator authorization before database access", async () => {
+  const response = await worker.fetch(new Request("https://example.workers.dev/__cloudflare/staging-plan", { method: "POST" }),
+    { ENABLE_STAGING_PLANNER: "true", STAGING_PROBE_TOKEN: "test-token" });
+  assert.equal(response.status, 404);
+});
