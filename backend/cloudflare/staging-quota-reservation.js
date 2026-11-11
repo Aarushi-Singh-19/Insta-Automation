@@ -17,11 +17,12 @@ export async function reserveStagingDmQuota({ env, MongoClient, userId, actionId
   const now = new Date();
   if (now < start || now >= end) return { reserved: false, reason: "OUTSIDE_PERIOD" };
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1, retryWrites: true });
-  const session = client.startSession();
+  let session;
   const reservationId = userId.toLowerCase() + ":" + actionId;
   const bucketId = userId.toLowerCase() + ":" + start.toISOString() + ":" + end.toISOString();
   try {
     await client.connect();
+    session = client.startSession();
     const db = client.db(dbName);
     let result;
     await withStagingTransactionRetry(() => session.withTransaction(async () => {
@@ -30,7 +31,7 @@ export async function reserveStagingDmQuota({ env, MongoClient, userId, actionId
       const existing = await reservations.findOne({ _id: reservationId }, { session });
       if (existing) {
         result = existing.bucketId === bucketId
-          ? { reserved: true, duplicate: true, reservationId }
+          ? { reserved: false, duplicate: true, reason: "ALREADY_RESERVED_RECONCILE_ACTION", reservationId }
           : { reserved: false, reason: "ACTION_ALREADY_RESERVED_OTHER_PERIOD" };
         return;
       }
@@ -56,7 +57,7 @@ export async function reserveStagingDmQuota({ env, MongoClient, userId, actionId
     }), { maxAttempts: 3 });
     return result;
   } finally {
-    await session.endSession();
+    if (session) await session.endSession();
     await client.close();
   }
 }
