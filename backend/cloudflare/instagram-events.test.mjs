@@ -5,7 +5,7 @@ const wrap = (changes = [], messaging = []) => ({ object: "instagram", entry: [{
 const comment = value => ({ field: "comments", value });
 test("normalizes a top-level Instagram comment without losing sender and post", () => {
   const payload = wrap([comment({ id: "c1", media: { id: "p1" }, text: "test", from: { id: "person", username: "visitor" } })]);
-  assert.deepEqual(extractInstagramEvents(payload).comments[0], { eventId: "c1", postId: "p1", commentText: "test", username: "visitor", recipientId: "person", commentTimestamp: null });
+  assert.deepEqual(extractInstagramEvents(payload).comments[0], { entryId: "business-1", eventId: "c1", postId: "p1", commentText: "test", username: "visitor", recipientId: "person", commentTimestamp: null });
 });
 test("ignores comment replies and own business comments", () => {
   const payload = wrap([comment({ id: "reply", parent_id: "parent", media_id: "p1" }), comment({ id: "own", media_id: "p1", from: { id: "business-1" } })]);
