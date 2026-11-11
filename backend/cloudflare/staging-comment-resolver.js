@@ -13,17 +13,18 @@ export async function resolveStagingComment({ db, comment }) {
   const campaigns = await db.collection("campaigns").find({
     userId: new ObjectId(String(account.userId)),
     status: "active",
+    instagramAccountId: String(comment.entryId),
     $or: [
       { instagramMediaId: String(comment.postId) },
       { postIds: String(comment.postId) }
     ]
-  }).project({ _id: 1, userId: 1, ruleId: 1, status: 1, triggerType: 1, instagramMediaId: 1, postIds: 1 })
+  }).project({ _id: 1, userId: 1, ruleIds: 1, status: 1, triggerType: 1, instagramMediaId: 1, postIds: 1 })
     .limit(2).toArray();
   // Never choose arbitrarily among multiple campaigns.
-  if (campaigns.length !== 1 || !ObjectId.isValid(campaigns[0].ruleId)) return null;
+  if (campaigns.length !== 1 || !Array.isArray(campaigns[0].ruleIds) || campaigns[0].ruleIds.length !== 1 || !ObjectId.isValid(campaigns[0].ruleIds[0])) return null;
   const campaign = campaigns[0];
   const rule = await db.collection("rules").findOne({
-    _id: new ObjectId(String(campaign.ruleId)),
+    _id: new ObjectId(String(campaign.ruleIds[0])),
     userId: new ObjectId(String(account.userId)),
     isActive: true
   }, { projection: { _id: 1, userId: 1, isActive: 1, triggerType: 1, keywords: 1 } });
