@@ -29,14 +29,15 @@ export async function resolveStagingComment({ db, comment }) {
   const ids = campaign.ruleIds.map(id => new ObjectId(String(id)));
   const rules = await db.collection("rules").find({
     _id: { $in: ids }, userId: new ObjectId(String(account.userId)), isActive: true
-  }).project({ _id: 1, userId: 1, isActive: 1, triggerType: 1, triggerKeywords: 1 }).toArray();
+  }).project({ _id: 1, userId: 1, isActive: 1, triggerType: 1, triggerKeywords: 1, keywords: 1 }).toArray();
   const byId = new Map(rules.map(rule => [String(rule._id), rule]));
   const text = String(comment.commentText || "").toLowerCase().trim();
   for (const id of ids) {
     const rule = byId.get(String(id));
     if (!rule) continue;
     if (rule.triggerType === "any_comment") return { campaign, rule };
-    if (Array.isArray(rule.triggerKeywords) && rule.triggerKeywords.some(keyword => {
+    const keywords = Array.isArray(rule.keywords) ? rule.keywords : rule.triggerKeywords;
+    if (Array.isArray(keywords) && keywords.some(keyword => {
       const value = String(keyword || "").toLowerCase().trim();
       return value && text.includes(value);
     })) return { campaign, rule };
