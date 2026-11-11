@@ -11,7 +11,7 @@ function mock() {
 test("replies using production Graph API version and comment endpoint", async () => {
   const { calls, service } = mock();
   await service.execute({ type: "reply", message: "check your DM" }, { instagramAccount: account, commentId: "c1" });
-  assert.match(calls[0].url, /v25\\.0\\/c1\\/replies$/);
+  assert.ok(calls[0].url.endsWith("/v25.0/c1/replies"));
   assert.equal(new URLSearchParams(calls[0].opts.body).get("message"), "check your DM");
   assert.equal(calls[0].opts.headers.Authorization, "Bearer access");
 });
