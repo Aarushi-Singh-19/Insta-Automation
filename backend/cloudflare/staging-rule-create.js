@@ -40,7 +40,7 @@ export async function createStagingRule({ env, MongoClient, authenticatedUserId,
     );
     if (!user) return { status: 401, body: { message: "User not found" } };
     const allowed = (user.subscriptionStatus === "trial" && user.trialEndDate && new Date(user.trialEndDate) > now) ||
-      (user.subscriptionStatus === "active" && user.planEndDate && new Date(user.planEndDate) > now);
+      (["active", "cancelled"].includes(user.subscriptionStatus) && user.planEndDate && new Date(user.planEndDate) > now);
     if (!allowed) return { status: 403, body: { message: "Active subscription required" } };
     const result = await db.collection("rules").insertOne(document);
     return { status: 201, body: { success: true, data: { ...document, _id: result.insertedId } } };
