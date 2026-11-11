@@ -33,6 +33,18 @@ export default {
     const json = (data, status = 200) => Response.json(data, {
       status, headers: { ...allowedCors, "Cache-Control": "no-store" }
     });
+    // Browser preflight must succeed at the Worker without relying on Render.
+    // This grants no API access; the actual request still requires JWT and flags.
+    const nativePath = url.pathname === "/api/auth/login" ||
+      url.pathname === "/api/auth/me" ||
+      url.pathname === "/api/rules" ||
+      /^\\/api\\/rules\\/[a-f0-9]{24}(?:\\/toggle)?$/i.test(url.pathname);
+    if (request.method === "OPTIONS" && nativePath) {
+      return new Response(null, {
+        status: Object.keys(allowedCors).length ? 204 : 403,
+        headers: { ...allowedCors, "Cache-Control": "no-store" }
+      });
+    }
 
     if (request.method === "GET" && url.pathname === "/__cloudflare/health") {
       return json(runtimeReadiness(env));
