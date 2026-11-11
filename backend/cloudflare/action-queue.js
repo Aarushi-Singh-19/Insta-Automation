@@ -33,10 +33,31 @@ export async function enqueueAction(queue, job) {
   return { queued: true };
 }
 
-// Deliberately fail closed until the DB-backed idempotent action executor
-// and Cloudflare Queue consumer are implemented and tested. No ack()/sendDM().
-export async function consumeActionBatch(batch) {
+// An executor must be explicitly supplied after it has been migrated and tested.
+// Never acknowledge a message merely because it was received: only acknowledge
+// successful, durably recorded execution (including already-processed actions).
+export async function consumeActionBatch(batch, executeActionJob) {
+  if (!batch || !Array.isArray(batch.messages)) throw new TypeError("Invalid queue batch");
+  const ready = typeof executeActionJob === "function";
+  const results = [];
   for (const message of batch.messages) {
-    message.retry();
+    if (!ready) {
+      message.retry();
+      results.push({ status: "retry", reason: "EXECUTOR_NOT_CONFIGURED" });
+      continue;
+    }
+    try {
+      const job = validateActionJob(message.body);
+      const outcome = await executeActionJob(job);
+      // Executor must explicitly confirm that all actions have been durably
+      // processed or deduplicated. A falsy/ambiguous outcome is not success.
+      if (!outcome || outcome.durable !== true) throw new Error("EXECUTION_NOT_DURABLE");
+      message.ack();
+      results.push({ status: "ack" });
+    } catch (error) {
+      message.retry();
+      results.push({ status: "retry", reason: error?.message || "EXECUTION_FAILED" });
+    }
   }
+  return results;
 }
