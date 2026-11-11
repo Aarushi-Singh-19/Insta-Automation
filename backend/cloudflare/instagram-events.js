@@ -19,6 +19,7 @@ export function extractInstagramEvents(payload) {
       const postId = value.media?.id ?? value.media_id;
       if (!eventId || postId == null || String(postId).trim() === "") continue;
       comments.push({
+        entryId: ownerId,
         eventId,
         postId: String(postId),
         commentText: typeof value.text === "string" ? value.text : "",
