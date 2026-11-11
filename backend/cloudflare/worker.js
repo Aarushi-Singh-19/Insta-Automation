@@ -11,6 +11,7 @@ import { MongoClient } from "mongodb";
 import { persistInstagramInbox } from "./staging-webhook-inbox.js";
 import { verifySessionJwt } from "./session-jwt.js";
 import { listOwnCampaigns } from "./staging-campaigns.js";
+import { planPendingInbox } from "./staging-inbox-planner.js";
 
 const json = (data, status = 200) => Response.json(data, { status });
 
@@ -77,6 +78,20 @@ export default {
       } catch (error) {
         console.error("Staging campaign query failed", error?.name || "Error");
         return json({ error: "Staging campaign service unavailable" }, 503);
+      }
+    }
+    // Operator-only staging planner. No queue, Graph API or DM side effects.
+    if (url.pathname === "/__cloudflare/staging-plan" && request.method === "POST") {
+      if (env?.ENABLE_STAGING_PLANNER !== "true" || !env?.STAGING_PROBE_TOKEN ||
+          request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      try {
+        const result = await planPendingInbox({ env, MongoClient, limit: 10 });
+        return json({ ok: true, ...result });
+      } catch (error) {
+        console.error("Staging planning failed", error?.name || "Error");
+        return json({ error: "Staging planning unavailable" }, 503);
       }
     }
     // Opt-in isolated ingestion test. Not the live Meta callback URL.
