@@ -39,3 +39,9 @@ test("fails closed on unsupported campaign and rule triggers", () => {
   assert.equal(planCommentAutomation({ comment, campaign: { ...campaign, triggerType: "unknown" }, rule }).matched, false);
   assert.equal(planCommentAutomation({ comment, campaign, rule: { ...rule, triggerType: "unsupported" } }).matched, false);
 });
+
+test("matches the production TriggerDM keywords field", () => {
+  const result = planCommentAutomation({ comment, campaign, rule: { ...rule, triggerKeywords: undefined, keywords: ["TEST"] } });
+  assert.equal(result.matched, true);
+  assert.equal(result.plan.actionsNotAuthorized, true);
+});
