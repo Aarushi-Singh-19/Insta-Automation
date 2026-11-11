@@ -5,10 +5,17 @@ export function extractInstagramEvents(payload) {
   if (!payload || payload.object !== "instagram" || !Array.isArray(payload.entry)) {
     throw new TypeError("Invalid Instagram webhook payload");
   }
+  // Bound parser work before traversing untrusted webhook input.
+  if (payload.entry.length > 1000) throw new TypeError("Too many Instagram webhook entries");
   const comments = [];
   const postbacks = [];
   for (const entry of payload.entry) {
     const ownerId = String(entry?.id || "");
+    const changeCount = Array.isArray(entry?.changes) ? entry.changes.length : 0;
+    const messageCount = Array.isArray(entry?.messaging) ? entry.messaging.length : 0;
+    if (changeCount + messageCount > 1000 || comments.length + postbacks.length + changeCount + messageCount > 1000) {
+      throw new TypeError("Too many Instagram webhook events");
+    }
     for (const item of Array.isArray(entry?.changes) ? entry.changes : []) {
       if (item?.field !== "comments") continue;
       const value = item.value;
