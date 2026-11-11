@@ -5,7 +5,7 @@ import { resolveStagingComment } from "./staging-comment-resolver.js";
 const uid = new ObjectId(), rid = new ObjectId(), cid = new ObjectId();
 const comment = { entryId: "123456", postId: "789012" };
 function dbFor({ accounts = [{ _id: new ObjectId(), instagramId: comment.entryId, userId: uid }],
-  campaigns = [{ _id: cid, userId: uid, ruleId: rid, status: "active", triggerType: "specific-post", instagramMediaId: comment.postId }],
+  campaigns = [{ _id: cid, userId: uid, ruleIds: [rid], status: "active", triggerType: "specific-post", instagramMediaId: comment.postId }],
   rule = { _id: rid, userId: uid, isActive: true, triggerType: "keyword", keywords: ["test"] } } = {}) {
   return { collection(name) {
     if (name === "instagramaccounts") return { find(query) {
@@ -15,6 +15,7 @@ function dbFor({ accounts = [{ _id: new ObjectId(), instagramId: comment.entryId
     if (name === "campaigns") return { find(query) {
       assert.equal(String(query.userId), String(uid));
       assert.equal(query.status, "active");
+      assert.equal(query.instagramAccountId, comment.entryId);
       return { project() { return { limit() { return { toArray: async () => campaigns }; } }; } };
     } };
     if (name === "rules") return { async findOne(query) {
@@ -32,7 +33,7 @@ test("resolves a unique account campaign and owned active rule", async () => {
 });
 test("rejects ambiguous accounts or campaigns and missing rule", async () => {
   assert.equal(await resolveStagingComment({ db: dbFor({ accounts: [{ userId: uid }, { userId: uid }] }), comment }), null);
-  assert.equal(await resolveStagingComment({ db: dbFor({ campaigns: [{ ruleId: rid }, { ruleId: rid }] }), comment }), null);
+  assert.equal(await resolveStagingComment({ db: dbFor({ campaigns: [{ ruleIds: [rid] }, { ruleIds: [rid] }] }), comment }), null);
   assert.equal(await resolveStagingComment({ db: dbFor({ rule: null }), comment }), null);
 });
 test("rejects malformed webhook IDs without querying database", async () => {
