@@ -7,7 +7,7 @@ const ALLOWED_ORIGINS = new Set([
 ]);
 const ALLOWED_METHODS = "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS";
 const ALLOWED_HEADERS = "Authorization, Content-Type, X-Requested-With";
-function cors(origin) {
+export function cors(origin) {
   if (!ALLOWED_ORIGINS.has(origin)) return {};
   return { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Credentials": "true",
     "Access-Control-Allow-Methods": ALLOWED_METHODS,
