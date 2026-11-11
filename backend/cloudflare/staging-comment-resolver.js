@@ -22,12 +22,24 @@ export async function resolveStagingComment({ db, comment }) {
   }).project({ _id: 1, userId: 1, ruleIds: 1, status: 1, triggerType: 1, instagramMediaId: 1, postIds: 1 })
     .limit(2).toArray();
   // Never choose arbitrarily among multiple campaigns.
-  if (campaigns.length !== 1 || !Array.isArray(campaigns[0].ruleIds) || campaigns[0].ruleIds.length !== 1 || !ObjectId.isValid(campaigns[0].ruleIds[0])) return null;
+  if (campaigns.length !== 1 || !Array.isArray(campaigns[0].ruleIds) || campaigns[0].ruleIds.length < 1 || !campaigns[0].ruleIds.every(id => ObjectId.isValid(id))) return null;
   const campaign = campaigns[0];
-  const rule = await db.collection("rules").findOne({
-    _id: new ObjectId(String(campaign.ruleIds[0])),
-    userId: new ObjectId(String(account.userId)),
-    isActive: true
-  }, { projection: { _id: 1, userId: 1, isActive: 1, triggerType: 1, triggerKeywords: 1 } });
-  return rule ? { campaign, rule } : null;
+  // Preserve the campaign ruleIds order. If multiple rules match, select the
+  // first, as the existing Render rule engine does. Never select a non-owned rule.
+  const ids = campaign.ruleIds.map(id => new ObjectId(String(id)));
+  const rules = await db.collection("rules").find({
+    _id: { $in: ids }, userId: new ObjectId(String(account.userId)), isActive: true
+  }).project({ _id: 1, userId: 1, isActive: 1, triggerType: 1, triggerKeywords: 1 }).toArray();
+  const byId = new Map(rules.map(rule => [String(rule._id), rule]));
+  const text = String(comment.commentText || "").toLowerCase().trim();
+  for (const id of ids) {
+    const rule = byId.get(String(id));
+    if (!rule) continue;
+    if (rule.triggerType === "any_comment") return { campaign, rule };
+    if (Array.isArray(rule.triggerKeywords) && rule.triggerKeywords.some(keyword => {
+      const value = String(keyword || "").toLowerCase().trim();
+      return value && text.includes(value);
+    })) return { campaign, rule };
+  }
+  return null;
 }
