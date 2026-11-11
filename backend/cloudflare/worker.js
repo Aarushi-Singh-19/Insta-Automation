@@ -38,7 +38,7 @@ export default {
     const nativePath = url.pathname === "/api/auth/login" ||
       url.pathname === "/api/auth/me" ||
       url.pathname === "/api/rules" ||
-      /^\\/api\\/rules\\/[a-f0-9]{24}(?:\\/toggle)?$/i.test(url.pathname);
+      /^\/api\/rules\/[a-f0-9]{24}(?:\/toggle)?$/i.test(url.pathname);
     if (request.method === "OPTIONS" && nativePath) {
       return new Response(null, {
         status: Object.keys(allowedCors).length ? 204 : 403,
@@ -108,7 +108,7 @@ export default {
       }
     }
     // Native staging rule edit, opt-in; never modifies production.
-    if (request.method === "PATCH" && /^\\/api\\/rules\\/[a-f0-9]{24}$/i.test(url.pathname) && env?.ENABLE_NATIVE_STAGING_RULE_UPDATE === "true") {
+    if (request.method === "PATCH" && /^\/api\/rules\/[a-f0-9]{24}$/i.test(url.pathname) && env?.ENABLE_NATIVE_STAGING_RULE_UPDATE === "true") {
       if (!env?.STAGING_JWT_SECRET) return json({ message: "Staging rules unavailable" }, 503);
       const auth = request.headers.get("Authorization") || "";
       if (!auth.startsWith("Bearer ")) return json({ message: "No token provided" }, 401);
@@ -132,7 +132,7 @@ export default {
       }
     }
     // Native atomic rule toggle, staging only and disabled by default.
-    if (request.method === "PATCH" && /^\\/api\\/rules\\/[a-f0-9]{24}\\/toggle$/i.test(url.pathname) && env?.ENABLE_NATIVE_STAGING_RULE_TOGGLE === "true") {
+    if (request.method === "PATCH" && /^\/api\/rules\/[a-f0-9]{24}\/toggle$/i.test(url.pathname) && env?.ENABLE_NATIVE_STAGING_RULE_TOGGLE === "true") {
       if (!env?.STAGING_JWT_SECRET) return json({ message: "Staging rules unavailable" }, 503);
       const auth = request.headers.get("Authorization") || "";
       if (!auth.startsWith("Bearer ")) return json({ message: "No token provided" }, 401);
@@ -148,7 +148,7 @@ export default {
       }
     }
     // Native rule deletion; isolated staging canary, off by default.
-    if (request.method === "DELETE" && /^\\/api\\/rules\\/[a-f0-9]{24}$/i.test(url.pathname) && env?.ENABLE_NATIVE_STAGING_RULE_DELETE === "true") {
+    if (request.method === "DELETE" && /^\/api\/rules\/[a-f0-9]{24}$/i.test(url.pathname) && env?.ENABLE_NATIVE_STAGING_RULE_DELETE === "true") {
       if (!env?.STAGING_JWT_SECRET) return json({ message: "Staging rules unavailable" }, 503);
       const auth = request.headers.get("Authorization") || "";
       if (!auth.startsWith("Bearer ")) return json({ message: "No token provided" }, 401);
