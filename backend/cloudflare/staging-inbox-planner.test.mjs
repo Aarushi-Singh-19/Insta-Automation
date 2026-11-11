@@ -32,7 +32,7 @@ test("atomically claims comment, persists plan, never executes Instagram action"
   }
   const result = await planPendingInbox({ env, MongoClient: Client, resolveCampaignAndRule: async () => ({
     campaign: { _id: "campaign", status: "active", triggerType: "specific-post", instagramMediaId: "456" },
-    rule: { _id: "rule", isActive: true, triggerType: "keyword", keywords: ["test"] }
+    rule: { _id: "rule", isActive: true, triggerType: "keyword", triggerKeywords: ["test"] }
   }) });
   assert.equal(result.processed, 1);
   assert.deepEqual(calls, [
