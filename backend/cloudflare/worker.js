@@ -317,6 +317,11 @@ export default {
         const result = await persistInstagramInbox({ env, MongoClient, events });
         return json({ ok: true, received: result.received, inserted: result.inserted });
       } catch (error) {
+        // Malformed input is not a database outage. Return a client error while
+        // keeping credentials, payloads and database internals out of responses.
+        if (["INVALID_EVENTS", "TOO_MANY_EVENTS", "INVALID_COMMENT_ID", "INVALID_COMMENT_SOURCE"].includes(error?.message)) {
+          return json({ error: "Invalid Instagram events" }, 400);
+        }
         console.error("Staging inbox write failed", error?.name || "Error");
         return json({ error: "Durable staging storage unavailable" }, 503);
       }
