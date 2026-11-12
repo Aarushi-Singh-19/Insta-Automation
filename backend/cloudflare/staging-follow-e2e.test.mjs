@@ -70,7 +70,7 @@ test("Follow Gate prompts once, waits for verified session, then resumes content
   }
   const env = { MONGODB_STAGING_DB: "triggerdm_staging",
     MONGODB_STAGING_URI: "mongodb://localhost:27017/triggerdm_staging",
-    ENABLE_STAGING_INSTAGRAM_SEND: "true" };
+    ENABLE_STAGING_INSTAGRAM_SEND: "true", STAGING_SEND_INSTAGRAM_BUSINESS_ID: "123" };
   const fetchImpl = async (url, options) => {
     if (url.endsWith("/replies")) { calls.push("reply"); return { ok: true, json: async () => ({ id: "reply-id" }) }; }
     const payload = JSON.parse(options.body);
