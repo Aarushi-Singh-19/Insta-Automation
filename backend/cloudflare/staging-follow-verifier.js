@@ -1,5 +1,6 @@
 // Verify a staging Follow Gate postback against Meta before unlocking.
 // No outgoing messages. Never trust a postback's claimed follow status.
+import { ObjectId } from "mongodb";
 import { validateStagingMongoConfig } from "./staging-mongodb.js";
 import { getInstagramFollowerStatus } from "./instagram-graph.js";
 import { confirmFollowGate } from "./follow-gate-state.js";
@@ -29,8 +30,9 @@ export async function verifyStagingFollowPostback({
       inboxId: "comment:" + accountId + ":" + match[2]
     });
     if (!session) return { unlocked: false, reason: "SESSION_NOT_WAITING" };
+    if (!/^[a-f0-9]{24}$/i.test(String(session.userId || ""))) return { unlocked: false, reason: "INVALID_SESSION_OWNER" };
     const account = await db.collection("instagramaccounts").findOne({
-      instagramBusinessId: accountId, userId: session.userId, status: "active"
+      instagramBusinessId: accountId, userId: new ObjectId(String(session.userId)), status: "active"
     });
     if (!account?.accessToken) return { unlocked: false, reason: "ACCOUNT_UNAVAILABLE" };
     let follower;
