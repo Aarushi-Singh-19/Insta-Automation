@@ -149,6 +149,77 @@ export default {
         }
       });
     }
+    // Operator-only matched-event pipeline smoke test using an isolated synthetic
+    // campaign/rule. It never creates a dispatchable authorization or calls Meta.
+    if (request.method === "POST" && url.pathname === "/__cloudflare/staging-matched-pipeline-smoke-test") {
+      if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      if (env?.ENABLE_STAGING_INSTAGRAM_SEND === "true" || env?.ENABLE_STAGING_BACKGROUND_SEND === "true") {
+        return json({ ok: false, error: "SEND_MUST_BE_DISABLED" }, 409);
+      }
+      let client;
+      try {
+        const { uri, dbName } = validateStagingMongoConfig(env);
+        client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+        await client.connect();
+        const db = client.db(dbName);
+        const comment = { eventId: "99999999999999231", entryId: "99999999999999232",
+          postId: "99999999999999233", commentText: "guide please", username: "synthetic_test",
+          recipientId: "99999999999999234" };
+        const campaign = { _id: "aaaaaaaaaaaaaaaaaaaaaa31", status: "active",
+          triggerType: "specific-post", instagramMediaId: comment.postId,
+          settings: { enableReply: true, enableDM: true, dmMessage: "Synthetic guide DM" },
+          gate: { gateType: "NONE", status: "disabled" } };
+        const rule = { _id: "bbbbbbbbbbbbbbbbbbbbbb31", isActive: true,
+          triggerType: "keyword", triggerKeywords: ["guide"], replies: ["Check your DM"] };
+        const matched = planCommentAutomation({ comment, campaign, rule });
+        const spec = buildCommentActionSpec({ comment, campaign, rule });
+        if (!matched.matched || !spec.ready || spec.spec.authorized !== false) {
+          return json({ ok: false, error: "PLANNING_VALIDATION_FAILED" }, 503);
+        }
+        const stored = await persistInstagramInbox({ env, MongoClient,
+          events: { comments: [comment], postbacks: [] } });
+        const key = "comment:" + comment.entryId + ":" + comment.eventId;
+        const plans = db.collection("cloudflare_staging_action_plans");
+        const outbox = db.collection("cloudflare_staging_action_outbox");
+        await plans.updateOne({ _id: key }, { $setOnInsert: {
+          plan: matched.plan, status: "awaiting_authorization", createdAt: new Date()
+        } }, { upsert: true });
+        const planDoc = await plans.findOne({ _id: key });
+        if (planDoc?.plan?.actionsNotAuthorized !== true ||
+            planDoc?.plan?.requiresSubscriptionAndQuotaCheck !== true) {
+          return json({ ok: false, error: "PLAN_NOT_SAFE" }, 503);
+        }
+        await outbox.updateOne({ _id: key }, { $setOnInsert: {
+          plan: { eventId: matched.plan.eventId, postId: matched.plan.postId,
+            campaignId: matched.plan.campaignId, ruleId: matched.plan.ruleId },
+          status: "awaiting_authorization", authorized: false, dispatched: false,
+          createdAt: new Date()
+        } }, { upsert: true });
+        await db.collection("cloudflare_staging_webhook_inbox").updateOne(
+          { _id: key, status: "pending" },
+          { $set: { status: "planned", outcome: "REQUIRES_AUTHORIZATION",
+            updatedAt: new Date() } }
+        );
+        const [inboxDoc, outboxDoc] = await Promise.all([
+          db.collection("cloudflare_staging_webhook_inbox").findOne({ _id: key }),
+          outbox.findOne({ _id: key })
+        ]);
+        const checks = { matchingComment: matched.matched, replyPrepared: !!spec.spec.reply,
+          dmPrepared: !!spec.spec.dm, inboxPersisted: !!inboxDoc,
+          planPersisted: !!planDoc, outboxPrepared: !!outboxDoc,
+          authorizationBlocked: outboxDoc?.authorized === false && outboxDoc?.dispatched === false,
+          inboxPlanned: inboxDoc?.status === "planned" };
+        return json({ ok: Object.values(checks).every(Boolean), database: dbName,
+          checks, inboxStatus: inboxDoc?.status, outboxStatus: outboxDoc?.status,
+          realWebhookTested: false, realInstagramMessagesSent: false },
+          Object.values(checks).every(Boolean) ? 200 : 503);
+      } catch (error) {
+        console.error("Matched staging pipeline smoke test failed", error?.name || "Error");
+        return json({ ok: false, error: "MATCHED_PIPELINE_TEST_FAILED" }, 503);
+      } finally { if (client) await client.close(); }
+    }
     // Isolated synthetic inbox planning check: touches only the fixed test event.
     // Never drains unrelated pending events or creates executable actions.
     if (request.method === "POST" && url.pathname === "/__cloudflare/staging-inbox-process-smoke-test") {
