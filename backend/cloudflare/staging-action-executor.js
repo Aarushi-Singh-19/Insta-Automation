@@ -3,6 +3,7 @@
 // never retried blindly. Production callbacks are NOT routed here.
 import { ObjectId } from "mongodb";
 import { verifiedQuotaState } from "./quota-reconciliation.js";
+import { verifiedFollowGateRelease } from "./follow-gate-release.js";
 import { validateStagingMongoConfig } from "./staging-mongodb.js";
 import { authorizeCommentActions } from "./automation-authorization.js";
 import { buildCommentActionSpec } from "./comment-action-spec.js";
@@ -68,7 +69,19 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, limit
             String(inbox.event.commentText || "").toLowerCase().includes(k.trim().toLowerCase())));
       if (!keyword) { summary.blocked++; continue; }
       const action = buildCommentActionSpec({ comment: inbox.event, campaign, rule });
-      if (!action.ready || action.spec.followGateRequired) { summary.blocked++; continue; }
+      if (!action.ready) { summary.blocked++; continue; }
+      let followGateVerified = false;
+      if (action.spec.followGateRequired) {
+        const session = await db.collection("cloudflare_staging_follow_gate_sessions").findOne({
+          _id: "follow:" + String(item._id), status: "VERIFIED"
+        });
+        const release = verifiedFollowGateRelease({
+          session, inboxId: item._id, campaignId: campaign._id, userId: user._id,
+          recipientId: inbox.event.recipientId, commentId: plan.eventId
+        });
+        if (!release.allowed) { summary.blocked++; continue; }
+        followGateVerified = true;
+      }
       const period = usagePeriod(user, now);
       if (!period && action.spec.dm) { summary.blocked++; continue; }
       const quotaId = period ? String(user._id) + ":" + period.key : null;
@@ -76,7 +89,7 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, limit
       const verified = action.spec.dm ? verifiedQuotaState(counter, period, user._id) : null;
       if (action.spec.dm && !verified) { summary.blocked++; continue; }
       const usage = { period: period?.period || "billing", sent: verified?.sent ?? 0 };
-      const authorization = authorizeCommentActions({ user, campaign, rule, account, usage, now });
+      const authorization = authorizeCommentActions({ user, campaign, rule, account, usage, followGateVerified, now });
       if (!authorization.authorized) { summary.blocked++; continue; }
       // Atomically claim this outbox row before any provider call. Two Worker
       // invocations must never concurrently send actions for the same comment.
