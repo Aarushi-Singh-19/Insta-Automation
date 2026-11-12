@@ -60,6 +60,12 @@ async function relayStagingWebhook(req) {
   const expected = "sha256=" + crypto.createHmac("sha256", process.env.META_APP_SECRET).update(raw || "").digest("hex");
   if (!raw || supplied.length !== expected.length ||
       !crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) {
+    // Diagnostic metadata only; never log raw payload, signature or app secret.
+    console.error("STAGING_RELAY_SIGNATURE_REJECTED", {
+      rawBodyPresent: Buffer.isBuffer(raw),
+      signatureHeaderPresent: Boolean(supplied),
+      signatureFormatValid: /^sha256=[a-f0-9]{64}$/i.test(supplied)
+    });
     const error = new Error("INVALID_META_SIGNATURE");
     error.status = 403;
     throw error;
