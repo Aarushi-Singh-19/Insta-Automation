@@ -15,8 +15,8 @@ function dbFor({ accounts = [{ _id: new ObjectId(), instagramBusinessId: comment
     if (name === "campaigns") return { find(query) {
       assert.equal(String(query.userId), String(uid));
       assert.equal(query.status, "active");
-      assert.equal(query.instagramAccountId, comment.entryId);
-      assert.deepEqual(query.$or, [
+      assert.deepEqual(query.$or, [{ instagramAccountId: comment.entryId }, { instagramAccountId: { $exists: false } }, { instagramAccountId: null }]);
+      assert.deepEqual(query.$and[0].$or, [
         { triggerType: "any-post" },
         { triggerType: "specific-post", instagramMediaId: comment.postId },
         { triggerType: "specific-post", postIds: comment.postId }
