@@ -1,6 +1,6 @@
 // Pure staging automation authorization. Must run immediately before any
 // Graph API side effect; never infer eligibility from the existence of a plan.
-export function authorizeCommentActions({ user, campaign, rule, account, usage, now = new Date() }) {
+export function authorizeCommentActions({ user, campaign, rule, account, usage, followGateVerified = false, now = new Date() }) {
   if (!user || !campaign || !rule || !account || !usage) return { authorized: false, reason: "MISSING_CONTEXT" };
   if (account.status !== "active" || campaign.status !== "active" || rule.isActive !== true) {
     return { authorized: false, reason: "INACTIVE_AUTOMATION" };
@@ -18,7 +18,7 @@ export function authorizeCommentActions({ user, campaign, rule, account, usage, 
     return { authorized: false, reason: "USAGE_UNVERIFIED" };
   }
   if (usage.sent >= limit) return { authorized: false, reason: "DM_QUOTA_EXHAUSTED" };
-  if (campaign.gate?.gateType === "FOLLOW" && campaign.gate?.status === "enabled") {
+  if (campaign.gate?.gateType === "FOLLOW" && campaign.gate?.status === "enabled" && followGateVerified !== true) {
     return { authorized: false, reason: "FOLLOW_GATE_REQUIRED" };
   }
   return { authorized: true, remainingBeforeSend: limit - usage.sent,
