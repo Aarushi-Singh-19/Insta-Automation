@@ -48,17 +48,28 @@ async function relayStagingWebhook(req) {
   if (process.env.ENABLE_CLOUDFLARE_STAGING_EXCLUSIVE_RELAY !== "true") return null;
   if (!/^\d+$/.test(accountId) || !process.env.CLOUDFLARE_STAGING_RELAY_TOKEN ||
       !process.env.META_APP_SECRET) throw new Error("STAGING_RELAY_CONFIG_REQUIRED");
+  // Meta webhook entry.id is the Instagram webhook owner ID, which can differ
+  // from the account identifier used by other Instagram API endpoints.
+  // Never require a staging signature for events belonging to other accounts.
+  const webhookEntryId = String(process.env.CLOUDFLARE_STAGING_RELAY_WEBHOOK_ENTRY_ID || accountId);
+  if (!/^\d+$/.test(webhookEntryId)) throw new Error("STAGING_RELAY_WEBHOOK_ID_REQUIRED");
+  const hasStagingEvent = (req.body?.entry || []).some(entry => String(entry.id) === webhookEntryId);
+  if (!hasStagingEvent) return null;
   const raw = req.instagramWebhookRawBody;
   const supplied = req.get("x-hub-signature-256") || "";
   const expected = "sha256=" + crypto.createHmac("sha256", process.env.META_APP_SECRET).update(raw || "").digest("hex");
   if (!raw || supplied.length !== expected.length ||
       !crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) {
+    // Diagnostic metadata only; never log raw payload, signature or app secret.
+    console.error("STAGING_RELAY_SIGNATURE_REJECTED", {
+      rawBodyPresent: Buffer.isBuffer(raw),
+      signatureHeaderPresent: Boolean(supplied),
+      signatureFormatValid: /^sha256=[a-f0-9]{64}$/i.test(supplied)
+    });
     const error = new Error("INVALID_META_SIGNATURE");
     error.status = 403;
     throw error;
   }
-  const hasStagingEvent = (req.body?.entry || []).some(entry => String(entry.id) === accountId);
-  if (!hasStagingEvent) return null;
   const destination = "https://triggerdm-backend-staging.aarushisingh19102005-ecc.workers.dev/__cloudflare/staging-ingest";
   const response = await fetch(destination, {
     method: "POST",
@@ -71,7 +82,7 @@ async function relayStagingWebhook(req) {
     signal: AbortSignal.timeout(8000)
   });
   if (!response.ok) throw new Error("STAGING_RELAY_UNAVAILABLE");
-  return accountId;
+  return webhookEntryId;
 }
 
 const receiveWebhook = async (req, res) => {
