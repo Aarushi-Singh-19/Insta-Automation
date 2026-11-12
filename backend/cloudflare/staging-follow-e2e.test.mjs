@@ -84,7 +84,8 @@ test("Follow Gate prompts once, waits for verified session, then resumes content
     }
     return { ok: true, json: async () => ({ message_id: "dm-id" }) };
   };
-  const args = { env, MongoClient, fetchImpl, now };
+  const args = { env, MongoClient, fetchImpl, now,
+    getFollower: async () => ({ followsBusiness: false }) };
   const first = await executeStagingActions(args);
   assert.equal(first.completed, 1);
   assert.equal(outbox.status, "awaiting_follow");
