@@ -148,6 +148,46 @@ export default {
         }
       });
     }
+    // Operator-only synthetic durable-ingress test. Fixed synthetic identifiers
+    // cannot match a real Instagram account; never invokes Meta or sends messages.
+    if (request.method === "POST" && url.pathname === "/__cloudflare/staging-inbox-smoke-test") {
+      if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      if (env?.ENABLE_STAGING_INSTAGRAM_SEND === "true" || env?.ENABLE_STAGING_BACKGROUND_SEND === "true") {
+        return json({ ok: false, error: "SEND_MUST_BE_DISABLED" }, 409);
+      }
+      try {
+        const eventId = "99999999999999123";
+        const entryId = "99999999999999124";
+        const event = { comments: [{ eventId, entryId, postId: "99999999999999125",
+          commentText: "synthetic staging smoke test", username: "synthetic_test",
+          recipientId: "99999999999999126" }], postbacks: [] };
+        const first = await persistInstagramInbox({ env, MongoClient, events: event });
+        const second = await persistInstagramInbox({ env, MongoClient, events: event });
+        const { uri, dbName } = validateStagingMongoConfig(env);
+        const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+        let saved;
+        try {
+          await client.connect();
+          saved = await client.db(dbName).collection("cloudflare_staging_webhook_inbox").findOne(
+            { _id: "comment:" + entryId + ":" + eventId },
+            { projection: { _id: 1, kind: 1, status: 1 } }
+          );
+        } finally { await client.close(); }
+        const checks = { persisted: saved?.kind === "comment",
+          duplicateRejected: second.inserted === 0,
+          inboxRecordPresent: Boolean(saved?._id),
+          sendDisabled: true };
+        return json({ ok: Object.values(checks).every(Boolean), database: dbName,
+          checks, inboxStatus: saved?.status || null, firstInsert: first.inserted,
+          secondInsert: second.inserted, realWebhookTested: false,
+          realInstagramMessagesSent: false }, Object.values(checks).every(Boolean) ? 200 : 503);
+      } catch (error) {
+        console.error("Synthetic staging inbox smoke test failed", error?.name || "Error");
+        return json({ ok: false, error: "STAGING_INBOX_SMOKE_TEST_FAILED" }, 503);
+      }
+    }
     // Operator-only staging ingress diagnostics; aggregate counts only, no user data.
     if (request.method === "GET" && url.pathname === "/__cloudflare/staging-inbox-status") {
       if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
