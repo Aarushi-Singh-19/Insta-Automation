@@ -40,6 +40,40 @@ const verifyWebhook = (req, res) => {
 // ===============================
 // MAIN WEBHOOK HANDLER (FIXED SAFE VERSION)
 // ===============================
+// Opt-in exclusive staging ownership. Off by default and never silently
+// duplicates a production event. Meta's original signed bytes are forwarded.
+const crypto = require("node:crypto");
+async function relayStagingWebhook(req) {
+  const accountId = String(process.env.CLOUDFLARE_STAGING_RELAY_ACCOUNT_ID || "");
+  if (process.env.ENABLE_CLOUDFLARE_STAGING_EXCLUSIVE_RELAY !== "true") return null;
+  if (!/^\d+$/.test(accountId) || !process.env.CLOUDFLARE_STAGING_RELAY_TOKEN ||
+      !process.env.META_APP_SECRET) throw new Error("STAGING_RELAY_CONFIG_REQUIRED");
+  const raw = req.instagramWebhookRawBody;
+  const supplied = req.get("x-hub-signature-256") || "";
+  const expected = "sha256=" + crypto.createHmac("sha256", process.env.META_APP_SECRET).update(raw || "").digest("hex");
+  if (!raw || supplied.length !== expected.length ||
+      !crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) {
+    const error = new Error("INVALID_META_SIGNATURE");
+    error.status = 403;
+    throw error;
+  }
+  const hasStagingEvent = (req.body?.entry || []).some(entry => String(entry.id) === accountId);
+  if (!hasStagingEvent) return null;
+  const destination = "https://triggerdm-backend-staging.aarushisingh19102005-ecc.workers.dev/__cloudflare/staging-ingest";
+  const response = await fetch(destination, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-hub-signature-256": supplied,
+      "authorization": "Bearer " + process.env.CLOUDFLARE_STAGING_RELAY_TOKEN
+    },
+    body: raw,
+    signal: AbortSignal.timeout(8000)
+  });
+  if (!response.ok) throw new Error("STAGING_RELAY_UNAVAILABLE");
+  return accountId;
+}
+
 const receiveWebhook = async (req, res) => {
   try {
     console.log("========================================");
@@ -52,6 +86,9 @@ const receiveWebhook = async (req, res) => {
     );
 
     const body = req.body;
+    // Cloudflare owns only the explicitly selected staging account once its
+    // durable inbox acknowledges the event. All other accounts stay on Render.
+    const stagingOwner = await relayStagingWebhook(req);
 
     // ==========================================
     // INSTAGRAM MESSAGING / POSTBACK DEBUG
@@ -98,6 +135,7 @@ const receiveWebhook = async (req, res) => {
     const entries = req.body.entry || [];
 
     for (const entry of entries) {
+      if (stagingOwner && String(entry.id) === stagingOwner) continue;
       const changes = entry.changes || [];
 
       for (const changeObj of changes) {
@@ -180,7 +218,7 @@ const receiveWebhook = async (req, res) => {
       error
     );
 
-    return res.sendStatus(500);
+    return res.sendStatus(error.status || 503);
   }
 };
 
