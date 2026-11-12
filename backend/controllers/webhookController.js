@@ -61,10 +61,17 @@ async function relayStagingWebhook(req) {
   if (!raw || supplied.length !== expected.length ||
       !crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) {
     // Diagnostic metadata only; never log raw payload, signature or app secret.
+    const matchesConfiguredSecret = (secret) => {
+      if (!secret || !raw || !/^sha256=[a-f0-9]{64}$/i.test(supplied)) return false;
+      const candidate = "sha256=" + crypto.createHmac("sha256", secret).update(raw).digest("hex");
+      return crypto.timingSafeEqual(Buffer.from(supplied.toLowerCase()), Buffer.from(candidate));
+    };
     console.error("STAGING_RELAY_SIGNATURE_REJECTED", {
       rawBodyPresent: Buffer.isBuffer(raw),
       signatureHeaderPresent: Boolean(supplied),
-      signatureFormatValid: /^sha256=[a-f0-9]{64}$/i.test(supplied)
+      signatureFormatValid: /^sha256=[a-f0-9]{64}$/i.test(supplied),
+      metaSecretMatches: matchesConfiguredSecret(process.env.META_APP_SECRET),
+      instagramSecretMatches: matchesConfiguredSecret(process.env.INSTAGRAM_APP_SECRET)
     });
     const error = new Error("INVALID_META_SIGNATURE");
     error.status = 403;
