@@ -44,8 +44,15 @@ test("Follow Gate prompts once, waits for verified session, then resumes content
     cloudflare_staging_dm_quotas: {
       async findOne() { return { ...quota }; },
       async updateOne(filter, update) {
+        // Mirror the two MongoDB operations used by the executor:
+        // upsert an initial quota, then atomically reserve one DM.
+        if (update.$setOnInsert) return { matchedCount: 1, modifiedCount: 0 };
+        if (!update.$inc || !Number.isInteger(update.$inc.reserved)) {
+          throw new Error("UNEXPECTED_QUOTA_UPDATE");
+        }
         if (filter.reserved?.$lte < quota.reserved) return { modifiedCount: 0 };
-        quota.reserved += update.$inc.reserved; return { modifiedCount: 1 };
+        quota.reserved += update.$inc.reserved;
+        return { modifiedCount: 1 };
       }
     },
     cloudflare_staging_webhook_inbox: { async findOne() { return { _id: itemId, status: "planned", event }; } },
