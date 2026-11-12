@@ -21,7 +21,7 @@ test("runs planning before preparation without executing Graph sends", async () 
     order.push("plan"); return { processed: 3 };
   }, prepare: async () => { order.push("prepare"); return { prepared: 2 }; } });
   assert.deepEqual(order, ["plan", "prepare"]);
-  assert.deepEqual(result, { planned: 3, prepared: 2, instagramMessagesSent: false });
+  assert.deepEqual(result, { planned: 3, prepared: 2, reconciliation: { skipped: "disabled" }, instagramMessagesSent: false });
 });
 test("planner failure stops preparation", async () => {
   let prepared = false;
