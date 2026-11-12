@@ -19,10 +19,15 @@ export async function drainStagingInbox({ env, MongoClient, plan = planPendingIn
   const planned = await plan({ env, MongoClient, limit: 10 });
   const prepared = await prepare({ env, MongoClient, limit: 10 });
   // Explicit opt-in only. No automatic Graph sends during migration validation.
+  // The same Instagram account may still be handled by production Render.
+  // Never automatically send without an explicit operator confirmation that
+  // the staging event stream has exclusive sending ownership.
   const execution = env?.ENABLE_STAGING_BACKGROUND_SEND === "true"
-    ? (env?.ENABLE_STAGING_INSTAGRAM_SEND === "true"
+    ? (env?.ENABLE_STAGING_INSTAGRAM_SEND === "true" &&
+       env?.ENABLE_STAGING_EXCLUSIVE_SEND_OWNERSHIP === "true" &&
+       /^\d+$/.test(String(env?.STAGING_SEND_INSTAGRAM_BUSINESS_ID || ""))
       ? await execute({ env, MongoClient, fetchImpl, limit: 5 })
-      : (() => { throw new Error("STAGING_SEND_FLAG_REQUIRED"); })())
+      : (() => { throw new Error("STAGING_EXCLUSIVE_SEND_OWNERSHIP_REQUIRED"); })())
     : { skipped: "disabled" };
   return { planned: planned.processed, prepared: prepared.prepared, reconciliation, postbacks,
     execution, instagramMessagesSent: execution.skipped === "disabled" ? false : "requires-provider-verification" };
