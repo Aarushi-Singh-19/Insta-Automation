@@ -616,7 +616,7 @@ export default {
             instagramSend: env?.ENABLE_STAGING_INSTAGRAM_SEND === "true",
             backgroundSend: env?.ENABLE_STAGING_BACKGROUND_SEND === "true",
             exclusiveOwnership: env?.ENABLE_STAGING_EXCLUSIVE_SEND_OWNERSHIP === "true",
-            sendAccountConfigured: /^\\d+$/.test(String(env?.STAGING_SEND_INSTAGRAM_BUSINESS_ID || "")),
+            sendAccountConfigured: /^\d+$/.test(String(env?.STAGING_SEND_INSTAGRAM_BUSINESS_ID || "")),
             cutoffValid: typeof env?.STAGING_AUTOMATIC_SEND_NOT_BEFORE === "string" &&
               Number.isFinite(Date.parse(env.STAGING_AUTOMATIC_SEND_NOT_BEFORE))
           };
