@@ -21,11 +21,33 @@ test("runs planning before preparation without executing Graph sends", async () 
     order.push("plan"); return { processed: 3 };
   }, prepare: async () => { order.push("prepare"); return { prepared: 2 }; } });
   assert.deepEqual(order, ["plan", "prepare"]);
-  assert.deepEqual(result, { planned: 3, prepared: 2, reconciliation: { skipped: "disabled" }, postbacks: { skipped: "disabled" }, instagramMessagesSent: false });
+  assert.deepEqual(result, { planned: 3, prepared: 2, reconciliation: { skipped: "disabled" }, postbacks: { skipped: "disabled" }, execution: { skipped: "disabled" }, instagramMessagesSent: false });
 });
 test("planner failure stops preparation", async () => {
   let prepared = false;
   await assert.rejects(drainStagingInbox({ env: base, plan: async () => { throw new Error("DB_DOWN"); },
     prepare: async () => { prepared = true; } }), /DB_DOWN/);
   assert.equal(prepared, false);
+});
+
+test("background executor requires both independent send flags", async () => {
+  const order = [];
+  const plan = async () => { order.push("plan"); return { processed: 0 }; };
+  const prepare = async () => { order.push("prepare"); return { prepared: 0 }; };
+  await assert.rejects(drainStagingInbox({
+    env: { ...base, ENABLE_STAGING_BACKGROUND_SEND: "true" },
+    plan, prepare
+  }), /STAGING_SEND_FLAG_REQUIRED/);
+  assert.deepEqual(order, ["plan", "prepare"]);
+});
+test("explicitly enabled background execution runs after planning", async () => {
+  const order = [];
+  const result = await drainStagingInbox({
+    env: { ...base, ENABLE_STAGING_BACKGROUND_SEND: "true", ENABLE_STAGING_INSTAGRAM_SEND: "true" },
+    plan: async () => { order.push("plan"); return { processed: 1 }; },
+    prepare: async () => { order.push("prepare"); return { prepared: 1 }; },
+    execute: async () => { order.push("execute"); return { inspected: 1, completed: 1 }; }
+  });
+  assert.deepEqual(order, ["plan", "prepare", "execute"]);
+  assert.equal(result.execution.completed, 1);
 });
