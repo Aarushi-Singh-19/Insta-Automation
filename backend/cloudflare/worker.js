@@ -600,7 +600,39 @@ export default {
             inbox.countDocuments({ status: "needs_review" }),
             plans.countDocuments({ status: "awaiting_authorization" })
           ]);
-          return json({ ok: true, database: dbName, inbox: { pending, planning, planned, ignored, needsReview }, plans: { awaitingAuthorization }, instagramMessagesSent: false });
+          const outbox = db.collection("cloudflare_staging_action_outbox");
+          const [awaitingExecution, awaitingFollow, executionReview, sent] = await Promise.all([
+            outbox.countDocuments({ status: "awaiting_authorization" }),
+            outbox.countDocuments({ status: "awaiting_follow" }),
+            outbox.countDocuments({ status: "needs_review" }),
+            outbox.countDocuments({ status: { $in: ["completed", "sent"] } })
+          ]);
+          const flags = {
+            background: env?.ENABLE_STAGING_BACKGROUND === "true",
+            planner: env?.ENABLE_STAGING_PLANNER === "true",
+            preparation: env?.ENABLE_STAGING_ACTION_PREPARATION === "true",
+            followPostbacks: env?.ENABLE_STAGING_FOLLOW_POSTBACK_PROCESSOR === "true",
+            followVerification: env?.ENABLE_STAGING_FOLLOW_VERIFICATION === "true",
+            instagramSend: env?.ENABLE_STAGING_INSTAGRAM_SEND === "true",
+            backgroundSend: env?.ENABLE_STAGING_BACKGROUND_SEND === "true",
+            exclusiveOwnership: env?.ENABLE_STAGING_EXCLUSIVE_SEND_OWNERSHIP === "true",
+            sendAccountConfigured: /^\\d+$/.test(String(env?.STAGING_SEND_INSTAGRAM_BUSINESS_ID || "")),
+            cutoffValid: typeof env?.STAGING_AUTOMATIC_SEND_NOT_BEFORE === "string" &&
+              Number.isFinite(Date.parse(env.STAGING_AUTOMATIC_SEND_NOT_BEFORE))
+          };
+          const blockers = [
+            ...(!flags.background ? ["BACKGROUND_DISABLED"] : []),
+            ...(!flags.planner ? ["PLANNER_DISABLED"] : []),
+            ...(!flags.preparation ? ["PREPARATION_DISABLED"] : []),
+            ...(!flags.instagramSend ? ["INSTAGRAM_SEND_DISABLED"] : []),
+            ...(!flags.backgroundSend ? ["BACKGROUND_SEND_DISABLED"] : []),
+            ...(!flags.exclusiveOwnership ? ["EXCLUSIVE_OWNERSHIP_DISABLED"] : []),
+            ...(!flags.sendAccountConfigured ? ["SEND_ACCOUNT_MISSING"] : []),
+            ...(!flags.cutoffValid ? ["SEND_CUTOFF_INVALID"] : [])
+          ];
+          return json({ ok: true, database: dbName, inbox: { pending, planning, planned, ignored, needsReview },
+            plans: { awaitingAuthorization }, outbox: { awaitingExecution, awaitingFollow, executionReview, sent },
+            flags, blockers, instagramMessagesSent: false });
         } finally { await client.close(); }
       } catch (error) {
         console.error("Staging inbox diagnostic failed", error?.name || "Error");
