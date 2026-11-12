@@ -13,7 +13,7 @@ export async function resolveStagingComment({ db, comment }) {
   const campaigns = await db.collection("campaigns").find({
     userId: new ObjectId(String(account.userId)),
     status: "active",
-    $or: [{ instagramAccountId: String(comment.entryId) }, { instagramAccountId: { $exists: false } }, { instagramAccountId: null }],
+    $or: [{ instagramAccountId: String(comment.entryId) }, { instagramAccountId: "" }, { instagramAccountId: { $exists: false } }, { instagramAccountId: null }],
     $and: [{ $or: [
       { triggerType: "any-post" },
       { triggerType: "specific-post", instagramMediaId: String(comment.postId) },
