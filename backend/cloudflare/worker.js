@@ -151,6 +151,57 @@ export default {
         }
       });
     }
+    // Operator-authorized one-comment import from the actual Instagram Graph API.
+    // Does not send; preserves production webhook and fails closed on duplicates.
+    if (request.method === "POST" && url.pathname === "/__cloudflare/staging-import-real-comment") {
+      if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      if (env?.ENABLE_STAGING_INSTAGRAM_SEND === "true") {
+        return json({ ok: false, error: "DISABLE_SEND_BEFORE_IMPORT" }, 409);
+      }
+      let client;
+      try {
+        const body = await request.json();
+        const commentId = String(body?.commentId || "");
+        if (!/^\d{8,30}$/.test(commentId)) return json({ error: "INVALID_COMMENT_ID" }, 400);
+        const { uri, dbName } = validateStagingMongoConfig(env);
+        client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+        await client.connect();
+        const db = client.db(dbName);
+        const accounts = await db.collection("instagramaccounts").find({ status: "active" })
+          .project({ instagramBusinessId: 1, userId: 1, accessToken: 1 }).limit(2).toArray();
+        if (accounts.length !== 1 || !accounts[0].accessToken) {
+          return json({ ok: false, error: "REQUIRES_ONE_ACTIVE_ACCOUNT" }, 409);
+        }
+        const account = accounts[0];
+        const graph = await fetch("https://graph.instagram.com/v25.0/" + commentId +
+          "?fields=id,text,timestamp,from{id,username},media{id}", {
+          headers: { Authorization: "Bearer " + account.accessToken }
+        });
+        if (!graph.ok) return json({ ok: false, error: "GRAPH_COMMENT_FETCH_FAILED", graphStatus: graph.status }, 502);
+        const comment = await graph.json();
+        if (String(comment?.id) !== commentId || !/^\d+$/.test(String(comment?.media?.id || "")) ||
+            String(comment?.from?.id || "") === String(account.instagramBusinessId)) {
+          return json({ ok: false, error: "INVALID_OR_OWN_COMMENT" }, 409);
+        }
+        const event = { entryId: String(account.instagramBusinessId), eventId: commentId,
+          postId: String(comment.media.id), commentText: String(comment.text || ""),
+          username: String(comment.from?.username || "unknown"),
+          recipientId: comment.from?.id ? String(comment.from.id) : null,
+          commentTimestamp: comment.timestamp || null };
+        const match = await resolveStagingComment({ db, comment: event });
+        if (!match) return json({ ok: false, error: "NO_UNAMBIGUOUS_STAGING_RULE_MATCH" }, 409);
+        const stored = await persistInstagramInbox({ env, MongoClient,
+          events: { comments: [event], postbacks: [] } });
+        return json({ ok: true, source: "verified-instagram-graph", commentId,
+          matched: true, inserted: stored.inserted === 1, duplicate: stored.inserted === 0,
+          inboxStatus: "pending", instagramMessagesSent: false });
+      } catch (error) {
+        console.error("Staging real comment import failed", error?.name || "Error");
+        return json({ ok: false, error: "REAL_COMMENT_IMPORT_FAILED" }, 503);
+      } finally { if (client) await client.close(); }
+    }
     // Retrieve real recent comments from Instagram directly without changing
     // production webhook routing. Read-only, staging account and post only.
     if (request.method === "GET" && url.pathname === "/__cloudflare/staging-real-comments") {
