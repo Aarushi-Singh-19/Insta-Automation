@@ -49,7 +49,7 @@ export default {
     });
     // Browser preflight must succeed at the Worker without relying on Render.
     // This grants no API access; the actual request still requires JWT and flags.
-    const nativePath = /^\\/(?:api\\/)?automations\\/[a-f0-9]{24}$/i.test(url.pathname) || ["/automations", "/api/automations", "/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/me" ||
+    const nativePath = /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname) || ["/automations", "/api/automations", "/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/me" ||
       url.pathname === "/api/auth/login" ||
       url.pathname === "/api/auth/me" ||
       url.pathname === "/api/rules" ||
