@@ -62,9 +62,10 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, limit
         summary.blocked++; continue;
       }
       const keyword = rule.triggerType === "any_comment" ||
-        (rule.triggerType === "keyword" && Array.isArray(rule.triggerKeywords) &&
-        rule.triggerKeywords.some(k => typeof k === "string" && k.trim() &&
-          String(inbox.event.commentText || "").toLowerCase().includes(k.trim().toLowerCase())));
+        (rule.triggerType === "keyword" &&
+        (Array.isArray(rule.triggerKeywords) ? rule.triggerKeywords : rule.keywords || [])
+          .some(k => typeof k === "string" && k.trim() &&
+            String(inbox.event.commentText || "").toLowerCase().includes(k.trim().toLowerCase())));
       if (!keyword) { summary.blocked++; continue; }
       const action = buildCommentActionSpec({ comment: inbox.event, campaign, rule });
       if (!action.ready || action.spec.followGateRequired) { summary.blocked++; continue; }
