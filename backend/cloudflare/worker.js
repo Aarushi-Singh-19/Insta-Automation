@@ -1042,7 +1042,13 @@ export default {
           return json({ error: "Webhook processing not migrated; do not configure Meta callback here" }, 501);
         }
         try {
-          const events = extractInstagramEvents(JSON.parse(rawBody));
+          const extracted = extractInstagramEvents(JSON.parse(rawBody));
+          const approvedAccount = String(env?.STAGING_SEND_INSTAGRAM_BUSINESS_ID || "");
+          if (!/^\d+$/.test(approvedAccount)) return json({ error: "Staging account allowlist required" }, 503);
+          const events = {
+            comments: extracted.comments.filter(event => String(event.entryId) === approvedAccount),
+            postbacks: extracted.postbacks.filter(event => String(event.entryId) === approvedAccount)
+          };
           const stored = await persistInstagramInbox({ env, MongoClient, events });
           // Only process after durable storage, and only with the staging
           // pipeline explicitly enabled. The provider acknowledgment does not
