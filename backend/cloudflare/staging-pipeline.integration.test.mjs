@@ -24,7 +24,7 @@ test("staging comment resolves an owned account, campaign and ordered rule into 
     } };
     if (name === "campaigns") return { find(query) {
       assert.equal(String(query.userId), String(userId));
-      assert.deepEqual(query.$or, [{ instagramAccountId: comment.entryId }, { instagramAccountId: { $exists: false } }, { instagramAccountId: null }]);
+      assert.deepEqual(query.$or, [{ instagramAccountId: comment.entryId }, { instagramAccountId: "" }, { instagramAccountId: { $exists: false } }, { instagramAccountId: null }]);
       return cursor([campaign]);
     } };
     if (name === "rules") return { find(query) {
