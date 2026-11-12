@@ -157,9 +157,8 @@ export default {
       if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
         return json({ error: "Not found" }, 404);
       }
-      if (env?.ENABLE_STAGING_INSTAGRAM_SEND === "true") {
-        return json({ ok: false, error: "DISABLE_SEND_BEFORE_IMPORT" }, 409);
-      }
+      // Import only verifies and stores the selected comment; it never sends.
+      // The independently gated executor controls real delivery.
       let client;
       try {
         const body = await request.json();
