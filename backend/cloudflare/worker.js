@@ -979,8 +979,21 @@ export default {
       let events;
       try { events = extractInstagramEvents(JSON.parse(raw)); }
       catch { return json({ error: "Invalid Instagram event envelope" }, 400); }
+      // Mirrored ingress must never import unrelated production accounts.
+      // Keep sending separately disabled until Render/Cloudflare ownership is exclusive.
+      const approvedAccount = String(env?.STAGING_SEND_INSTAGRAM_BUSINESS_ID || "");
+      if (!/^\d+$/.test(approvedAccount)) return json({ error: "Staging account allowlist required" }, 503);
+      events = {
+        comments: events.comments.filter(event => String(event.entryId) === approvedAccount),
+        postbacks: events.postbacks.filter(event => String(event.entryId) === approvedAccount)
+      };
       try {
         const result = await persistInstagramInbox({ env, MongoClient, events });
+        if (result.inserted > 0 && env?.ENABLE_STAGING_BACKGROUND === "true" && ctx?.waitUntil) {
+          ctx.waitUntil(drainStagingInbox({ env, MongoClient }).catch(error => {
+            console.error("Staging mirrored ingress drain failed", error?.name || "Error");
+          }));
+        }
         return json({ ok: true, received: result.received, inserted: result.inserted });
       } catch (error) {
         // Malformed input is not a database outage. Return a client error while
