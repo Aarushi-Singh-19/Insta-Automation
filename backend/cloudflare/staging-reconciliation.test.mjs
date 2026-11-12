@@ -25,9 +25,13 @@ test("stale states become review-only without Graph calls or quota changes", asy
     async close() { calls.push("close"); }
   };
   const result = await reconcileStagingStates({ env, MongoClient, now: new Date("2026-11-12T12:00:00Z") });
-  assert.deepEqual(result, { abandonedPlanning: 1, abandonedExecution: 1, uncertainSends: 1, retriedInstagramMessages: 0 });
+  assert.deepEqual(result, { abandonedPlanning: 1, abandonedExecution: 1, uncertainSends: 1, abandonedFollowVerification: 1, retriedInstagramMessages: 0 });
   assert.deepEqual(calls.filter(c => typeof c === "object").map(c => c.key),
-    ["cloudflare_staging_webhook_inbox", "cloudflare_staging_action_outbox", "cloudflare_staging_action_sends"]);
+    ["cloudflare_staging_webhook_inbox", "cloudflare_staging_webhook_inbox", "cloudflare_staging_action_outbox", "cloudflare_staging_action_sends"]);
+  const verification = calls.filter(c => typeof c === "object")[1];
+  assert.equal(verification.filter.kind, "postback");
+  assert.equal(verification.filter.status, "verifying");
+  assert.equal(verification.update.$set.outcome, "UNCERTAIN_FOLLOW_VERIFICATION");
   for (const call of calls.filter(c => typeof c === "object")) {
     assert.equal(call.update.$set.status, "needs_review");
     assert.ok(!JSON.stringify(call).includes("pending"));
