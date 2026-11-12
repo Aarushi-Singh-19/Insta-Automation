@@ -972,6 +972,14 @@ export default {
         try {
           const events = extractInstagramEvents(JSON.parse(rawBody));
           const stored = await persistInstagramInbox({ env, MongoClient, events });
+          // Only process after durable storage, and only with the staging
+          // pipeline explicitly enabled. The provider acknowledgment does not
+          // depend on Graph delivery, which can be retried/reconciled separately.
+          if (stored.inserted > 0 && env?.ENABLE_STAGING_BACKGROUND === "true") {
+            // Cloudflare fetch handlers can use waitUntil only when a context
+            // is available; scheduled drains provide the durable fallback.
+            await drainStagingInbox({ env, MongoClient });
+          }
           return json({ ok: true, received: stored.received, inserted: stored.inserted });
         } catch (error) {
           console.error("Native staging webhook persistence failed", error?.name || "Error");
