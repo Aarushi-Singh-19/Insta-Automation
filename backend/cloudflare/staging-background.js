@@ -22,11 +22,13 @@ export async function drainStagingInbox({ env, MongoClient, plan = planPendingIn
   // The same Instagram account may still be handled by production Render.
   // Never automatically send without an explicit operator confirmation that
   // the staging event stream has exclusive sending ownership.
+  const cutoff = env?.STAGING_AUTOMATIC_SEND_NOT_BEFORE;
+  const validCutoff = typeof cutoff === "string" && /^\d{4}-\d{2}-\d{2}T/.test(cutoff) && Number.isFinite(Date.parse(cutoff));
   const execution = env?.ENABLE_STAGING_BACKGROUND_SEND === "true"
     ? (env?.ENABLE_STAGING_INSTAGRAM_SEND === "true" &&
        env?.ENABLE_STAGING_EXCLUSIVE_SEND_OWNERSHIP === "true" &&
-       /^\d+$/.test(String(env?.STAGING_SEND_INSTAGRAM_BUSINESS_ID || ""))
-      ? await execute({ env, MongoClient, fetchImpl, limit: 5 })
+       /^\d+$/.test(String(env?.STAGING_SEND_INSTAGRAM_BUSINESS_ID || "")) && validCutoff
+      ? await execute({ env, MongoClient, fetchImpl, limit: 5, receivedNotBefore: new Date(cutoff) })
       : (() => { throw new Error("STAGING_EXCLUSIVE_SEND_OWNERSHIP_REQUIRED"); })())
     : { skipped: "disabled" };
   return { planned: planned.processed, prepared: prepared.prepared, reconciliation, postbacks,
