@@ -22,14 +22,18 @@ export async function startFollowGate({ db, inboxId, campaignId, userId, recipie
   } }, { upsert: true });
   return { sessionId: key, created: result.upsertedCount === 1 };
 }
-export async function confirmFollowGate({ db, sessionId, followerStatus, now = new Date() }) {
+export async function confirmFollowGate({ db, sessionId, followerStatus, senderId, accountId, now = new Date() }) {
   if (!db || typeof sessionId !== "string" || !/^follow:comment:[0-9]+:[0-9]+$/.test(sessionId)) {
     throw new TypeError("INVALID_FOLLOW_GATE_SESSION");
   }
   if (followerStatus !== true) return { unlocked: false, reason: "FOLLOW_NOT_VERIFIED" };
+  // Require both the verified sender and the original business account.
+  if (!/^[0-9]+$/.test(String(senderId || "")) || !/^[0-9]+$/.test(String(accountId || ""))) {
+    return { unlocked: false, reason: "FOLLOW_CONTEXT_UNVERIFIED" };
+  }
   const sessions = db.collection("cloudflare_staging_follow_gate_sessions");
   const updated = await sessions.findOneAndUpdate(
-    { _id: sessionId, status: "WAITING" },
+    { _id: sessionId, status: "WAITING", recipientId: String(senderId), inboxId: "comment:" + String(accountId) + ":" + sessionId.split(":").at(-1) },
     { $set: { status: "VERIFIED", verifiedAt: now } },
     { returnDocument: "after" }
   );
