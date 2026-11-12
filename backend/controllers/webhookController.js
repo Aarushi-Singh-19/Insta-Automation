@@ -47,7 +47,7 @@ async function relayStagingWebhook(req) {
   const accountId = String(process.env.CLOUDFLARE_STAGING_RELAY_ACCOUNT_ID || "");
   if (process.env.ENABLE_CLOUDFLARE_STAGING_EXCLUSIVE_RELAY !== "true") return null;
   if (!/^\d+$/.test(accountId) || !process.env.CLOUDFLARE_STAGING_RELAY_TOKEN ||
-      !process.env.META_APP_SECRET) throw new Error("STAGING_RELAY_CONFIG_REQUIRED");
+      !process.env.INSTAGRAM_APP_SECRET) throw new Error("STAGING_RELAY_CONFIG_REQUIRED");
   // Meta webhook entry.id is the Instagram webhook owner ID, which can differ
   // from the account identifier used by other Instagram API endpoints.
   // Never require a staging signature for events belonging to other accounts.
@@ -57,7 +57,7 @@ async function relayStagingWebhook(req) {
   if (!hasStagingEvent) return null;
   const raw = req.instagramWebhookRawBody;
   const supplied = req.get("x-hub-signature-256") || "";
-  const expected = "sha256=" + crypto.createHmac("sha256", process.env.META_APP_SECRET).update(raw || "").digest("hex");
+  const expected = "sha256=" + crypto.createHmac("sha256", process.env.INSTAGRAM_APP_SECRET).update(raw || "").digest("hex");
   if (!raw || supplied.length !== expected.length ||
       !crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) {
     // Diagnostic metadata only; never log raw payload, signature or app secret.
