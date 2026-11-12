@@ -5,7 +5,7 @@ const oid = id => new ObjectId(id);
 const asText = (v, max) => typeof v === "string" ? v.trim().slice(0, max) : "";
 const validUrl = value => { try { const u = new URL(value); return ["https:", "http:"].includes(u.protocol); } catch { return false; } };
 
-export async function stagingAutomations({ env, MongoClient, authenticatedUserId, method, input }) {
+export async function stagingAutomations({ env, MongoClient, authenticatedUserId, method, input, automationId: targetId }) {
   if (typeof authenticatedUserId !== "string" || !/^[a-f0-9]{24}$/i.test(authenticatedUserId)) throw new TypeError("AUTHENTICATED_USER_REQUIRED");
   const { uri, dbName } = validateStagingMongoConfig(env);
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
@@ -16,6 +16,72 @@ export async function stagingAutomations({ env, MongoClient, authenticatedUserId
     if (method === "GET") {
       const docs = await db.collection("automations").find({ user: userId }).sort({ createdAt: -1 }).limit(100).toArray();
       return { status: 200, body: docs };
+    }
+    if (method === "PUT") {
+      if (typeof targetId !== "string" || !/^[a-f0-9]{24}$/i.test(targetId)) return { status: 400, body: { message: "Invalid automation ID" } };
+      if (!input || typeof input !== "object" || Array.isArray(input)) return { status: 400, body: { message: "Invalid automation" } };
+      const id = oid(targetId);
+      const existing = await db.collection("automations").findOne({ _id: id, user: userId });
+      if (!existing) return { status: 404, body: { message: "Automation not found" } };
+      const dmMessage = asText(input.dmMessage, 2000);
+      const triggerType = input.triggerType;
+      const commentTriggerType = input.commentTriggerType;
+      const mediaId = asText(input.instagramMediaId, 100);
+      const mediaUrl = asText(input.instagramMediaUrl, 2048);
+      const keywords = Array.isArray(input.keywords) ? input.keywords.map(k => asText(k, 100)).filter(Boolean).slice(0, 20) : [];
+      const commentReplyEnabled = input.commentReplyEnabled === true;
+      const commentReplyMessage = asText(input.commentReplyMessage, 1000);
+      const followGate = input.followGate === true;
+      const followGateMessage = asText(input.followGateMessage, 640) || "Please follow our profile to unlock your DM!";
+      const dmButtons = Array.isArray(input.dmButtons) ? input.dmButtons.slice(0, 3).map(b => ({
+        title: asText(b?.title, 20), url: asText(b?.url, 2048)
+      })) : [];
+      if (!["any-post", "specific-post", "next-post"].includes(triggerType) ||
+          !["keyword", "any_comment"].includes(commentTriggerType) || !dmMessage ||
+          (triggerType === "specific-post" && !/^\\d{5,40}$/.test(mediaId)) ||
+          (commentTriggerType === "keyword" && keywords.length === 0) ||
+          (commentReplyEnabled && !commentReplyMessage) ||
+          (mediaUrl && !validUrl(mediaUrl)) ||
+          dmButtons.some(b => !b.title || !validUrl(b.url))) {
+        return { status: 400, body: { message: "Invalid automation fields" } };
+      }
+      const now = new Date();
+      const fields = { triggerType, instagramMediaId: mediaId, instagramMediaUrl: mediaUrl,
+        commentTriggerType, keywords, dmMessage, dmButtons, commentReplyEnabled,
+        commentReplyMessage, followGate, followGateMessage, updatedAt: now };
+      const campaignFilter = { userId, $or: [{ automationId: id }, { name: "Automation - " + id }] };
+      const session = client.startSession();
+      try {
+        await session.withTransaction(async () => {
+          const campaign = await db.collection("campaigns").findOne(campaignFilter, { session });
+          if (!campaign || !Array.isArray(campaign.ruleIds) || campaign.ruleIds.length === 0) throw new Error("AUTOMATION_LINKS_MISSING");
+          const ruleId = campaign.ruleIds[0];
+          const rule = await db.collection("rules").findOne({ _id: ruleId, userId }, { session });
+          if (!rule) throw new Error("AUTOMATION_LINKS_MISSING");
+          await db.collection("automations").updateOne({ _id: id, user: userId }, { $set: fields }, { session });
+          await db.collection("rules").updateOne({ _id: ruleId, userId }, { $set: {
+            postId: triggerType === "specific-post" ? mediaId : "",
+            triggerType: commentTriggerType,
+            triggerKeywords: commentTriggerType === "keyword" ? keywords : [],
+            replies: commentReplyEnabled ? [commentReplyMessage] : [],
+            updatedAt: now
+          } }, { session });
+          await db.collection("campaigns").updateOne({ _id: campaign._id, userId }, { $set: {
+            automationId: id, triggerType, instagramMediaId: mediaId, instagramMediaUrl: mediaUrl,
+            postIds: triggerType === "specific-post" ? [mediaId] : [],
+            "settings.dmMessage": dmMessage, "settings.dmButtons": dmButtons,
+            "settings.enableDM": true, "settings.enableReply": commentReplyEnabled,
+            "gate.gateType": followGate ? "FOLLOW" : "NONE",
+            "gate.status": followGate ? "enabled" : "disabled",
+            "gate.openingMessage": followGate ? followGateMessage : "",
+            updatedAt: now
+          } }, { session });
+        });
+      } catch (error) {
+        if (error?.message === "AUTOMATION_LINKS_MISSING") return { status: 409, body: { message: "Automation records incomplete" } };
+        throw error;
+      } finally { await session.endSession(); }
+      return { status: 200, body: { ...existing, ...fields } };
     }
     if (method !== "POST") return { status: 405, body: { success: false, message: "Method not allowed" } };
     if (!input || typeof input !== "object" || Array.isArray(input)) return { status: 400, body: { success: false, message: "Invalid automation" } };
