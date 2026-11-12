@@ -639,6 +639,43 @@ export default {
         return json({ ok: false, error: "STAGING_INBOX_STATUS_UNAVAILABLE" }, 503);
       }
     }
+    // Read-only staging trace of recent comment processing. Never expose account IDs,
+    // comment text, recipient IDs, tokens, or trigger any Instagram action.
+    if (request.method === "GET" && url.pathname === "/__cloudflare/staging-recent-action-trace") {
+      if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      let client;
+      try {
+        const { uri, dbName } = validateStagingMongoConfig(env);
+        client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+        await client.connect();
+        const db = client.db(dbName);
+        const rows = await db.collection("cloudflare_staging_webhook_inbox")
+          .find({ kind: "comment" }).sort({ receivedAt: -1, _id: -1 }).limit(8)
+          .project({ _id: 1, receivedAt: 1, status: 1, outcome: 1 }).toArray();
+        const trace = [];
+        for (const row of rows) {
+          const [plan, outbox, sends] = await Promise.all([
+            db.collection("cloudflare_staging_action_plans").findOne({ _id: row._id }, { projection: { status: 1 } }),
+            db.collection("cloudflare_staging_action_outbox").findOne({ _id: row._id }, { projection: { status: 1, reconciliationReason: 1 } }),
+            db.collection("cloudflare_staging_action_sends").find({ outboxId: row._id })
+              .project({ kind: 1, status: 1, errorCode: 1 }).limit(4).toArray()
+          ]);
+          trace.push({
+            receivedAt: row.receivedAt, inboxStatus: row.status, outcome: row.outcome || null,
+            planStatus: plan?.status || null, outboxStatus: outbox?.status || null,
+            reconciliationReason: outbox?.reconciliationReason || null,
+            sendStages: sends.map(x => ({ kind: x.kind, status: x.status,
+              errorCode: x.errorCode || null }))
+          });
+        }
+        return json({ ok: true, database: dbName, recentComments: trace, readOnly: true });
+      } catch (error) {
+        console.error("Staging action trace failed", error?.name || "Error");
+        return json({ ok: false, error: "STAGING_TRACE_UNAVAILABLE" }, 503);
+      } finally { if (client) await client.close(); }
+    }
     // Native staging deletion; remove the owned automation and its linked records.
     if (request.method === "DELETE" && /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname)) {
       if (!env?.STAGING_JWT_SECRET) return json({ message: "Staging automations unavailable" }, 503);
