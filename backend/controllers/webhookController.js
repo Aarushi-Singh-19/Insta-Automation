@@ -51,7 +51,9 @@ async function relayStagingWebhook(req) {
   // Meta webhook entry.id is the Instagram webhook owner ID, which can differ
   // from the account identifier used by other Instagram API endpoints.
   // Never require a staging signature for events belonging to other accounts.
-  const hasStagingEvent = (req.body?.entry || []).some(entry => String(entry.id) === accountId);
+  const webhookEntryId = String(process.env.CLOUDFLARE_STAGING_RELAY_WEBHOOK_ENTRY_ID || accountId);
+  if (!/^\\d+$/.test(webhookEntryId)) throw new Error("STAGING_RELAY_WEBHOOK_ID_REQUIRED");
+  const hasStagingEvent = (req.body?.entry || []).some(entry => String(entry.id) === webhookEntryId);
   if (!hasStagingEvent) return null;
   const raw = req.instagramWebhookRawBody;
   const supplied = req.get("x-hub-signature-256") || "";
@@ -74,7 +76,7 @@ async function relayStagingWebhook(req) {
     signal: AbortSignal.timeout(8000)
   });
   if (!response.ok) throw new Error("STAGING_RELAY_UNAVAILABLE");
-  return accountId;
+  return webhookEntryId;
 }
 
 const receiveWebhook = async (req, res) => {
