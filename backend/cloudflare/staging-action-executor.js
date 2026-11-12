@@ -2,7 +2,7 @@
 // an uncertain network result remains "sending" for manual reconciliation,
 // never retried blindly. Production callbacks are NOT routed here.
 import { ObjectId } from "mongodb";
-import { verifiedQuotaState } from "./quota-reconciliation.js";
+
 import { verifiedFollowGateRelease } from "./follow-gate-release.js";
 import { startFollowGate } from "./follow-gate-state.js";
 import { buildFollowPrompt } from "./follow-gate-prompt.js";
@@ -15,7 +15,7 @@ const objectId = value => /^[a-f\d]{24}$/i.test(String(value || "")) ? new Objec
 const numberId = value => /^\d+$/.test(String(value || ""));
 function usagePeriod(user, now) {
   if (user.subscriptionStatus === "trial") {
-    if (!user.trialStartDate || !user.trialEndDate) return null;
+    if (!user.trialStartDate || !user.trialEndDate || new Date(user.trialStartDate) > now || new Date(user.trialEndDate) <= now) return null;
     return { period: "trial", key: "trial:" + String(user.trialStartDate), limit: 500 };
   }
   const start = user.subscriptionCurrentStart;
@@ -123,10 +123,26 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
       if (!period && action.spec.dm) { summary.blocked++; continue; }
       if (item.status === "awaiting_follow" && !followGateVerified) { summary.blocked++; continue; }
       const quotaId = period ? String(user._id) + ":" + period.key : null;
+      // Owner-approved fresh allowance for the existing subscription period.
+      // Atomic setOnInsert never resets an existing Cloudflare counter.
+      if (action.spec.dm) {
+        await quotas.updateOne({ _id: quotaId }, { $setOnInsert: {
+          userId: user._id, period: period.period, limit: period.limit,
+          baselineSent: 0, reserved: 0, baselineVerified: true,
+          baselineSource: "fresh-start-owner-approved", createdAt: new Date()
+        } }, { upsert: true });
+      }
       const counter = quotaId ? await quotas.findOne({ _id: quotaId }) : null;
-      const verified = action.spec.dm ? verifiedQuotaState(counter, period, user._id) : null;
-      if (action.spec.dm && !verified) { summary.blocked++; continue; }
-      const usage = { period: period?.period || "billing", sent: verified?.sent ?? 0 };
+      const validCounter = counter && String(counter.userId) === String(user._id) &&
+        counter.period === period?.period && counter.limit === period?.limit &&
+        counter.baselineVerified === true &&
+        ["fresh-start-owner-approved", "render-reconciliation"].includes(counter.baselineSource) &&
+        Number.isSafeInteger(counter.baselineSent) && counter.baselineSent >= 0 &&
+        Number.isSafeInteger(counter.reserved) && counter.reserved >= 0 &&
+        counter.baselineSent + counter.reserved <= period.limit;
+      if (action.spec.dm && !validCounter) { summary.blocked++; continue; }
+      const usage = { period: period?.period || "billing",
+        sent: validCounter ? counter.baselineSent + counter.reserved : 0 };
       // A prompt is allowed after subscription/quota checks, not gated content.
       const authorization = authorizeCommentActions({ user, campaign, rule, account, usage,
         followGateVerified: followGateVerified || Boolean(followPrompt), now });
@@ -158,7 +174,7 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
         if (kind === "dm") {
           // Ensure quota document exists, then atomically reserve one slot.
           const updated = await quotas.updateOne({ _id: quotaId, baselineVerified: true,
-            baselineSource: "render-reconciliation", userId: user._id, period: period.period,
+            baselineSource: counter.baselineSource, userId: user._id, period: period.period,
             limit: period.limit, baselineSent: counter.baselineSent,
             reserved: { $lte: period.limit - counter.baselineSent - 1 } },
             { $inc: { reserved: 1 } });
