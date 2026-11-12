@@ -9,7 +9,7 @@ import { buildFollowPrompt } from "./follow-gate-prompt.js";
 import { validateStagingMongoConfig } from "./staging-mongodb.js";
 import { authorizeCommentActions } from "./automation-authorization.js";
 import { buildCommentActionSpec } from "./comment-action-spec.js";
-import { replyToInstagramComment, sendInstagramDM } from "./instagram-graph.js";
+import { replyToInstagramComment, sendInstagramDM, getInstagramFollowerStatus } from "./instagram-graph.js";
 
 const objectId = value => /^[a-f\d]{24}$/i.test(String(value || "")) ? new ObjectId(String(value)) : null;
 const numberId = value => /^\d+$/.test(String(value || ""));
@@ -23,7 +23,7 @@ function usagePeriod(user, now) {
   if (!start || !end || new Date(start) > now || new Date(end) <= now) return null;
   return { period: "billing", key: "billing:" + new Date(start).toISOString(), limit: 10000 };
 }
-export async function executeStagingActions({ env, MongoClient, fetchImpl, limit = 5, now = new Date() }) {
+export async function executeStagingActions({ env, MongoClient, fetchImpl, getFollower = getInstagramFollowerStatus, limit = 5, now = new Date() }) {
   const { uri, dbName } = validateStagingMongoConfig(env);
   if (env?.ENABLE_STAGING_INSTAGRAM_SEND !== "true") throw new Error("STAGING_SEND_DISABLED");
   if (typeof MongoClient !== "function" || typeof fetchImpl !== "function") throw new TypeError("DEPENDENCIES_REQUIRED");
@@ -85,13 +85,26 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, limit
         if (release.allowed) {
           followGateVerified = true;
         } else if (item.status === "awaiting_authorization" && !session) {
-          if (!numberId(inbox.event.recipientId) || !account.username) { summary.blocked++; continue; }
+          if (!numberId(inbox.event.recipientId)) { summary.blocked++; continue; }
+          // Never infer follower status from a button click or local data.
+          // An unavailable Meta status blocks the send rather than bypassing the gate.
+          let follows;
           try {
-            followPrompt = buildFollowPrompt({
-              sessionId: "follow:" + String(item._id),
-              profileUrl: "https://www.instagram.com/" + String(account.username) + "/"
+            const result = await getFollower({
+              accessToken: account.accessToken, instagramScopedUserId: inbox.event.recipientId, fetchImpl
             });
+            follows = result?.followsBusiness;
           } catch { summary.blocked++; continue; }
+          if (follows === true) {
+            followGateVerified = true;
+          } else if (follows === false && account.username) {
+            try {
+              followPrompt = buildFollowPrompt({
+                sessionId: "follow:" + String(item._id),
+                profileUrl: "https://www.instagram.com/" + String(account.username) + "/"
+              });
+            } catch { summary.blocked++; continue; }
+          } else { summary.blocked++; continue; }
         } else { summary.blocked++; continue; }
       }
       const period = usagePeriod(user, now);
