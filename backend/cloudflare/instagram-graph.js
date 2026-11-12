@@ -18,7 +18,12 @@ function messagePayload(message, buttons = []) {
     template_type: "button", text: message,
     buttons: buttons.map(button => {
       if (!button || typeof button.title !== "string" || !button.title.trim() ||
-          button.title.trim().length > 20 || typeof button.url !== "string") throw new TypeError("INVALID_BUTTON");
+          button.title.trim().length > 20) throw new TypeError("INVALID_BUTTON");
+      if (button.type === "postback") {
+        if (typeof button.payload !== "string" || !/^VERIFY:follow:comment:[0-9]+:[0-9]+$/.test(button.payload)) throw new TypeError("INVALID_POSTBACK");
+        return { type: "postback", title: button.title.trim(), payload: button.payload };
+      }
+      if (typeof button.url !== "string" || (button.type && button.type !== "web_url")) throw new TypeError("INVALID_BUTTON");
       let url;
       try { url = new URL(button.url); } catch { throw new TypeError("INVALID_BUTTON_URL"); }
       if (url.protocol !== "https:" || !url.hostname) throw new TypeError("INVALID_BUTTON_URL");
