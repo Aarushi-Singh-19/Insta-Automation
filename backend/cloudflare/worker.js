@@ -25,6 +25,7 @@ import { planCommentAutomation } from "./comment-planner.js";
 import { buildCommentActionSpec } from "./comment-action-spec.js";
 import { followGateDecision } from "./follow-gate-state.js";
 import { drainStagingInbox } from "./staging-background.js";
+import { inspectStagingAutomationReadiness } from "./staging-automation-readiness.js";
 
 
 export default {
@@ -109,6 +110,17 @@ export default {
         // Never leak connection strings, database credentials or Atlas hostnames.
         console.error("Staging MongoDB connectivity probe failed", error?.name || "Error");
         return json({ ok: false, connected: false, error: "STAGING_DATABASE_CONNECTION_FAILED" }, 503);
+      }
+    }
+    if (request.method === "GET" && url.pathname === "/__cloudflare/staging-automation-readiness") {
+      if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      try {
+        return json(await inspectStagingAutomationReadiness({ env, MongoClient }));
+      } catch (error) {
+        console.error("Staging automation preflight failed", error?.name || "Error");
+        return json({ ok: false, error: "STAGING_AUTOMATION_PREFLIGHT_UNAVAILABLE" }, 503);
       }
     }
     // Operator-only readiness check: reports configuration booleans, never secret values.
