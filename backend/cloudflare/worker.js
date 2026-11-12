@@ -32,6 +32,8 @@ import { drainStagingInbox } from "./staging-background.js";
 import { inspectStagingAutomationReadiness } from "./staging-automation-readiness.js";
 import { authorizeCommentActions } from "./automation-authorization.js";
 import { verifiedQuotaState } from "./quota-reconciliation.js";
+import { getInstagramFollowerStatus } from "./instagram-graph.js";
+import { confirmFollowGate } from "./follow-gate-state.js";
 
 
 export default {
@@ -884,6 +886,64 @@ export default {
         console.error("Staging action preparation failed", error?.name || "Error");
         return json({ error: "Staging action preparation unavailable" }, 503);
       }
+    }
+    // Operator-only verification of one already-prompted real Instagram comment.
+    // Meta is the sole authority for follower status. No direct send here;
+    // the existing at-most-once executor performs the DM after verification.
+    if (request.method === "POST" && url.pathname === "/__cloudflare/staging-verify-follow") {
+      if (!env?.STAGING_PROBE_TOKEN ||
+          request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN ||
+          env?.ENABLE_STAGING_INSTAGRAM_SEND !== "true") return json({ error: "Not found" }, 404);
+      let client;
+      try {
+        const body = await request.json();
+        const commentId = String(body?.commentId || "");
+        if (!/^\\d{8,30}$/.test(commentId)) return json({ ok: false, error: "INVALID_COMMENT_ID" }, 400);
+        const { uri, dbName } = validateStagingMongoConfig(env);
+        client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+        await client.connect();
+        const db = client.db(dbName);
+        const accountId = String(env?.STAGING_SEND_INSTAGRAM_BUSINESS_ID || "");
+        if (!/^\\d+$/.test(accountId)) return json({ ok: false, error: "STAGING_ACCOUNT_NOT_APPROVED" }, 409);
+        const inboxId = "comment:" + accountId + ":" + commentId;
+        const sessionId = "follow:" + inboxId;
+        const [session, outbox, inbox] = await Promise.all([
+          db.collection("cloudflare_staging_follow_gate_sessions").findOne({ _id: sessionId }),
+          db.collection("cloudflare_staging_action_outbox").findOne({ _id: inboxId }),
+          db.collection("cloudflare_staging_webhook_inbox").findOne({ _id: inboxId })
+        ]);
+        if (!session || !outbox || !inbox ||
+            session.inboxId !== inboxId || session.commentId !== commentId ||
+            String(session.recipientId) !== String(inbox.event?.recipientId) ||
+            outbox.status !== "awaiting_follow" ||
+            !["WAITING", "VERIFIED"].includes(session.status)) {
+          return json({ ok: false, error: "NO_WAITING_FOLLOW_GATE_FOR_COMMENT" }, 409);
+        }
+        if (!/^[a-f0-9]{24}$/i.test(String(session.userId || ""))) {
+          return json({ ok: false, error: "INVALID_SESSION_OWNER" }, 409);
+        }
+        const account = await db.collection("instagramaccounts").findOne({
+          instagramBusinessId: accountId, userId: new ObjectId(String(session.userId)),
+          status: "active"
+        });
+        if (!account?.accessToken) return json({ ok: false, error: "ACCOUNT_UNAVAILABLE" }, 409);
+        const follower = await getInstagramFollowerStatus({
+          accessToken: account.accessToken, instagramScopedUserId: session.recipientId, fetchImpl: fetch
+        });
+        if (follower.followsBusiness !== true) {
+          return json({ ok: false, error: "FOLLOW_NOT_VERIFIED_BY_META" }, 409);
+        }
+        const verification = session.status === "VERIFIED"
+          ? { unlocked: true, alreadyVerified: true }
+          : await confirmFollowGate({ db, sessionId, followerStatus: true,
+              senderId: session.recipientId, accountId });
+        if (!verification.unlocked) return json({ ok: false, error: "FOLLOW_SESSION_NOT_UNLOCKED" }, 409);
+        return json({ ok: true, commentId, verifiedByMeta: true,
+          unlocked: true, next: "/__cloudflare/staging-execute-actions", instagramMessagesSent: false });
+      } catch (error) {
+        console.error("Staging follow verification failed", error?.name || "Error");
+        return json({ ok: false, error: "FOLLOW_VERIFICATION_UNAVAILABLE" }, 503);
+      } finally { if (client) await client.close(); }
     }
     // Operator-only staging executor. Explicitly disabled by default. Never
     // enable until staging end-to-end tests and manual reconciliation are ready.
