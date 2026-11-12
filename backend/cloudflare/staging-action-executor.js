@@ -2,6 +2,7 @@
 // an uncertain network result remains "sending" for manual reconciliation,
 // never retried blindly. Production callbacks are NOT routed here.
 import { ObjectId } from "mongodb";
+import { verifiedQuotaState } from "./quota-reconciliation.js";
 import { validateStagingMongoConfig } from "./staging-mongodb.js";
 import { authorizeCommentActions } from "./automation-authorization.js";
 import { buildCommentActionSpec } from "./comment-action-spec.js";
@@ -71,7 +72,9 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, limit
       if (!period && action.spec.dm) { summary.blocked++; continue; }
       const quotaId = period ? String(user._id) + ":" + period.key : null;
       const counter = quotaId ? await quotas.findOne({ _id: quotaId }) : null;
-      const usage = { period: period?.period || "billing", sent: counter?.reserved || 0 };
+      const verified = action.spec.dm ? verifiedQuotaState(counter, period, user._id) : null;
+      if (action.spec.dm && !verified) { summary.blocked++; continue; }
+      const usage = { period: period?.period || "billing", sent: verified?.sent ?? 0 };
       const authorization = authorizeCommentActions({ user, campaign, rule, account, usage, now });
       if (!authorization.authorized) { summary.blocked++; continue; }
       // Atomically claim this outbox row before any provider call. Two Worker
@@ -92,10 +95,10 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, limit
         let reserved = false;
         if (kind === "dm") {
           // Ensure quota document exists, then atomically reserve one slot.
-          await quotas.updateOne({ _id: quotaId }, { $setOnInsert: {
-            userId: user._id, period: period.period, limit: period.limit, reserved: 0
-          } }, { upsert: true });
-          const updated = await quotas.updateOne({ _id: quotaId, reserved: { $lt: period.limit } },
+          const updated = await quotas.updateOne({ _id: quotaId, baselineVerified: true,
+            baselineSource: "render-reconciliation", userId: user._id, period: period.period,
+            limit: period.limit, baselineSent: counter.baselineSent,
+            reserved: { $lte: period.limit - counter.baselineSent - 1 } },
             { $inc: { reserved: 1 } });
           if (updated.modifiedCount !== 1) { summary.blocked++; break; }
           reserved = true;
