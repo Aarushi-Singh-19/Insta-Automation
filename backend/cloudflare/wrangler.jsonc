@@ -10,5 +10,10 @@
   "vars": {
     "MONGODB_STAGING_DB": "triggerdm_staging",
     "UPSTREAM_ORIGIN": "https://triggerdm-staging-backend.onrender.com"
+  },
+  "triggers": {
+    "crons": [
+      "*/5 * * * *"
+    ]
   }
 }
