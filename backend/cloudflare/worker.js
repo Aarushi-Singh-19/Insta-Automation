@@ -898,13 +898,13 @@ export default {
       try {
         const body = await request.json();
         const commentId = String(body?.commentId || "");
-        if (!/^\\d{8,30}$/.test(commentId)) return json({ ok: false, error: "INVALID_COMMENT_ID" }, 400);
+        if (!/^\d{8,30}$/.test(commentId)) return json({ ok: false, error: "INVALID_COMMENT_ID" }, 400);
         const { uri, dbName } = validateStagingMongoConfig(env);
         client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
         await client.connect();
         const db = client.db(dbName);
         const accountId = String(env?.STAGING_SEND_INSTAGRAM_BUSINESS_ID || "");
-        if (!/^\\d+$/.test(accountId)) return json({ ok: false, error: "STAGING_ACCOUNT_NOT_APPROVED" }, 409);
+        if (!/^\d+$/.test(accountId)) return json({ ok: false, error: "STAGING_ACCOUNT_NOT_APPROVED" }, 409);
         const inboxId = "comment:" + accountId + ":" + commentId;
         const sessionId = "follow:" + inboxId;
         const [session, outbox, inbox] = await Promise.all([
