@@ -176,6 +176,23 @@ export default {
         return json({ ok: false, error: "STAGING_INBOX_STATUS_UNAVAILABLE" }, 503);
       }
     }
+    // Native staging deletion; remove the owned automation and its linked records.
+    if (request.method === "DELETE" && /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname)) {
+      if (!env?.STAGING_JWT_SECRET) return json({ message: "Staging automations unavailable" }, 503);
+      const authorization = request.headers.get("Authorization") || "";
+      if (!authorization.startsWith("Bearer ")) return json({ message: "No token provided" }, 401);
+      let userId;
+      try { userId = getTriggerDmUserId(await verifySessionJwt(authorization.slice(7), env.STAGING_JWT_SECRET)); }
+      catch { return json({ message: "Invalid token" }, 401); }
+      try {
+        const result = await stagingAutomations({ env, MongoClient, authenticatedUserId: userId,
+          method: "DELETE", automationId: url.pathname.split("/").at(-1) });
+        return json(result.body, result.status);
+      } catch (error) {
+        console.error("Staging automation delete failed", error?.name || "Error");
+        return json({ message: "Staging automations unavailable" }, 503);
+      }
+    }
     // Native staging automation editing; same authenticated staging DB as creation.
     if (request.method === "PUT" && /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname)) {
       if (!env?.STAGING_JWT_SECRET) return json({ message: "Staging automations unavailable" }, 503);
