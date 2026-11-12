@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { executeStagingActions } from "./staging-action-executor.js";
 const env = { MONGODB_STAGING_DB: "triggerdm_staging",
-  MONGODB_STAGING_URI: "mongodb://localhost:27017/triggerdm_staging" };
+  MONGODB_STAGING_URI: "mongodb://localhost:27017/triggerdm_staging",
+  STAGING_SEND_INSTAGRAM_BUSINESS_ID: "123" };
 test("executor is disabled without explicit staging send flag", async () => {
   let connected = false;
   class MongoClient { async connect() { connected = true; } }
