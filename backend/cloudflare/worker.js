@@ -22,6 +22,7 @@ import { deleteStagingRule } from "./staging-rule-delete.js";
 import { toggleStagingRule } from "./staging-rule-toggle.js";
 import { updateStagingRule } from "./staging-rule-update.js";
 import { planPendingInbox } from "./staging-inbox-planner.js";
+import { resolveStagingComment } from "./staging-comment-resolver.js";
 import { prepareStagingActionOutbox } from "./staging-action-outbox.js";
 import { executeStagingActions } from "./staging-action-executor.js";
 import { planCommentAutomation } from "./comment-planner.js";
@@ -147,6 +148,45 @@ export default {
           rulesToggle: env.ENABLE_NATIVE_STAGING_RULE_TOGGLE === "true"
         }
       });
+    }
+    // Isolated synthetic inbox planning check: touches only the fixed test event.
+    // Never drains unrelated pending events or creates executable actions.
+    if (request.method === "POST" && url.pathname === "/__cloudflare/staging-inbox-process-smoke-test") {
+      if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      if (env?.ENABLE_STAGING_INSTAGRAM_SEND === "true" || env?.ENABLE_STAGING_BACKGROUND_SEND === "true") {
+        return json({ ok: false, error: "SEND_MUST_BE_DISABLED" }, 409);
+      }
+      let client;
+      try {
+        const { uri, dbName } = validateStagingMongoConfig(env);
+        client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+        await client.connect();
+        const db = client.db(dbName);
+        const inbox = db.collection("cloudflare_staging_webhook_inbox");
+        const key = "comment:99999999999999124:99999999999999123";
+        const saved = await inbox.findOne({ _id: key });
+        if (!saved) return json({ ok: false, error: "RUN_INGRESS_TEST_FIRST" }, 409);
+        const resolution = await resolveStagingComment({ db, comment: saved.event });
+        const decision = planCommentAutomation({
+          comment: saved.event, campaign: resolution?.campaign, rule: resolution?.rule
+        });
+        if (decision.matched) return json({ ok: false, error: "SYNTHETIC_EVENT_UNEXPECTEDLY_MATCHED" }, 409);
+        const updated = await inbox.updateOne({ _id: key, status: "pending" },
+          { $set: { status: "ignored", outcome: decision.reason || "NO_MATCH",
+            updatedAt: new Date() } });
+        const finalRecord = await inbox.findOne({ _id: key }, { projection: { status: 1, outcome: 1 } });
+        const checks = { isolatedSyntheticEvent: true, noCampaignMatched: !decision.matched,
+          markedIgnored: finalRecord?.status === "ignored", sendDisabled: true };
+        return json({ ok: Object.values(checks).every(Boolean), database: dbName,
+          checks, inboxStatus: finalRecord?.status || null, outcome: finalRecord?.outcome || null,
+          updated: updated.modifiedCount === 1, realWebhookTested: false,
+          realInstagramMessagesSent: false }, Object.values(checks).every(Boolean) ? 200 : 503);
+      } catch (error) {
+        console.error("Staging inbox processing smoke test failed", error?.name || "Error");
+        return json({ ok: false, error: "STAGING_INBOX_PROCESS_TEST_FAILED" }, 503);
+      } finally { if (client) await client.close(); }
     }
     // Operator-only synthetic durable-ingress test. Fixed synthetic identifiers
     // cannot match a real Instagram account; never invokes Meta or sends messages.
