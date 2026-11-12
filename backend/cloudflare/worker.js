@@ -49,7 +49,7 @@ export default {
     });
     // Browser preflight must succeed at the Worker without relying on Render.
     // This grants no API access; the actual request still requires JWT and flags.
-    const nativePath = ["/automations", "/api/automations", "/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/me" ||
+    const nativePath = /^\\/(?:api\\/)?automations\\/[a-f0-9]{24}$/i.test(url.pathname) || ["/automations", "/api/automations", "/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/me" ||
       url.pathname === "/api/auth/login" ||
       url.pathname === "/api/auth/me" ||
       url.pathname === "/api/rules" ||
@@ -174,6 +174,29 @@ export default {
       } catch (error) {
         console.error("Staging inbox diagnostic failed", error?.name || "Error");
         return json({ ok: false, error: "STAGING_INBOX_STATUS_UNAVAILABLE" }, 503);
+      }
+    }
+    // Native staging automation editing; same authenticated staging DB as creation.
+    if (request.method === "PUT" && /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname)) {
+      if (!env?.STAGING_JWT_SECRET) return json({ message: "Staging automations unavailable" }, 503);
+      const authorization = request.headers.get("Authorization") || "";
+      if (!authorization.startsWith("Bearer ")) return json({ message: "No token provided" }, 401);
+      let userId;
+      try { userId = getTriggerDmUserId(await verifySessionJwt(authorization.slice(7), env.STAGING_JWT_SECRET)); }
+      catch { return json({ message: "Invalid token" }, 401); }
+      let input;
+      try {
+        const raw = await request.text();
+        if (raw.length > 16384) return json({ message: "Payload too large" }, 413);
+        input = JSON.parse(raw);
+      } catch { return json({ message: "Invalid JSON" }, 400); }
+      try {
+        const result = await stagingAutomations({ env, MongoClient, authenticatedUserId: userId,
+          method: "PUT", automationId: url.pathname.split("/").at(-1), input });
+        return json(result.body, result.status);
+      } catch (error) {
+        console.error("Staging automation edit failed", error?.name || "Error");
+        return json({ message: "Staging automations unavailable" }, 503);
       }
     }
     // Native staging automation list/create, isolated from Render rate limits.
