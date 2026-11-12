@@ -46,7 +46,8 @@ export default {
     });
     // Browser preflight must succeed at the Worker without relying on Render.
     // This grants no API access; the actual request still requires JWT and flags.
-    const nativePath = url.pathname === "/api/auth/login" ||
+    const nativePath = url.pathname === "/auth/login" || url.pathname === "/auth/me" ||
+      url.pathname === "/api/auth/login" ||
       url.pathname === "/api/auth/me" ||
       url.pathname === "/api/rules" ||
       /^\/api\/rules\/[a-f0-9]{24}(?:\/toggle)?$/i.test(url.pathname);
@@ -173,7 +174,7 @@ export default {
       }
     }
     // Native staging login canary; disabled until isolated credentials are configured.
-    if (url.pathname === "/api/auth/login" && request.method === "POST" && env?.ENABLE_NATIVE_STAGING_LOGIN === "true") {
+    if (["/api/auth/login", "/auth/login"].includes(url.pathname) && request.method === "POST" && env?.ENABLE_NATIVE_STAGING_LOGIN === "true") {
       if (!env?.STAGING_JWT_SECRET) return json({ message: "Staging login unavailable" }, 503);
       let body;
       try { body = await request.json(); }
@@ -187,7 +188,7 @@ export default {
       }
     }
     // Native auth/me staging canary. Off by default; never touches production.
-    if (url.pathname === "/api/auth/me" && request.method === "GET" && env?.ENABLE_NATIVE_STAGING_AUTH_ME === "true") {
+    if (["/api/auth/me", "/auth/me"].includes(url.pathname) && request.method === "GET" && env?.ENABLE_NATIVE_STAGING_AUTH_ME === "true") {
       if (!env?.STAGING_JWT_SECRET) return json({ error: "Native staging auth unavailable" }, 503);
       const authorization = request.headers.get("Authorization") || "";
       if (!authorization.startsWith("Bearer ")) return json({ message: "No token provided" }, 401);
@@ -407,7 +408,17 @@ export default {
     // processing would cause silent loss. Handle signature checks locally.
     const isWebhook = url.pathname === "/api/webhook/instagram" ||
       url.pathname === "/api/billing/razorpay-webhook";
-    if (env?.UPSTREAM_ORIGIN && !isWebhook) return proxyRequest(request, env);
+    if (env?.UPSTREAM_ORIGIN && !isWebhook) {
+      // Staging frontend uses paths without /api. Normalize only known API
+      // namespaces; keep Cloudflare diagnostics and webhook routes isolated.
+      const aliases = /^\/(auth|rules|campaigns|instagram|automations|analytics|billing|referrals|follow|health|admin|trend|campaign-health|simulate|test)(\/|$)/;
+      if (aliases.test(url.pathname)) {
+        const upstreamUrl = new URL(request.url);
+        upstreamUrl.pathname = "/api" + url.pathname;
+        return proxyRequest(new Request(upstreamUrl, request), env);
+      }
+      return proxyRequest(request, env);
+    }
     if (url.pathname === "/api/webhook/instagram") {
       if (request.method === "GET") {
         const challenge = verifyInstagramChallenge(request.url, env?.VERIFY_TOKEN);
