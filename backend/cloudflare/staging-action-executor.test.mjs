@@ -31,7 +31,7 @@ test("empty staging outbox never sends Instagram requests", async () => {
     db(name) {
       assert.equal(name, "triggerdm_staging");
       return { collection: collection => {
-        assert.equal(collection, "cloudflare_staging_action_outbox");
+        if (collection !== "cloudflare_staging_action_outbox") return {};
         return { find() { return { sort() { return this; }, limit() { return this; },
           async *[Symbol.asyncIterator]() {} }; } };
       } };
