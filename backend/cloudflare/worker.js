@@ -151,6 +151,52 @@ export default {
         }
       });
     }
+    // Retrieve real recent comments from Instagram directly without changing
+    // production webhook routing. Read-only, staging account and post only.
+    if (request.method === "GET" && url.pathname === "/__cloudflare/staging-real-comments") {
+      if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      let client;
+      try {
+        const { uri, dbName } = validateStagingMongoConfig(env);
+        client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+        await client.connect();
+        const db = client.db(dbName);
+        const accounts = await db.collection("instagramaccounts").find({ status: "active" })
+          .project({ instagramBusinessId: 1, userId: 1, accessToken: 1 }).limit(2).toArray();
+        if (accounts.length !== 1 || !accounts[0].accessToken) {
+          return json({ ok: false, reason: "REQUIRES_ONE_ACTIVE_STAGING_ACCOUNT" }, 409);
+        }
+        const account = accounts[0];
+        const campaigns = await db.collection("campaigns").find({
+          status: "active", userId: account.userId, triggerType: "specific-post"
+        }).project({ instagramMediaId: 1, postIds: 1 }).limit(3).toArray();
+        const postIds = [...new Set(campaigns.flatMap(c =>
+          [c.instagramMediaId, ...(Array.isArray(c.postIds) ? c.postIds : [])]
+            .map(String).filter(v => /^\d{8,30}$/.test(v))))];
+        if (postIds.length !== 1) return json({ ok: false, reason: "REQUIRES_ONE_STAGING_POST" }, 409);
+        const response = await fetch("https://graph.instagram.com/v25.0/" + postIds[0] +
+          "/comments?fields=id,text,timestamp,from{id,username}&limit=25", {
+          headers: { Authorization: "Bearer " + account.accessToken }
+        });
+        if (!response.ok) return json({ ok: false, reason: "INSTAGRAM_COMMENTS_FETCH_FAILED",
+          graphStatus: response.status }, 502);
+        const payload = await response.json();
+        if (!Array.isArray(payload?.data)) return json({ ok: false, reason: "INVALID_GRAPH_RESPONSE" }, 502);
+        const comments = payload.data.filter(c => /^\d+$/.test(String(c.id || "")) &&
+          String(c.from?.id || "") !== String(account.instagramBusinessId))
+          .slice(0, 10).map(c => ({
+            commentId: String(c.id), keywordTest: /test/i.test(String(c.text || "")),
+            timestamp: c.timestamp || null
+          }));
+        return json({ ok: true, source: "real-instagram-graph-read-only", postId: postIds[0],
+          comments, inboxWritten: false, instagramMessagesSent: false });
+      } catch (error) {
+        console.error("Real staging comment lookup failed", error?.name || "Error");
+        return json({ ok: false, reason: "REAL_COMMENT_LOOKUP_FAILED" }, 503);
+      } finally { if (client) await client.close(); }
+    }
     // Consolidated operator-only cutover gate. Reports blockers instead of
     // implying synthetic checks prove real payment or Instagram delivery.
     if (request.method === "GET" && url.pathname === "/__cloudflare/staging-cutover-audit") {
