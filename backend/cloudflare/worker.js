@@ -6,6 +6,7 @@ import { consumeActionBatch } from "./action-queue.js";
 import { proxyRequest, cors } from "./upstream-proxy.js";
 import { runtimeReadiness } from "./runtime-readiness.js";
 import { extractInstagramEvents } from "./instagram-events.js";
+import { mapApprovedStagingWebhookEvents } from "./staging-webhook-account-map.js";
 import { validateStagingMongoConfig, probeStagingMongo, inspectStagingCollections, inspectStagingDocumentShapes } from "./staging-mongodb.js";
 import { MongoClient, ObjectId } from "mongodb";
 import { persistInstagramInbox } from "./staging-webhook-inbox.js";
@@ -983,10 +984,7 @@ export default {
       // Keep sending separately disabled until Render/Cloudflare ownership is exclusive.
       const approvedAccount = String(env?.STAGING_SEND_INSTAGRAM_BUSINESS_ID || "");
       if (!/^\d+$/.test(approvedAccount)) return json({ error: "Staging account allowlist required" }, 503);
-      events = {
-        comments: events.comments.filter(event => String(event.entryId) === approvedAccount),
-        postbacks: events.postbacks.filter(event => String(event.entryId) === approvedAccount)
-      };
+      events = mapApprovedStagingWebhookEvents(events, env);
       try {
         const result = await persistInstagramInbox({ env, MongoClient, events });
         if (result.inserted > 0 && env?.ENABLE_STAGING_BACKGROUND === "true" && ctx?.waitUntil) {
@@ -1045,10 +1043,7 @@ export default {
           const extracted = extractInstagramEvents(JSON.parse(rawBody));
           const approvedAccount = String(env?.STAGING_SEND_INSTAGRAM_BUSINESS_ID || "");
           if (!/^\d+$/.test(approvedAccount)) return json({ error: "Staging account allowlist required" }, 503);
-          const events = {
-            comments: extracted.comments.filter(event => String(event.entryId) === approvedAccount),
-            postbacks: extracted.postbacks.filter(event => String(event.entryId) === approvedAccount)
-          };
+          const events = mapApprovedStagingWebhookEvents(extracted, env);
           const stored = await persistInstagramInbox({ env, MongoClient, events });
           // Only process after durable storage, and only with the staging
           // pipeline explicitly enabled. The provider acknowledgment does not
