@@ -26,6 +26,11 @@ function usagePeriod(user, now) {
 export async function executeStagingActions({ env, MongoClient, fetchImpl, getFollower = getInstagramFollowerStatus, limit = 5, now = new Date() }) {
   const { uri, dbName } = validateStagingMongoConfig(env);
   if (env?.ENABLE_STAGING_INSTAGRAM_SEND !== "true") throw new Error("STAGING_SEND_DISABLED");
+  // Explicitly bind live staging sends to one operator-approved Instagram
+  // account. An enabled flag alone must never send for every copied account.
+  if (!/^\d+$/.test(String(env?.STAGING_SEND_INSTAGRAM_BUSINESS_ID || ""))) {
+    throw new Error("STAGING_SEND_ACCOUNT_NOT_APPROVED");
+  }
   if (typeof MongoClient !== "function" || typeof fetchImpl !== "function") throw new TypeError("DEPENDENCIES_REQUIRED");
   if (!Number.isInteger(limit) || limit < 1 || limit > 10) throw new RangeError("INVALID_LIMIT");
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
@@ -57,6 +62,9 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
       });
       const user = await db.collection("users").findOne({ _id: campaign.userId });
       if (!account || !user || !account.accessToken || (campaign.settings?.enableDM !== false && !account.pageAccessToken)) { summary.blocked++; continue; }
+      if (String(account.instagramBusinessId) !== String(env.STAGING_SEND_INSTAGRAM_BUSINESS_ID)) {
+        summary.blocked++; continue;
+      }
       if (campaign.instagramAccountId && String(campaign.instagramAccountId) !== String(account.instagramBusinessId)) {
         summary.blocked++; continue;
       }
