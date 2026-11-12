@@ -12,7 +12,18 @@ export async function prepareStagingActionOutbox({ env, MongoClient, limit = 10 
     const db = client.db(dbName);
     const plans = db.collection("cloudflare_staging_action_plans");
     const outbox = db.collection("cloudflare_staging_action_outbox");
-    const cursor = plans.find({ status: "awaiting_authorization" }).sort({ createdAt: 1, _id: 1 }).limit(limit);
+    // Exclude already-prepared plans BEFORE limiting the batch. Otherwise the
+    // oldest ten plans occupy every cron run and newer comments never reach
+    // the outbox (even though they are correctly marked planned).
+    const cursor = plans.aggregate([
+      { $match: { status: "awaiting_authorization" } },
+      { $lookup: { from: "cloudflare_staging_action_outbox",
+          localField: "_id", foreignField: "_id", as: "existingOutbox" } },
+      { $match: { existingOutbox: { $eq: [] } } },
+      { $sort: { createdAt: 1, _id: 1 } },
+      { $limit: limit },
+      { $project: { existingOutbox: 0 } }
+    ]);
     const results = [];
     for await (const record of cursor) {
       if (!record?._id || !record.plan || record.plan.actionsNotAuthorized !== true ||
