@@ -9,7 +9,7 @@ test("disabled recovery does not connect", async () => {
 });
 test("refuses non-staging database and invalid age", async () => {
   await assert.rejects(reconcileStagingStates({ env: { ...env, MONGODB_STAGING_DB: "automationDB" } }), /STAGING_DATABASE_REQUIRED/);
-  await assert.rejects(reconcileStagingStates({ env, ageMinutes: 0 }), /INVALID_AGE/);
+  await assert.rejects(reconcileStagingStates({ env, MongoClient: class {}, ageMinutes: 0 }), /INVALID_AGE/);
 });
 test("stale states become review-only without Graph calls or quota changes", async () => {
   const calls = [];
