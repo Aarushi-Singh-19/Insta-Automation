@@ -68,6 +68,10 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
       if (campaign.instagramAccountId && String(campaign.instagramAccountId) !== String(account.instagramBusinessId)) {
         summary.blocked++; continue;
       }
+      if (campaign.triggerType === "next-post" &&
+          ![campaign.instagramMediaId, ...(campaign.postIds || [])].some(id => String(id) === plan.postId)) {
+        summary.blocked++; continue;
+      }
       if (campaign.triggerType === "specific-post" &&
           ![campaign.instagramMediaId, ...(campaign.postIds || [])].some(id => String(id) === plan.postId)) {
         summary.blocked++; continue;
@@ -117,6 +121,7 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
       }
       const period = usagePeriod(user, now);
       if (!period && action.spec.dm) { summary.blocked++; continue; }
+      if (item.status === "awaiting_follow" && !followGateVerified) { summary.blocked++; continue; }
       const quotaId = period ? String(user._id) + ":" + period.key : null;
       const counter = quotaId ? await quotas.findOne({ _id: quotaId }) : null;
       const verified = action.spec.dm ? verifiedQuotaState(counter, period, user._id) : null;
@@ -140,7 +145,7 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
       // This prevents duplicate sends when a Worker crashes after Graph accepts it.
       const stages = followPrompt
         ? [["reply", action.spec.reply], ["gate_prompt", followPrompt]]
-        : [["reply", action.spec.reply], ["dm", action.spec.dm]];
+        : [["reply", item.status === "awaiting_follow" ? null : action.spec.reply], ["dm", action.spec.dm]];
       for (const [kind, details] of stages) {
         if (!details) continue;
         const sendId = String(item._id) + ":" + kind;
@@ -150,7 +155,7 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
           summary.uncertain++; break;
         }
         let reserved = false;
-        if (kind === "dm" || kind === "gate_prompt") {
+        if (kind === "dm") {
           // Ensure quota document exists, then atomically reserve one slot.
           const updated = await quotas.updateOne({ _id: quotaId, baselineVerified: true,
             baselineSource: "render-reconciliation", userId: user._id, period: period.period,
