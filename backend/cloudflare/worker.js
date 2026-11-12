@@ -151,6 +151,88 @@ export default {
         }
       });
     }
+    // Consolidated operator-only cutover gate. Reports blockers instead of
+    // implying synthetic checks prove real payment or Instagram delivery.
+    if (request.method === "GET" && url.pathname === "/__cloudflare/staging-cutover-audit") {
+      if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      let client;
+      try {
+        const { uri, dbName } = validateStagingMongoConfig(env);
+        client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+        await client.connect();
+        const db = client.db(dbName);
+        const [accounts, campaigns, verifiedQuotas, pendingOutbox, needsReview, inboxPending] = await Promise.all([
+          db.collection("instagramaccounts").countDocuments({ status: "active" }),
+          db.collection("campaigns").countDocuments({ status: "active" }),
+          db.collection("cloudflare_staging_dm_quotas").countDocuments({
+            baselineVerified: true, baselineSource: "render-reconciliation"
+          }),
+          db.collection("cloudflare_staging_action_outbox").countDocuments({
+            status: { $in: ["awaiting_authorization", "awaiting_follow"] }
+          }),
+          db.collection("cloudflare_staging_action_outbox").countDocuments({ status: "needs_review" }),
+          db.collection("cloudflare_staging_webhook_inbox").countDocuments({ status: "pending" })
+        ]);
+        const blockers = [
+          ...(verifiedQuotas === 0 ? ["NO_VERIFIED_RENDER_QUOTA_BASELINE"] : []),
+          "REAL_META_WEBHOOK_DELIVERY_UNVERIFIED",
+          "REAL_INSTAGRAM_REPLY_AND_DM_UNVERIFIED",
+          "RAZORPAY_WEBHOOK_PROCESSING_NOT_MIGRATED",
+          "REFERRAL_COMMISSION_AND_PAYOUT_FLOW_NOT_MIGRATED",
+          "PRODUCTION_CUTOVER_NOT_VALIDATED"
+        ];
+        return json({ ok: true, productionCutoverReady: false, database: dbName,
+          staging: { activeAccounts: accounts, activeCampaigns: campaigns,
+            verifiedQuotaCounters: verifiedQuotas, pendingOutbox, needsReview, inboxPending },
+          protections: { instagramSendEnabled: env?.ENABLE_STAGING_INSTAGRAM_SEND === "true",
+            backgroundSendEnabled: env?.ENABLE_STAGING_BACKGROUND_SEND === "true" },
+          blockers, realInstagramMessagesSentByAudit: 0 });
+      } catch (error) {
+        console.error("Staging cutover audit failed", error?.name || "Error");
+        return json({ ok: false, productionCutoverReady: false, error: "STAGING_AUDIT_UNAVAILABLE" }, 503);
+      } finally { if (client) await client.close(); }
+    }
+    // Isolated concurrent quota reservation smoke test. Test-only collection,
+    // no live quota mutations, no sends; verifies unique action id and capacity.
+    if (request.method === "POST" && url.pathname === "/__cloudflare/staging-quota-concurrency-test") {
+      if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      if (env?.ENABLE_STAGING_INSTAGRAM_SEND === "true" || env?.ENABLE_STAGING_BACKGROUND_SEND === "true") {
+        return json({ ok: false, error: "SEND_MUST_BE_DISABLED" }, 409);
+      }
+      let client;
+      try {
+        const { uri, dbName } = validateStagingMongoConfig(env);
+        client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+        await client.connect();
+        const db = client.db(dbName);
+        const collection = db.collection("cloudflare_staging_quota_smoke_tests");
+        const key = "isolated:quota:concurrency:v1";
+        // Unique test key is isolated from the actual quota and send collections.
+        // Reset only this known synthetic document, never user data.
+        await collection.updateOne({ _id: key }, { $set: { reserved: 0, limit: 1, actions: [] } }, { upsert: true });
+        const attempts = await Promise.all(Array.from({ length: 12 }, (_, i) =>
+          collection.updateOne({ _id: key, reserved: { $lt: 1 }, actions: { $ne: "test-action-" + i } },
+            { $inc: { reserved: 1 }, $addToSet: { actions: "test-action-" + i } })
+        ));
+        const duplicate = await collection.updateOne({ _id: key, reserved: { $lt: 1 }, actions: { $ne: "test-action-0" } },
+          { $inc: { reserved: 1 }, $addToSet: { actions: "test-action-0" } });
+        const state = await collection.findOne({ _id: key });
+        const checks = { oneReservationOnly: attempts.reduce((n, x) => n + x.modifiedCount, 0) === 1,
+          capacityNeverExceeded: state?.reserved === 1, duplicateNotReserved: duplicate.modifiedCount === 0,
+          uniqueActionRecorded: state?.actions?.length === 1 };
+        await collection.deleteOne({ _id: key });
+        return json({ ok: Object.values(checks).every(Boolean), database: dbName,
+          checks, mode: "isolated-mongodb-concurrency", realQuotaReservationTested: false,
+          realInstagramMessagesSent: false }, Object.values(checks).every(Boolean) ? 200 : 503);
+      } catch (error) {
+        console.error("Staging quota concurrency smoke test failed", error?.name || "Error");
+        return json({ ok: false, error: "STAGING_QUOTA_CONCURRENCY_FAILED" }, 503);
+      } finally { if (client) await client.close(); }
+    }
     // Pure authorization boundary matrix: no DB writes, quota changes or Meta calls.
     if (request.method === "GET" && url.pathname === "/__cloudflare/staging-authorization-smoke-test") {
       if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
