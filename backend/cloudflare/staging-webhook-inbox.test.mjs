@@ -21,7 +21,7 @@ test("persists only in isolated staging inbox and deduplicates repeated comments
     } }; }
     async close() { closed = true; }
   }
-  const events = { comments: [{ eventId: "123", postId: "456" }], postbacks: [] };
+  const events = { comments: [{ entryId: "789", eventId: "123", postId: "456" }], postbacks: [] };
   assert.equal((await persistInstagramInbox({ env, MongoClient: Client, events })).inserted, 1);
   assert.equal((await persistInstagramInbox({ env, MongoClient: Client, events })).inserted, 0);
   assert.equal(closed, true);
