@@ -30,6 +30,8 @@ import { buildCommentActionSpec } from "./comment-action-spec.js";
 import { followGateDecision } from "./follow-gate-state.js";
 import { drainStagingInbox } from "./staging-background.js";
 import { inspectStagingAutomationReadiness } from "./staging-automation-readiness.js";
+import { authorizeCommentActions } from "./automation-authorization.js";
+import { verifiedQuotaState } from "./quota-reconciliation.js";
 
 
 export default {
@@ -148,6 +150,47 @@ export default {
           rulesToggle: env.ENABLE_NATIVE_STAGING_RULE_TOGGLE === "true"
         }
       });
+    }
+    // Pure authorization boundary matrix: no DB writes, quota changes or Meta calls.
+    if (request.method === "GET" && url.pathname === "/__cloudflare/staging-authorization-smoke-test") {
+      if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      const now = new Date("2026-11-12T12:00:00Z");
+      const id = "aaaaaaaaaaaaaaaaaaaaaaaa";
+      const user = { _id: id, subscriptionStatus: "trial",
+        trialEndDate: new Date("2026-11-20T00:00:00Z"), planEndDate: new Date("2026-12-20T00:00:00Z") };
+      const campaign = { userId: id, status: "active", gate: { gateType: "NONE", status: "disabled" } };
+      const rule = { userId: id, isActive: true };
+      const account = { userId: id, status: "active" };
+      const decide = (u, usage, c = campaign, a = account) =>
+        authorizeCommentActions({ user: u, campaign: c, rule, account: a, usage, now });
+      const trial = { period: "trial", sent: 499 };
+      const paid = { period: "billing", sent: 9999 };
+      const paidUser = { ...user, subscriptionStatus: "active" };
+      const verified = verifiedQuotaState({ userId: id, period: "trial", limit: 500,
+        baselineVerified: true, baselineSource: "render-reconciliation", baselineSent: 498, reserved: 1 },
+        { period: "trial", limit: 500 }, id);
+      const checks = {
+        trialAllowsBelow500: decide(user, trial).authorized === true,
+        trialBlocksAt500: decide(user, { period: "trial", sent: 500 }).reason === "DM_QUOTA_EXHAUSTED",
+        paidAllowsBelow10000: decide(paidUser, paid).authorized === true,
+        paidBlocksAt10000: decide(paidUser, { period: "billing", sent: 10000 }).reason === "DM_QUOTA_EXHAUSTED",
+        expiredBlocks: decide({ ...paidUser, planEndDate: new Date("2026-11-01T00:00:00Z") }, paid).reason === "SUBSCRIPTION_INACTIVE",
+        ownerMismatchBlocks: decide(user, trial, campaign, { ...account, userId: "bbbbbbbbbbbbbbbbbbbbbbbb" }).reason === "OWNER_MISMATCH",
+        unverifiedUsageBlocks: decide(user, { period: "trial", sent: -1 }).reason === "USAGE_UNVERIFIED",
+        followGateBlocks: decide(user, trial, { ...campaign, gate: { gateType: "FOLLOW", status: "enabled" } }).reason === "FOLLOW_GATE_REQUIRED",
+        verifiedBaselineIncludesReservations: verified?.sent === 499,
+        missingBaselineRejected: verifiedQuotaState(null, { period: "trial", limit: 500 }, id) === null,
+        forgedBaselineRejected: verifiedQuotaState({ userId: id, period: "trial", limit: 500,
+          baselineVerified: true, baselineSource: "unknown", baselineSent: 0, reserved: 0 },
+          { period: "trial", limit: 500 }, id) === null,
+        requiresAtomicDedup: decide(user, trial).requiresDurableDeduplication === true &&
+          decide(user, trial).requiresAtomicReservation === true
+      };
+      return json({ ok: Object.values(checks).every(Boolean), mode: "pure-read-only",
+        checks, realQuotaReservationTested: false, realWebhookTested: false,
+        realInstagramMessagesSent: false }, Object.values(checks).every(Boolean) ? 200 : 503);
     }
     // Read-only real staging account/campaign resolver and subscription preflight.
     // Uses existing staging documents, never posts to Meta or modifies quotas.
