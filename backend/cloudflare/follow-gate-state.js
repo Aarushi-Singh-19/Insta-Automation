@@ -12,6 +12,7 @@ export async function startFollowGate({ db, inboxId, campaignId, userId, recipie
       !/^\d+$/.test(String(recipientId)) || !/^\d+$/.test(String(commentId))) {
     throw new TypeError("INVALID_FOLLOW_GATE_CONTEXT");
   }
+  if (!/^comment:[0-9]+:[0-9]+$/.test(String(inboxId))) throw new TypeError("INVALID_FOLLOW_GATE_INBOX");
   const sessions = db.collection("cloudflare_staging_follow_gate_sessions");
   const key = "follow:" + String(inboxId);
   const result = await sessions.updateOne({ _id: key }, { $setOnInsert: {
@@ -22,7 +23,7 @@ export async function startFollowGate({ db, inboxId, campaignId, userId, recipie
   return { sessionId: key, created: result.upsertedCount === 1 };
 }
 export async function confirmFollowGate({ db, sessionId, followerStatus, now = new Date() }) {
-  if (!db || typeof sessionId !== "string" || !sessionId.startsWith("follow:")) {
+  if (!db || typeof sessionId !== "string" || !/^follow:comment:[0-9]+:[0-9]+$/.test(sessionId)) {
     throw new TypeError("INVALID_FOLLOW_GATE_SESSION");
   }
   if (followerStatus !== true) return { unlocked: false, reason: "FOLLOW_NOT_VERIFIED" };
