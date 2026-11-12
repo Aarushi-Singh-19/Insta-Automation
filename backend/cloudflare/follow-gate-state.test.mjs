@@ -27,11 +27,13 @@ test("follow sessions are keyed by inbox event and idempotent", async () => {
 test("follow verification requires positive provider status and one-time claim", async () => {
   let status = "WAITING";
   const db = { collection() { return { async findOneAndUpdate(query) {
-    if (status !== query.status) return null;
+    if (status !== query.status || query.recipientId !== "123" || query.inboxId !== "comment:999:123") return null;
     status = "VERIFIED"; return { _id: query._id };
   } }; } };
-  const args = { db, sessionId: "follow:comment:999:123" };
+  const args = { db, sessionId: "follow:comment:999:123", senderId: "123", accountId: "999" };
   assert.equal((await confirmFollowGate({ ...args, followerStatus: false })).unlocked, false);
+  assert.equal((await confirmFollowGate({ ...args, senderId: "9999", followerStatus: true })).unlocked, false);
+  assert.equal((await confirmFollowGate({ ...args, accountId: "111", followerStatus: true })).unlocked, false);
   assert.equal((await confirmFollowGate({ ...args, followerStatus: true })).unlocked, true);
   assert.equal((await confirmFollowGate({ ...args, followerStatus: true })).unlocked, false);
 });
