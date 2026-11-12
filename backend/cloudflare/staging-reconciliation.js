@@ -19,6 +19,12 @@ export async function reconcileStagingStates({ env, MongoClient, now = new Date(
     const abandonedPlanning = await inbox.updateMany({
       kind: "comment", status: "planning", planningStartedAt: { $lte: cutoff }
     }, { $set: { status: "needs_review", outcome: "ABANDONED_PLANNING", updatedAt: now } });
+    // A crashed Meta verification may have unlocked the session before the
+    // inbox acknowledgment. Never re-verify or re-trigger the DM automatically.
+    const abandonedFollowVerification = await inbox.updateMany({
+      kind: "postback", status: "verifying", verificationStartedAt: { $lte: cutoff }
+    }, { $set: { status: "needs_review", outcome: "UNCERTAIN_FOLLOW_VERIFICATION",
+      updatedAt: now } });
     // An abandoned executor may have sent a reply or DM before crashing.
     // NEVER automatically retry. Preserve send rows and quota reservations.
     const abandonedExecution = await outbox.updateMany({
@@ -30,6 +36,7 @@ export async function reconcileStagingStates({ env, MongoClient, now = new Date(
     }, { $set: { status: "needs_review", reconciliationReason: "UNCERTAIN_PROVIDER_OUTCOME", updatedAt: now } });
     return { abandonedPlanning: abandonedPlanning.modifiedCount,
       abandonedExecution: abandonedExecution.modifiedCount, uncertainSends: uncertainSends.modifiedCount,
+      abandonedFollowVerification: abandonedFollowVerification.modifiedCount,
       retriedInstagramMessages: 0 };
   } finally {
     await client.close();
