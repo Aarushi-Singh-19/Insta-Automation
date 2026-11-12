@@ -42,8 +42,17 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
     const outbox = db.collection("cloudflare_staging_action_outbox");
     const sends = db.collection("cloudflare_staging_action_sends");
     const quotas = db.collection("cloudflare_staging_dm_quotas");
-    const cursor = outbox.find({ status: { $in: ["awaiting_authorization", "awaiting_follow"] }, authorized: false })
-      .sort({ createdAt: 1, _id: 1 }).limit(limit);
+    // Filter eligible inbox IDs before limiting outbox rows. Otherwise the oldest
+    // pre-cutoff rows occupy every slot forever and starve fresh automatic events.
+    const eligibleInboxIds = receivedNotBefore
+      ? (await db.collection("cloudflare_staging_webhook_inbox")
+          .find({ kind: "comment", status: "planned", receivedAt: { $gte: receivedNotBefore } })
+          .project({ _id: 1 }).limit(100).toArray()).map(row => row._id)
+      : null;
+    const cursor = outbox.find({
+      status: { $in: ["awaiting_authorization", "awaiting_follow"] }, authorized: false,
+      ...(eligibleInboxIds ? { _id: { $in: eligibleInboxIds } } : {})
+    }).sort({ createdAt: 1, _id: 1 }).limit(limit);
     for await (const item of cursor) {
       summary.inspected++;
       const plan = item.plan;
