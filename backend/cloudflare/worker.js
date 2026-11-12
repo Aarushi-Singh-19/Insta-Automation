@@ -24,9 +24,14 @@ import { executeStagingActions } from "./staging-action-executor.js";
 import { planCommentAutomation } from "./comment-planner.js";
 import { buildCommentActionSpec } from "./comment-action-spec.js";
 import { followGateDecision } from "./follow-gate-state.js";
+import { drainStagingInbox } from "./staging-background.js";
 
 
 export default {
+  async scheduled(event, env, ctx) {
+    // Cron drains only durable staging records. No Instagram sends.
+    ctx.waitUntil(drainStagingInbox({ env, MongoClient }));
+  },
   async queue(batch, env) {
     // Fail closed: no real DB/Instagram executor has been wired to this runtime.
     // Retrying preserves events until a validated executor is deployed.
