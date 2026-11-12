@@ -17,6 +17,37 @@ export async function stagingAutomations({ env, MongoClient, authenticatedUserId
       const docs = await db.collection("automations").find({ user: userId }).sort({ createdAt: -1 }).limit(100).toArray();
       return { status: 200, body: docs };
     }
+    if (method === "DELETE") {
+      if (typeof targetId !== "string" || !/^[a-f0-9]{24}$/i.test(targetId)) {
+        return { status: 400, body: { message: "Invalid automation ID" } };
+      }
+      const id = oid(targetId);
+      const session = client.startSession();
+      try {
+        let deleted = false;
+        await session.withTransaction(async () => {
+          const automation = await db.collection("automations").findOne({ _id: id, user: userId }, { session });
+          if (!automation) return;
+          const campaigns = await db.collection("campaigns").find({
+            userId, $or: [{ automationId: id }, { name: "Automation - " + id }]
+          }, { session }).toArray();
+          const ruleIds = [...new Set(campaigns.flatMap(c => c.ruleIds || []).map(String))].map(oid);
+          await db.collection("campaigns").deleteMany({
+            userId, $or: [{ automationId: id }, { name: "Automation - " + id }]
+          }, { session });
+          if (ruleIds.length) {
+            await db.collection("rules").deleteMany({ userId, _id: { $in: ruleIds } }, { session });
+          }
+          // Also clean up a rule created for this automation if campaign linkage was lost.
+          await db.collection("rules").deleteMany({ userId, ruleName: "Automation - " + id }, { session });
+          await db.collection("automations").deleteOne({ _id: id, user: userId }, { session });
+          deleted = true;
+        });
+        return deleted
+          ? { status: 200, body: { message: "Automation deleted" } }
+          : { status: 404, body: { message: "Automation not found" } };
+      } finally { await session.endSession(); }
+    }
     if (method === "PUT") {
       if (typeof targetId !== "string" || !/^[a-f0-9]{24}$/i.test(targetId)) return { status: 400, body: { message: "Invalid automation ID" } };
       if (!input || typeof input !== "object" || Array.isArray(input)) return { status: 400, body: { message: "Invalid automation" } };
