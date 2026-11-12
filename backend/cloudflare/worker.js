@@ -44,7 +44,7 @@ export default {
     // Retrying preserves events until a validated executor is deployed.
     return consumeActionBatch(batch);
   },
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const allowedCors = cors(request.headers.get("Origin"));
     const json = (data, status = 200) => Response.json(data, {
@@ -975,10 +975,12 @@ export default {
           // Only process after durable storage, and only with the staging
           // pipeline explicitly enabled. The provider acknowledgment does not
           // depend on Graph delivery, which can be retried/reconciled separately.
-          if (stored.inserted > 0 && env?.ENABLE_STAGING_BACKGROUND === "true") {
-            // Cloudflare fetch handlers can use waitUntil only when a context
-            // is available; scheduled drains provide the durable fallback.
-            await drainStagingInbox({ env, MongoClient });
+          if (stored.inserted > 0 && env?.ENABLE_STAGING_BACKGROUND === "true" && ctx?.waitUntil) {
+            // Acknowledge Meta once Mongo has durably accepted the event.
+            // Process asynchronously: Graph latency must not trigger Meta retries.
+            ctx.waitUntil(drainStagingInbox({ env, MongoClient }).catch(error => {
+              console.error("Staging webhook background drain failed", error?.name || "Error");
+            }));
           }
           return json({ ok: true, received: stored.received, inserted: stored.inserted });
         } catch (error) {
