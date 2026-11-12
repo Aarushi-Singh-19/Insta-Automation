@@ -38,7 +38,7 @@ export async function stagingAutomations({ env, MongoClient, authenticatedUserId
       })) : [];
       if (!["any-post", "specific-post", "next-post"].includes(triggerType) ||
           !["keyword", "any_comment"].includes(commentTriggerType) || !dmMessage ||
-          (triggerType === "specific-post" && !/^\\d{5,40}$/.test(mediaId)) ||
+          (triggerType === "specific-post" && !/^\d{5,40}$/.test(mediaId)) ||
           (commentTriggerType === "keyword" && keywords.length === 0) ||
           (commentReplyEnabled && !commentReplyMessage) ||
           (mediaUrl && !validUrl(mediaUrl)) ||
