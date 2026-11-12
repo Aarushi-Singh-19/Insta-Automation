@@ -37,13 +37,13 @@ test("background executor requires both independent send flags", async () => {
   await assert.rejects(drainStagingInbox({
     env: { ...base, ENABLE_STAGING_BACKGROUND_SEND: "true" },
     plan, prepare
-  }), /STAGING_SEND_FLAG_REQUIRED/);
+  }), /STAGING_EXCLUSIVE_SEND_OWNERSHIP_REQUIRED/);
   assert.deepEqual(order, ["plan", "prepare"]);
 });
 test("explicitly enabled background execution runs after planning", async () => {
   const order = [];
   const result = await drainStagingInbox({
-    env: { ...base, ENABLE_STAGING_BACKGROUND_SEND: "true", ENABLE_STAGING_INSTAGRAM_SEND: "true" },
+    env: { ...base, ENABLE_STAGING_BACKGROUND_SEND: "true", ENABLE_STAGING_INSTAGRAM_SEND: "true", ENABLE_STAGING_EXCLUSIVE_SEND_OWNERSHIP: "true", STAGING_SEND_INSTAGRAM_BUSINESS_ID: "27759473043638911" },
     plan: async () => { order.push("plan"); return { processed: 1 }; },
     prepare: async () => { order.push("prepare"); return { prepared: 1 }; },
     execute: async () => { order.push("execute"); return { inspected: 1, completed: 1 }; }
