@@ -15,6 +15,7 @@ import { getStagingCurrentUser } from "./staging-current-user.js";
 import { listStagingRules } from "./staging-rules.js";
 import { loginStagingUser } from "./staging-login.js";
 import { listStagingInstagramAccounts } from "./staging-instagram-accounts.js";
+import { listStagingInstagramMedia } from "./staging-instagram-media.js";
 import { createStagingRule } from "./staging-rule-create.js";
 import { deleteStagingRule } from "./staging-rule-delete.js";
 import { toggleStagingRule } from "./staging-rule-toggle.js";
@@ -47,7 +48,7 @@ export default {
     });
     // Browser preflight must succeed at the Worker without relying on Render.
     // This grants no API access; the actual request still requires JWT and flags.
-    const nativePath = ["/instagram/accounts", "/api/instagram/accounts"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/me" ||
+    const nativePath = ["/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/me" ||
       url.pathname === "/api/auth/login" ||
       url.pathname === "/api/auth/me" ||
       url.pathname === "/api/rules" ||
@@ -172,6 +173,22 @@ export default {
       } catch (error) {
         console.error("Staging inbox diagnostic failed", error?.name || "Error");
         return json({ ok: false, error: "STAGING_INBOX_STATUS_UNAVAILABLE" }, 503);
+      }
+    }
+    // Native read-only staging Instagram media route, avoiding Render upstream limits.
+    if (request.method === "GET" && ["/instagram/media", "/api/instagram/media"].includes(url.pathname)) {
+      if (!env?.STAGING_JWT_SECRET) return json({ success: false, message: "Staging media unavailable" }, 503);
+      const authorization = request.headers.get("Authorization") || "";
+      if (!authorization.startsWith("Bearer ")) return json({ success: false, message: "No token provided" }, 401);
+      let userId;
+      try { userId = getTriggerDmUserId(await verifySessionJwt(authorization.slice(7), env.STAGING_JWT_SECRET)); }
+      catch { return json({ success: false, message: "Invalid token" }, 401); }
+      try {
+        const result = await listStagingInstagramMedia({ env, MongoClient, authenticatedUserId: userId, search: url.searchParams.get("search") || "" });
+        return json(result.body, result.status);
+      } catch (error) {
+        console.error("Staging media listing failed", error?.name || "Error");
+        return json({ success: false, message: "Staging media unavailable" }, 503);
       }
     }
     // Native staging account listing: avoids rate-limited Render upstream.
