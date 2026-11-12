@@ -7,7 +7,7 @@ import { proxyRequest, cors } from "./upstream-proxy.js";
 import { runtimeReadiness } from "./runtime-readiness.js";
 import { extractInstagramEvents } from "./instagram-events.js";
 import { validateStagingMongoConfig, probeStagingMongo, inspectStagingCollections, inspectStagingDocumentShapes } from "./staging-mongodb.js";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import { persistInstagramInbox } from "./staging-webhook-inbox.js";
 import { verifySessionJwt, getTriggerDmUserId } from "./session-jwt.js";
 import { listOwnCampaigns } from "./staging-campaigns.js";
@@ -148,6 +148,62 @@ export default {
           rulesToggle: env.ENABLE_NATIVE_STAGING_RULE_TOGGLE === "true"
         }
       });
+    }
+    // Read-only real staging account/campaign resolver and subscription preflight.
+    // Uses existing staging documents, never posts to Meta or modifies quotas.
+    if (request.method === "GET" && url.pathname === "/__cloudflare/staging-real-resolver-check") {
+      if (!env?.STAGING_PROBE_TOKEN || request.headers.get("Authorization") !== "Bearer " + env.STAGING_PROBE_TOKEN) {
+        return json({ error: "Not found" }, 404);
+      }
+      let client;
+      try {
+        const { uri, dbName } = validateStagingMongoConfig(env);
+        client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+        await client.connect();
+        const db = client.db(dbName);
+        const accounts = await db.collection("instagramaccounts").find({ status: "active" })
+          .project({ instagramBusinessId: 1, userId: 1 }).limit(10).toArray();
+        const campaigns = await db.collection("campaigns").find({ status: "active" })
+          .project({ userId: 1, instagramMediaId: 1, postIds: 1, triggerType: 1,
+            ruleIds: 1, instagramAccountId: 1 }).limit(30).toArray();
+        let checked = 0, resolved = 0, actionReady = 0;
+        for (const account of accounts) {
+          for (const campaign of campaigns) {
+            if (String(account.userId) !== String(campaign.userId) ||
+                !/^\d+$/.test(String(account.instagramBusinessId || ""))) continue;
+            const postId = String(campaign.instagramMediaId || campaign.postIds?.[0] || "");
+            if (!/^\d+$/.test(postId) || campaign.triggerType !== "specific-post") continue;
+            const rules = await db.collection("rules").find({ _id: { $in: campaign.ruleIds || [] },
+              userId: campaign.userId, isActive: true }).project({ triggerType: 1, triggerKeywords: 1, keywords: 1 }).toArray();
+            for (const rule of rules) {
+              const keyword = rule.triggerType === "any_comment" ? "test" :
+                (rule.triggerKeywords || rule.keywords || []).find(k => typeof k === "string" && k.trim());
+              if (!keyword) continue;
+              checked++;
+              const comment = { eventId: "99999999999999331", entryId: String(account.instagramBusinessId),
+                postId, commentText: String(keyword), recipientId: "99999999999999332" };
+              const match = await resolveStagingComment({ db, comment });
+              if (match?.campaign && String(match.campaign._id) === String(campaign._id)) {
+                resolved++;
+                if (planCommentAutomation({ comment, campaign: match.campaign, rule: match.rule }).matched &&
+                    buildCommentActionSpec({ comment, campaign: match.campaign, rule: match.rule }).ready) actionReady++;
+              }
+            }
+          }
+        }
+        const userIds = [...new Set(accounts.map(a => String(a.userId)))].filter(id => /^[a-f0-9]{24}$/i.test(id));
+        const users = await db.collection("users").find({ _id: { $in: userIds.map(id => new ObjectId(id)) } }).toArray();
+        return json({ ok: checked > 0 && resolved > 0 && actionReady > 0,
+          database: dbName, activeAccounts: accounts.length, activeCampaigns: campaigns.length,
+          resolverCandidates: checked, resolved, actionSpecsReady: actionReady,
+          userSubscriptionStatuses: users.map(u => ({ status: u.subscriptionStatus || "missing",
+            hasTrialWindow: !!(u.trialStartDate && u.trialEndDate),
+            hasBillingWindow: !!(u.subscriptionCurrentStart && (u.subscriptionCurrentEnd || u.planEndDate)) })),
+          realWebhookTested: false, realInstagramMessagesSent: false });
+      } catch (error) {
+        console.error("Staging real resolver check failed", error?.name || "Error");
+        return json({ ok: false, error: "STAGING_REAL_RESOLVER_CHECK_FAILED" }, 503);
+      } finally { if (client) await client.close(); }
     }
     // Operator-only matched-event pipeline smoke test using an isolated synthetic
     // campaign/rule. It never creates a dispatchable authorization or calls Meta.
