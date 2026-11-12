@@ -145,7 +145,7 @@ export async function stagingAutomations({ env, MongoClient, authenticatedUserId
         (user.subscriptionStatus === "trial" && user.trialEndDate && new Date(user.trialEndDate) <= now)) {
       return { status: 403, body: { success: false, message: "Subscription required" } };
     }
-    const account = await db.collection("instagramaccounts").findOne({ userId, status: "active" }, { projection: { _id: 1 } });
+    const account = await db.collection("instagramaccounts").findOne({ userId, status: "active" }, { projection: { _id: 1, instagramBusinessId: 1 } });
     if (!account) return { status: 400, body: { success: false, message: "Connect an Instagram account first" } };
     const automationId = new ObjectId(), ruleId = new ObjectId(), campaignId = new ObjectId();
     const automation = {
@@ -163,7 +163,7 @@ export async function stagingAutomations({ env, MongoClient, authenticatedUserId
     };
     const campaign = {
       _id: campaignId, userId, automationId, name: "Automation - " + automationId,
-      triggerType, instagramMediaId: mediaId, instagramMediaUrl: mediaUrl, instagramAccountId: "",
+      triggerType, instagramMediaId: mediaId, instagramMediaUrl: mediaUrl, instagramAccountId: String(account.instagramBusinessId || ""),
       postIds: triggerType === "specific-post" ? [mediaId] : [],
       status: "active", ruleIds: [ruleId],
       settings: { enableDM: true, enableReply: commentReplyEnabled, dmMessage, dmButtons, minDelaySeconds: 10, maxDelaySeconds: 40 },
