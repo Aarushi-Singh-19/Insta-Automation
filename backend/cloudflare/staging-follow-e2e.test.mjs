@@ -98,7 +98,8 @@ test("Follow Gate prompts once, waits for verified session, then resumes content
   assert.equal(outbox.status, "awaiting_follow");
   assert.equal(session.status, "WAITING");
   assert.deepEqual(calls, ["reply", "gate_prompt"]);
-  assert.equal(quota.reserved, 1);
+  // Follow prompts do not consume a content-DM reservation.
+  assert.equal(quota.reserved, 0);
   const waiting = await executeStagingActions(args);
   assert.equal(waiting.blocked, 1);
   assert.deepEqual(calls, ["reply", "gate_prompt"]);
@@ -107,7 +108,7 @@ test("Follow Gate prompts once, waits for verified session, then resumes content
   assert.equal(resumed.completed, 1);
   assert.equal(outbox.status, "completed");
   assert.deepEqual(calls, ["reply", "gate_prompt", "content_dm"]);
-  assert.equal(quota.reserved, 2);
+  assert.equal(quota.reserved, 1);
   const replay = await executeStagingActions(args);
   assert.equal(replay.completed, 0);
   assert.equal(calls.length, 3);
