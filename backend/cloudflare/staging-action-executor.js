@@ -23,8 +23,9 @@ function usagePeriod(user, now) {
   if (!start || !end || new Date(start) > now || new Date(end) <= now) return null;
   return { period: "billing", key: "billing:" + new Date(start).toISOString(), limit: 10000 };
 }
-export async function executeStagingActions({ env, MongoClient, fetchImpl, getFollower = getInstagramFollowerStatus, limit = 5, now = new Date() }) {
+export async function executeStagingActions({ env, MongoClient, fetchImpl, getFollower = getInstagramFollowerStatus, limit = 5, now = new Date(), receivedNotBefore = null }) {
   const { uri, dbName } = validateStagingMongoConfig(env);
+  if (receivedNotBefore !== null && (!(receivedNotBefore instanceof Date) || !Number.isFinite(receivedNotBefore.getTime()))) throw new Error("INVALID_AUTOMATIC_SEND_CUTOFF");
   if (env?.ENABLE_STAGING_INSTAGRAM_SEND !== "true") throw new Error("STAGING_SEND_DISABLED");
   // Explicitly bind live staging sends to one operator-approved Instagram
   // account. An enabled flag alone must never send for every copied account.
@@ -49,6 +50,7 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
       if (!plan || !numberId(plan.eventId) || !numberId(plan.postId) ||
           !objectId(plan.campaignId) || !objectId(plan.ruleId)) { summary.blocked++; continue; }
       const inbox = await db.collection("cloudflare_staging_webhook_inbox").findOne({ _id: item._id, status: "planned" });
+      if (receivedNotBefore && (!(inbox?.receivedAt instanceof Date) || inbox.receivedAt < receivedNotBefore)) { summary.blocked++; continue; }
       if (!inbox || inbox.event?.eventId !== plan.eventId || inbox.event?.postId !== plan.postId ||
           !numberId(inbox.event?.entryId)) { summary.blocked++; continue; }
       const campaign = await db.collection("campaigns").findOne({ _id: objectId(plan.campaignId), status: "active" });
