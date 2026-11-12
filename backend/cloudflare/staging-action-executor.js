@@ -4,6 +4,8 @@
 import { ObjectId } from "mongodb";
 import { verifiedQuotaState } from "./quota-reconciliation.js";
 import { verifiedFollowGateRelease } from "./follow-gate-release.js";
+import { startFollowGate } from "./follow-gate-state.js";
+import { buildFollowPrompt } from "./follow-gate-prompt.js";
 import { validateStagingMongoConfig } from "./staging-mongodb.js";
 import { authorizeCommentActions } from "./automation-authorization.js";
 import { buildCommentActionSpec } from "./comment-action-spec.js";
@@ -34,7 +36,7 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, limit
     const outbox = db.collection("cloudflare_staging_action_outbox");
     const sends = db.collection("cloudflare_staging_action_sends");
     const quotas = db.collection("cloudflare_staging_dm_quotas");
-    const cursor = outbox.find({ status: "awaiting_authorization", authorized: false })
+    const cursor = outbox.find({ status: { $in: ["awaiting_authorization", "awaiting_follow"] }, authorized: false })
       .sort({ createdAt: 1, _id: 1 }).limit(limit);
     for await (const item of cursor) {
       summary.inspected++;
@@ -71,6 +73,7 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, limit
       const action = buildCommentActionSpec({ comment: inbox.event, campaign, rule });
       if (!action.ready) { summary.blocked++; continue; }
       let followGateVerified = false;
+      let followPrompt = null;
       if (action.spec.followGateRequired) {
         const session = await db.collection("cloudflare_staging_follow_gate_sessions").findOne({
           _id: "follow:" + String(item._id), status: "VERIFIED"
@@ -79,8 +82,17 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, limit
           session, inboxId: item._id, campaignId: campaign._id, userId: user._id,
           recipientId: inbox.event.recipientId, commentId: plan.eventId
         });
-        if (!release.allowed) { summary.blocked++; continue; }
-        followGateVerified = true;
+        if (release.allowed) {
+          followGateVerified = true;
+        } else if (item.status === "awaiting_authorization" && !session) {
+          if (!numberId(inbox.event.recipientId) || !account.username) { summary.blocked++; continue; }
+          try {
+            followPrompt = buildFollowPrompt({
+              sessionId: "follow:" + String(item._id),
+              profileUrl: "https://www.instagram.com/" + String(account.username) + "/"
+            });
+          } catch { summary.blocked++; continue; }
+        } else { summary.blocked++; continue; }
       }
       const period = usagePeriod(user, now);
       if (!period && action.spec.dm) { summary.blocked++; continue; }
@@ -89,16 +101,26 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, limit
       const verified = action.spec.dm ? verifiedQuotaState(counter, period, user._id) : null;
       if (action.spec.dm && !verified) { summary.blocked++; continue; }
       const usage = { period: period?.period || "billing", sent: verified?.sent ?? 0 };
-      const authorization = authorizeCommentActions({ user, campaign, rule, account, usage, followGateVerified, now });
+      // A prompt is allowed after subscription/quota checks, not gated content.
+      const authorization = authorizeCommentActions({ user, campaign, rule, account, usage,
+        followGateVerified: followGateVerified || Boolean(followPrompt), now });
       if (!authorization.authorized) { summary.blocked++; continue; }
       // Atomically claim this outbox row before any provider call. Two Worker
       // invocations must never concurrently send actions for the same comment.
-      const claim = await outbox.updateOne({ _id: item._id, status: "awaiting_authorization", authorized: false },
+      if (followPrompt) {
+        await startFollowGate({ db, inboxId: String(item._id),
+          campaignId: String(campaign._id), userId: String(user._id),
+          recipientId: String(inbox.event.recipientId), commentId: String(plan.eventId) });
+      }
+      const claim = await outbox.updateOne({ _id: item._id, status: item.status, authorized: false },
         { $set: { status: "executing", executionStartedAt: new Date() } });
       if (claim.modifiedCount !== 1) { summary.blocked++; continue; }
       // A claim is permanently consumed once an external request starts.
       // This prevents duplicate sends when a Worker crashes after Graph accepts it.
-      for (const [kind, details] of [["reply", action.spec.reply], ["dm", action.spec.dm]]) {
+      const stages = followPrompt
+        ? [["reply", action.spec.reply], ["gate_prompt", followPrompt]]
+        : [["reply", action.spec.reply], ["dm", action.spec.dm]];
+      for (const [kind, details] of stages) {
         if (!details) continue;
         const sendId = String(item._id) + ":" + kind;
         const existing = await sends.findOne({ _id: sendId });
@@ -107,7 +129,7 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, limit
           summary.uncertain++; break;
         }
         let reserved = false;
-        if (kind === "dm") {
+        if (kind === "dm" || kind === "gate_prompt") {
           // Ensure quota document exists, then atomically reserve one slot.
           const updated = await quotas.updateOne({ _id: quotaId, baselineVerified: true,
             baselineSource: "render-reconciliation", userId: user._id, period: period.period,
@@ -132,7 +154,10 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, limit
             ? await replyToInstagramComment({ accessToken: account.accessToken, commentId: plan.eventId,
                 message: details.message, fetchImpl })
             : await sendInstagramDM({ accessToken: account.pageAccessToken, instagramBusinessId: account.instagramBusinessId,
-                commentId: plan.eventId, message: details.message, buttons: details.buttons, fetchImpl });
+                ...(kind === "gate_prompt" ? { commentId: plan.eventId } :
+                  action.spec.followGateRequired ? { recipientId: inbox.event.recipientId } : { commentId: plan.eventId }),
+                message: kind === "gate_prompt" ? details.text : details.message,
+                buttons: details.buttons, fetchImpl });
           await sends.updateOne({ _id: sendId, status: "sending" },
             { $set: { status: "sent", providerId: result.id || result.messageId, completedAt: new Date() } });
         } catch (error) {
@@ -143,11 +168,15 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, limit
           break;
         }
       }
-      const required = [action.spec.reply && "reply", action.spec.dm && "dm"].filter(Boolean);
+      const required = followPrompt
+        ? [action.spec.reply && "reply", "gate_prompt"].filter(Boolean)
+        : [action.spec.reply && "reply", action.spec.dm && "dm"].filter(Boolean);
       const states = await Promise.all(required.map(kind => sends.findOne({ _id: String(item._id) + ":" + kind })));
       if (states.length && states.every(state => state?.status === "sent")) {
         await outbox.updateOne({ _id: item._id, status: "executing" },
-          { $set: { status: "completed", dispatched: true, completedAt: new Date() } });
+          { $set: followPrompt
+            ? { status: "awaiting_follow", dispatched: false, gatePromptSentAt: new Date() }
+            : { status: "completed", dispatched: true, completedAt: new Date() } });
         summary.completed++;
       } else {
         // Do not retry uncertain Graph outcomes automatically: a timeout may
