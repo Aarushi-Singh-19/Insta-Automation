@@ -64,7 +64,13 @@ app.use(
 // NORMAL BODY PARSERS
 // ==========================================
 
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    if (req.originalUrl?.split("?")[0] === "/api/webhook/instagram") {
+      req.instagramWebhookRawBody = Buffer.from(buf);
+    }
+  }
+}));
 
 app.use(
   express.urlencoded({
