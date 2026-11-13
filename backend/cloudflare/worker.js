@@ -2,6 +2,7 @@
 // Webhook POSTs deliberately return 501: acknowledging an event without processing it
 // would silently lose comments, DMs, payments, or referral commissions.
 import { verifyInstagramChallenge, verifyHmacSha256 } from "./webhook-security.js";
+import { createStagingSubscription, stagingPaymentHistory, processStagingRazorpayWebhook } from "./staging-razorpay.js";
 import { consumeActionBatch } from "./action-queue.js";
 import { proxyRequest, cors } from "./upstream-proxy.js";
 import { runtimeReadiness } from "./runtime-readiness.js";
@@ -55,7 +56,7 @@ export default {
     });
     // Browser preflight must succeed at the Worker without relying on Render.
     // This grants no API access; the actual request still requires JWT and flags.
-    const nativePath = /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname) || ["/automations", "/api/automations", "/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/me" ||
+    const nativePath = ["/billing/create-subscription", "/api/billing/create-subscription", "/billing/history", "/api/billing/history"].includes(url.pathname) || /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname) || ["/automations", "/api/automations", "/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/me" ||
       url.pathname === "/api/auth/login" ||
       url.pathname === "/api/auth/me" ||
       url.pathname === "/api/rules" ||
@@ -1072,6 +1073,42 @@ export default {
         return json({ error: "Durable staging storage unavailable" }, 503);
       }
     }
+    // Native staging Razorpay billing: JWT authenticated and fail-closed.
+    if (["/billing/create-subscription", "/api/billing/create-subscription",
+         "/billing/history", "/api/billing/history"].includes(url.pathname)) {
+      if (env?.ENABLE_STAGING_RAZORPAY !== "true") return json({ error: "Not found" }, 404);
+      const bearer = request.headers.get("Authorization") || "";
+      if (!bearer.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+      let userId;
+      try {
+        userId = getTriggerDmUserId(await verifySessionJwt(bearer.slice(7), env.STAGING_JWT_SECRET));
+      } catch { return json({ error: "Unauthorized" }, 401); }
+      try {
+        if (url.pathname.endsWith("/create-subscription") && request.method === "POST") {
+          const result = await createStagingSubscription({ env, MongoClient, userId, fetchImpl: fetch });
+          return json(result.data, result.status);
+        }
+        if (url.pathname.endsWith("/history") && request.method === "GET") {
+          return json(await stagingPaymentHistory({ env, MongoClient, userId }));
+        }
+        return json({ error: "Method not allowed" }, 405);
+      } catch (error) {
+        console.error("Staging Razorpay API failed", error?.message === "RAZORPAY_API_UNAVAILABLE" ?
+          "RAZORPAY_API_UNAVAILABLE" : error?.name || "Error");
+        return json({ success: false, message: "Billing temporarily unavailable" }, 503);
+      }
+    }
+    // Razorpay webhooks are never proxied; only acknowledge after durable processing.
+    if (url.pathname === "/api/billing/razorpay-webhook" && request.method === "POST") {
+      if (env?.ENABLE_STAGING_RAZORPAY !== "true") return json({ error: "Not found" }, 404);
+      try {
+        const result = await processStagingRazorpayWebhook({ request, env, MongoClient, fetchImpl: fetch });
+        return json(result.data, result.status);
+      } catch (error) {
+        console.error("Staging Razorpay webhook failed", error?.name || "Error");
+        return json({ success: false, message: "Webhook processing unavailable" }, 503);
+      }
+    }
     // Never proxy webhook traffic during migration. A suspended upstream can
     // respond unpredictably, and accepting payments/comments without durable
     // processing would cause silent loss. Handle signature checks locally.
@@ -1130,16 +1167,6 @@ export default {
           return json({ error: "Durable webhook persistence unavailable" }, 503);
         }
       }
-    }
-    if (url.pathname === "/api/billing/razorpay-webhook" && request.method === "POST") {
-      const rawBody = await request.text();
-      const valid = await verifyHmacSha256(
-        rawBody,
-        request.headers.get("x-razorpay-signature"),
-        env?.RAZORPAY_WEBHOOK_SECRET
-      );
-      if (!valid) return json({ error: "Invalid signature" }, 403);
-      return json({ error: "Payment processing not migrated; do not configure Razorpay here" }, 501);
     }
     return json({ error: "Not implemented: migration in progress" }, 501);
   },
