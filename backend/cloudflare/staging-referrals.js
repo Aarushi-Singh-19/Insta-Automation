@@ -168,8 +168,8 @@ export async function reverseRefund(db, session, refund) {
   if (earning.status === "paid") updates.recoveryDue = round(Number(earning.recoveryDue || 0) + delta);
   else {
     updates.recoveryDue = round(Number(earning.recoveryDue || 0) + restoreDelta);
-    updates.commissionAmount = Math.max(0, round(original - target - Math.max(0, applied - restore)));
-    if (!updates.commissionAmount) updates.status = "reversed";
+    updates.commissionAmount = Math.max(0, round(Number(earning.commissionAmount || 0) - delta + restoreDelta));
+    if (!updates.commissionAmount && earning.status === "eligible") updates.status = "reversed";
   }
   await records.insertOne({ razorpayRefundId: refund.id, razorpayPaymentId: refund.payment_id, amount: refund.amount / 100, commissionReversal: delta, processedAt: new Date() }, { session });
   await earnings.updateOne({ _id: earning._id }, { $set: updates }, { session });
