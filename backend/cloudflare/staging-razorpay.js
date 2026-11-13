@@ -258,9 +258,21 @@ export async function reconcileStagingSubscription({ env, MongoClient, userId, f
       const response = await razorpayApi(env, "GET", "payments?count=" + count + "&skip=" + skip, { fetchImpl });
       if (!Array.isArray(response.items)) throw new Error("INVALID_PAYMENTS_RESPONSE");
       for (const candidate of response.items) {
-        if (candidate.subscription_id !== subscriptionId || candidate.status !== "captured") continue;
-        if (!candidate.id || seen.has(candidate.id)) continue;
+        if (candidate.status !== "captured" || candidate.amount !== 19900 ||
+            candidate.currency !== "INR" || !candidate.id || seen.has(candidate.id)) continue;
         seen.add(candidate.id);
+        // Razorpay's payment listing may omit subscription_id for invoice-backed
+        // subscription charges. Resolve the invoice using Razorpay's authenticated
+        // API before deciding whether the payment belongs to this subscription.
+        if (candidate.subscription_id && candidate.subscription_id !== subscriptionId) continue;
+        if (!candidate.subscription_id) {
+          if (!candidate.invoice_id) continue;
+          const invoice = await razorpayApi(env, "GET", "invoices/" +
+            encodeURIComponent(candidate.invoice_id), { fetchImpl });
+          if (invoice.id !== candidate.invoice_id || invoice.subscription_id !== subscriptionId ||
+              invoice.payment_id !== candidate.id || invoice.status !== "paid" ||
+              invoice.amount !== candidate.amount || invoice.currency !== candidate.currency) continue;
+        }
         const payment = await verifyCaptured(env, candidate, subscriptionId, fetchImpl);
         if (payment.subscriptionId !== subscriptionId) throw new Error("SUBSCRIPTION_PAYMENT_MISMATCH");
         if (payment.payment.amount !== 19900 || payment.payment.currency !== "INR")
