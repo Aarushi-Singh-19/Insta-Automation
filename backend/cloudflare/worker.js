@@ -1,6 +1,7 @@
 import { referralSummary, payoutRequests } from "./staging-referrals.js";
 import { stagingAnalytics } from "./staging-analytics.js";
 import { nativeStagingCampaigns } from "./staging-campaign-crud.js";
+import { beginStagingInstagramOAuth, completeStagingInstagramOAuth, disconnectStagingInstagram } from "./staging-instagram-oauth.js";
 // Isolated Cloudflare migration probe. NEVER connect this URL to Meta or Razorpay yet.
 // Webhook POSTs deliberately return 501: acknowledging an event without processing it
 // would silently lose comments, DMs, payments, or referral commissions.
@@ -71,6 +72,7 @@ export default {
          "/billing/reconcile", "/api/billing/reconcile"].includes(url.pathname) || /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname) || ["/automations", "/api/automations", "/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/signup" || url.pathname === "/auth/me" ||
       /^\/(?:api\/)?campaigns(?:\/[a-f0-9]{24}(?:\/rules)?)?$/.test(url.pathname) ||
       /^\/(?:api\/)?analytics\/(?:dashboard|trends)$/.test(url.pathname) ||
+      /^\/(?:api\/)?instagram\/(?:connect-v2|callback-v2|disconnect\/[a-f0-9]{24})$/.test(url.pathname) ||
       url.pathname === "/api/auth/login" ||
       url.pathname === "/api/auth/signup" ||
       url.pathname === "/api/auth/me" ||
@@ -931,6 +933,42 @@ export default {
         console.error("Native staging rules failed", error?.name || "Error");
         return json({ success: false, message: "Staging rules unavailable" }, 503);
       }
+    }
+    // Native Instagram Login V2: staging-only until isolated Meta callback is configured.
+    if (env?.ENABLE_STAGING_INSTAGRAM_OAUTH === "true" &&
+        (["/api/instagram/connect-v2", "/instagram/connect-v2"].includes(url.pathname) ||
+         ["/api/instagram/callback-v2", "/instagram/callback-v2"].includes(url.pathname) ||
+         /^\/(?:api\/)?instagram\/disconnect\/[a-f0-9]{24}$/i.test(url.pathname))) {
+      const isCallback = url.pathname.endsWith("/callback-v2");
+      if (isCallback && request.method === "GET") {
+        const front = new URL(env.FRONTEND_URL || "https://triggerdm-staging-frontend.onrender.com");
+        if (front.protocol !== "https:") return json({ message: "OAuth unavailable" }, 503);
+        front.pathname = "/accounts"; front.search = "";
+        try {
+          await completeStagingInstagramOAuth({ env, MongoClient, code: url.searchParams.get("code"), state: url.searchParams.get("state") });
+          return Response.redirect(front.toString(), 302);
+        } catch (error) {
+          console.error("Instagram OAuth callback failed", error?.message || "Error");
+          front.searchParams.set("error", "instagram_connection_failed");
+          return Response.redirect(front.toString(), 302);
+        }
+      }
+      const bearer = request.headers.get("Authorization") || "";
+      if (!bearer.startsWith("Bearer ")) return json({ message: "Unauthorized" }, 401);
+      let userId;
+      try { userId = getTriggerDmUserId(await verifySessionJwt(bearer.slice(7), env.STAGING_JWT_SECRET)); }
+      catch { return json({ message: "Unauthorized" }, 401); }
+      if (request.method === "GET" && url.pathname.endsWith("/connect-v2")) {
+        try { return json(await beginStagingInstagramOAuth({ env, userId })); }
+        catch { return json({ message: "OAuth unavailable" }, 503); }
+      }
+      if (request.method === "DELETE" && url.pathname.includes("/disconnect/")) {
+        try {
+          const result = await disconnectStagingInstagram({ env, MongoClient, userId, accountId: url.pathname.split("/").at(-1) });
+          return json(result.body, result.status);
+        } catch { return json({ message: "Disconnect unavailable" }, 503); }
+      }
+      return json({ message: "Method not allowed" }, 405);
     }
     // Full native staging campaign API, including owned rule attachments.
     const campaignMatch = url.pathname.match(/^\/(?:api\/)?campaigns(?:\/([a-f0-9]{24})(?:\/(rules))?)?$/i);
