@@ -1,0 +1,45 @@
+{
+  "name": "triggerdm-backend-staging",
+  "main": "./backend/cloudflare/worker.js",
+  "compatibility_date": "2026-11-11",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "previews": {},
+  "keep_vars": true,
+  "vars": {
+    "MONGODB_STAGING_DB": "triggerdm_staging",
+    "UPSTREAM_ORIGIN": "https://triggerdm-staging-backend.onrender.com",
+    "CLOUDFLARE_STAGING_RELAY_WEBHOOK_ENTRY_ID": "17841467727075219",
+    "ENABLE_NATIVE_STAGING_AUTH_ME": "true",
+    "ENABLE_NATIVE_STAGING_LOGIN": "true",
+    "ENABLE_NATIVE_STAGING_RULE_CREATE": "true",
+    "ENABLE_NATIVE_STAGING_RULE_DELETE": "true",
+    "ENABLE_NATIVE_STAGING_RULES": "true",
+    "ENABLE_NATIVE_STAGING_RULE_TOGGLE": "true",
+    "ENABLE_NATIVE_STAGING_RULE_UPDATE": "true",
+    "ENABLE_STAGING_ACTION_PREPARATION": "true",
+    "ENABLE_STAGING_BACKGROUND": "true",
+    "ENABLE_STAGING_BACKGROUND_SEND": "true",
+    "ENABLE_STAGING_EXCLUSIVE_SEND_OWNERSHIP": "true",
+    "ENABLE_STAGING_INGEST": "true",
+    "ENABLE_STAGING_INSTAGRAM_SEND": "true",
+    "ENABLE_STAGING_PLANNER": "true",
+    "STAGING_AUTOMATIC_SEND_NOT_BEFORE": "2026-11-12T13:00:00.000Z",
+    "STAGING_SEND_INSTAGRAM_BUSINESS_ID": "27759473043638911",
+    "STAGING_WEBHOOK_ENTRY_ID": "17841467727075219",
+    "ENABLE_STAGING_FOLLOW_POSTBACK_PROCESSOR": "true",
+    "ENABLE_STAGING_FOLLOW_VERIFICATION": "true"
+  },
+  "triggers": {
+    "crons": [
+      "*/5 * * * *"
+    ]
+  },
+  "observability": {
+    "logs": {
+      "enabled": true
+    }
+  }
+}
