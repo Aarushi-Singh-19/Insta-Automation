@@ -3,7 +3,7 @@ import { referralSummary, payoutRequests } from "./staging-referrals.js";
 // Webhook POSTs deliberately return 501: acknowledging an event without processing it
 // would silently lose comments, DMs, payments, or referral commissions.
 import { verifyInstagramChallenge, verifyHmacSha256 } from "./webhook-security.js";
-import { createStagingSubscription, stagingPaymentHistory, reconcileStagingSubscription, processStagingRazorpayWebhook } from "./staging-razorpay.js";
+import { createStagingSubscription, stagingPaymentHistory, reconcileStagingSubscription, processStagingRazorpayWebhook, recoverStagingBilling } from "./staging-razorpay.js";
 import { consumeActionBatch } from "./action-queue.js";
 import { proxyRequest, cors } from "./upstream-proxy.js";
 import { runtimeReadiness } from "./runtime-readiness.js";
@@ -43,6 +43,13 @@ export default {
   async scheduled(event, env, ctx) {
     // Cron drains only durable staging records. No Instagram sends.
     ctx.waitUntil(drainStagingInbox({ env, MongoClient }));
+    if (env?.ENABLE_STAGING_RAZORPAY === "true") {
+      ctx.waitUntil(recoverStagingBilling({ env, MongoClient }).catch(error => {
+        console.error("Staging billing recovery cron failed", {
+          category: error?.name || "Error", code: error?.code ?? null
+        });
+      }));
+    }
   },
   async queue(batch, env) {
     // Fail closed: no real DB/Instagram executor has been wired to this runtime.
