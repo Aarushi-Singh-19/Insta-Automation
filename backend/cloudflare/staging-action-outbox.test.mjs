@@ -8,10 +8,11 @@ const validPlan = { _id: "comment:999:123", plan: { eventId: "123", postId: "202
 function setup(records) {
   const stored = new Map();
   let connected = 0;
-  const plans = { find(query) {
-    assert.equal(query.status, "awaiting_authorization");
-    return { sort() { return this; }, limit() { return this; },
-      async *[Symbol.asyncIterator]() { yield* records; } };
+  const plans = { aggregate(pipeline) {
+    assert.deepEqual(pipeline[0], { $match: { status: "awaiting_authorization" } });
+    const limit = pipeline.find(stage => stage.$limit)?.$limit ?? records.length;
+    const eligible = records.filter(record => !stored.has(String(record._id))).slice(0, limit);
+    return { async *[Symbol.asyncIterator]() { yield* eligible; } };
   } };
   const outbox = { async updateOne(filter, update) {
     if (stored.has(filter._id)) return { upsertedCount: 0 };
