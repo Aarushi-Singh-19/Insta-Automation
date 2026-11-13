@@ -932,7 +932,7 @@ export default {
       }
     }
     // Native staging analytics, equivalent to the existing Express response shapes.
-    if (request.method === "GET" && /^\\/(?:api\\/)?analytics\\/(dashboard|trends)$/.test(url.pathname)) {
+    if (request.method === "GET" && /^\/(?:api\/)?analytics\/(dashboard|trends)$/.test(url.pathname)) {
       if (!env?.STAGING_JWT_SECRET) return json({ message: "Analytics unavailable" }, 503);
       const authorization = request.headers.get("Authorization") || "";
       if (!authorization.startsWith("Bearer ")) return json({ message: "Unauthorized" }, 401);
