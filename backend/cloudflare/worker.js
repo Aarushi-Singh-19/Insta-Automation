@@ -1,4 +1,5 @@
 import { referralSummary, payoutRequests } from "./staging-referrals.js";
+import { stagingAnalytics } from "./staging-analytics.js";
 // Isolated Cloudflare migration probe. NEVER connect this URL to Meta or Razorpay yet.
 // Webhook POSTs deliberately return 501: acknowledging an event without processing it
 // would silently lose comments, DMs, payments, or referral commissions.
@@ -68,6 +69,7 @@ export default {
     const nativePath = /^\/(?:api\/)?referrals(?:\/summary|\/payouts\/requests|\/payouts\/admin\/requests(?:\/[a-f0-9]{24})?)$/.test(url.pathname) || ["/billing/create-subscription", "/api/billing/create-subscription", "/billing/history", "/api/billing/history",
          "/billing/reconcile", "/api/billing/reconcile"].includes(url.pathname) || /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname) || ["/automations", "/api/automations", "/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/signup" || url.pathname === "/auth/me" ||
       url.pathname === "/api/campaigns" || url.pathname === "/campaigns" ||
+      /^\/(?:api\/)?analytics\/(?:dashboard|trends)$/.test(url.pathname) ||
       url.pathname === "/api/auth/login" ||
       url.pathname === "/api/auth/signup" ||
       url.pathname === "/api/auth/me" ||
@@ -927,6 +929,22 @@ export default {
       } catch (error) {
         console.error("Native staging rules failed", error?.name || "Error");
         return json({ success: false, message: "Staging rules unavailable" }, 503);
+      }
+    }
+    // Native staging analytics, equivalent to the existing Express response shapes.
+    if (request.method === "GET" && /^\\/(?:api\\/)?analytics\\/(dashboard|trends)$/.test(url.pathname)) {
+      if (!env?.STAGING_JWT_SECRET) return json({ message: "Analytics unavailable" }, 503);
+      const authorization = request.headers.get("Authorization") || "";
+      if (!authorization.startsWith("Bearer ")) return json({ message: "Unauthorized" }, 401);
+      let userId;
+      try { userId = getTriggerDmUserId(await verifySessionJwt(authorization.slice(7), env.STAGING_JWT_SECRET)); }
+      catch { return json({ message: "Unauthorized" }, 401); }
+      try {
+        return json(await stagingAnalytics({ env, MongoClient, authenticatedUserId: userId,
+          kind: url.pathname.endsWith("/trends") ? "trends" : "dashboard" }));
+      } catch (error) {
+        console.error("Native staging analytics failed", error?.name || "Error");
+        return json({ message: "Analytics unavailable" }, 503);
       }
     }
     // Isolated staging route: verified JWT only; never accepts a caller-supplied
