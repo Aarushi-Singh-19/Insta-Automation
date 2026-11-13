@@ -67,6 +67,7 @@ export default {
     // This grants no API access; the actual request still requires JWT and flags.
     const nativePath = /^\/(?:api\/)?referrals(?:\/summary|\/payouts\/requests|\/payouts\/admin\/requests(?:\/[a-f0-9]{24})?)$/.test(url.pathname) || ["/billing/create-subscription", "/api/billing/create-subscription", "/billing/history", "/api/billing/history",
          "/billing/reconcile", "/api/billing/reconcile"].includes(url.pathname) || /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname) || ["/automations", "/api/automations", "/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/signup" || url.pathname === "/auth/me" ||
+      url.pathname === "/api/campaigns" || url.pathname === "/campaigns" ||
       url.pathname === "/api/auth/login" ||
       url.pathname === "/api/auth/signup" ||
       url.pathname === "/api/auth/me" ||
@@ -930,7 +931,7 @@ export default {
     }
     // Isolated staging route: verified JWT only; never accepts a caller-supplied
     // user ID. Requires an independent staging JWT secret and explicit opt-in.
-    if (url.pathname === "/__cloudflare/api/campaigns" && request.method === "GET") {
+    if (["/__cloudflare/api/campaigns", "/api/campaigns", "/campaigns"].includes(url.pathname) && request.method === "GET") {
       if (env?.ENABLE_STAGING_CAMPAIGN_API !== "true" || !env?.STAGING_JWT_SECRET) {
         return json({ error: "Not found" }, 404);
       }
