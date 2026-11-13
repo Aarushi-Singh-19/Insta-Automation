@@ -219,3 +219,65 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
     return { status: 503, data: { success: false, message: "Webhook processing failed" } };
   } finally { await client.close(); }
 }
+
+/**
+ * Explicit, authenticated, staging-only repair for missed Razorpay webhooks.
+ * Never trusts client-supplied subscription IDs, amounts, or payment states.
+ * No fabricated webhook acknowledgements; safe to retry.
+ */
+export async function reconcileStagingSubscription({ env, MongoClient, userId, fetchImpl = fetch }) {
+  const { uri, dbName } = billingConfig(env);
+  if (!/^[a-f0-9]{24}$/i.test(userId)) return { status: 401, data: { success: false } };
+  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+  try {
+    await client.connect();
+    const db = client.db(dbName);
+    const user = await db.collection("users").findOne({ _id: new ObjectId(userId) });
+    if (!user?.razorpaySubscriptionId) return { status: 404, data: { success: false, message: "No subscription" } };
+    const subscriptionId = user.razorpaySubscriptionId;
+    const subscription = await razorpayApi(env, "GET", "subscriptions/" + encodeURIComponent(subscriptionId), { fetchImpl });
+    if (subscription.id !== subscriptionId || subscription.plan_id !== env.RAZORPAY_MONTHLY_PLAN_ID)
+      throw new Error("SUBSCRIPTION_VERIFICATION_MISMATCH");
+    if (subscription.status !== "active" || !subscription.current_end ||
+        !subscription.current_start || subscription.current_end <= subscription.current_start)
+      return { status: 409, data: { success: false, message: "Subscription has no verified active paid period", razorpayStatus: subscription.status } };
+    const response = await razorpayApi(env, "GET", "subscriptions/" + encodeURIComponent(subscriptionId) + "/payments?count=100", { fetchImpl });
+    if (!Array.isArray(response.items)) throw new Error("INVALID_SUBSCRIPTION_PAYMENTS");
+    const verified = [];
+    for (const candidate of response.items) {
+      if (candidate.status !== "captured") continue;
+      const payment = await verifyCaptured(env, candidate, subscriptionId, fetchImpl);
+      if (payment.subscriptionId !== subscriptionId) throw new Error("SUBSCRIPTION_PAYMENT_MISMATCH");
+      if (payment.payment.amount !== 19900 || payment.payment.currency !== "INR")
+        throw new Error("UNEXPECTED_PAYMENT_AMOUNT");
+      verified.push(payment.payment);
+    }
+    if (!verified.length) return { status: 409, data: { success: false, message: "No verified captured payment for subscription" } };
+    await Promise.all([
+      db.collection("payments").createIndex({ razorpayPaymentId: 1 }, { unique: true }),
+      db.collection("referralearnings").createIndex({ razorpayPaymentId: 1 }, { unique: true })
+    ]);
+    const session = client.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await db.collection("users").updateOne(
+          { _id: user._id, razorpaySubscriptionId: subscriptionId },
+          { $set: subscriptionUpdate("subscription.activated", subscription) }, { session });
+        for (const payment of verified) {
+          await db.collection("payments").updateOne({ razorpayPaymentId: payment.id },
+            { $setOnInsert: { userId: user._id, razorpayPaymentId: payment.id,
+              razorpaySubscriptionId: subscriptionId, amount: payment.amount / 100,
+              currency: payment.currency, status: "captured", eventType: "reconciliation",
+              paidAt: dateFromEpoch(payment.created_at), createdAt: new Date(), updatedAt: new Date() } },
+            { upsert: true, session });
+          if (user.referredBy) {
+            if (env.ENABLE_STAGING_REFERRALS !== "true") throw new Error("REFERRALS_DISABLED");
+            await recordCommission(db, session, user, payment);
+          }
+        }
+      });
+    } finally { await session.endSession(); }
+    return { status: 200, data: { success: true, subscriptionStatus: "active",
+      capturedPaymentsVerified: verified.length, referralReconciled: Boolean(user.referredBy) } };
+  } finally { await client.close(); }
+}
