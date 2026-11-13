@@ -146,9 +146,11 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
   } catch { return { status: 503, data: { success: false, message: "Payment verification failed" } }; }
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
   let claimed = false;
+  let stage = "connect";
   try {
     await client.connect();
     const db = client.db(dbName);
+    stage = "ensure-indexes";
     // Enforce database idempotency even when Mongoose has never initialized indexes.
     // Legacy records may not contain these IDs. Full unique indexes reject
     // multiple missing values and can make every signed webhook fail with 503.
@@ -167,6 +169,7 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
         name: "razorpayRefundId_unique_string"
       })
     ]);
+    stage = "find-subscription-owner";
     const users = db.collection("users");
     const events = db.collection("webhookevents");
     const subscriptionId = subscription?.id || captured?.subscriptionId || payment?.subscription_id;
@@ -178,6 +181,7 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
     if (type === "refund.processed" && env.ENABLE_STAGING_REFERRALS !== "true")
       return { status: 503, data: { success: false, message: "Refund accounting disabled" } };
     const now = new Date();
+    stage = "claim-event";
     const claim = await events.findOneAndUpdate(
       { eventId, $or: [{ status: "failed" }, { status: "processing", lockedUntil: { $lte: now } }] },
       { $set: { status: "processing", lockedUntil: new Date(now.getTime() + 120000),
@@ -187,6 +191,7 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
       if (existing?.status === "processed") return { status: 200, data: { success: true, duplicate: true } };
       if (existing) return { status: 503, data: { success: false, message: "Event processing; retry" } };
       try {
+        stage = "insert-event";
         await events.insertOne({ eventId, eventType: type, status: "processing",
           attempts: 1, lockedUntil: new Date(now.getTime() + 120000), createdAt: now });
       } catch (e) {
@@ -196,6 +201,7 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
     }
     claimed = true;
     // Transaction commits payment, subscription, commission/refund and webhook ack together.
+    stage = "transaction";
     const session = client.startSession();
     try {
       await session.withTransaction(async () => {
@@ -234,7 +240,7 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
     if (claimed) await client.db(dbName).collection("webhookevents").updateOne(
       { eventId, status: "processing" }, { $set: { status: "failed",
         lockedUntil: null, lastError: String(error.message || error).slice(0, 200) } }).catch(() => {});
-    console.error("Staging Razorpay webhook processing failed", { code: error?.code ?? null, codeName: error?.codeName ?? null, category: error?.name ?? "Error" });
+    console.error("Staging Razorpay webhook processing failed", { stage, code: error?.code ?? null, codeName: error?.codeName ?? null, category: error?.name ?? "Error", index: typeof error?.index === "string" ? error.index.slice(0, 100) : null, keyFields: error?.keyPattern ? Object.keys(error.keyPattern).slice(0, 5) : [] });
     return { status: 503, data: { success: false, message: "Webhook processing failed" } };
   } finally { await client.close(); }
 }
