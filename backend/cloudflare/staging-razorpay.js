@@ -142,6 +142,13 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
   try {
     await client.connect();
     const db = client.db(dbName);
+    // Enforce database idempotency even when Mongoose has never initialized indexes.
+    await Promise.all([
+      db.collection("webhookevents").createIndex({ eventId: 1 }, { unique: true }),
+      db.collection("payments").createIndex({ razorpayPaymentId: 1 }, { unique: true }),
+      db.collection("referralearnings").createIndex({ razorpayPaymentId: 1 }, { unique: true }),
+      db.collection("referralrefundrecords").createIndex({ razorpayRefundId: 1 }, { unique: true })
+    ]);
     const users = db.collection("users");
     const events = db.collection("webhookevents");
     const subscriptionId = subscription?.id || captured?.subscriptionId || payment?.subscription_id;
