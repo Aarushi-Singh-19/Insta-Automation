@@ -248,16 +248,27 @@ export async function reconcileStagingSubscription({ env, MongoClient, userId, f
     if (subscription.status !== "active" || !subscription.current_end ||
         !subscription.current_start || subscription.current_end <= subscription.current_start)
       return { status: 409, data: { success: false, message: "Subscription has no verified active paid period", razorpayStatus: subscription.status } };
-    const response = await razorpayApi(env, "GET", "subscriptions/" + encodeURIComponent(subscriptionId) + "/payments?count=100", { fetchImpl });
-    if (!Array.isArray(response.items)) throw new Error("INVALID_SUBSCRIPTION_PAYMENTS");
+    // Razorpay does not expose GET /subscriptions/:id/payments.
+    // List payments using the supported payments endpoint, paging without
+    // silently omitting older captured charges.
     const verified = [];
-    for (const candidate of response.items) {
-      if (candidate.status !== "captured") continue;
-      const payment = await verifyCaptured(env, candidate, subscriptionId, fetchImpl);
-      if (payment.subscriptionId !== subscriptionId) throw new Error("SUBSCRIPTION_PAYMENT_MISMATCH");
-      if (payment.payment.amount !== 19900 || payment.payment.currency !== "INR")
-        throw new Error("UNEXPECTED_PAYMENT_AMOUNT");
-      verified.push(payment.payment);
+    const seen = new Set();
+    const count = 100;
+    for (let skip = 0; ; skip += count) {
+      const response = await razorpayApi(env, "GET", "payments?count=" + count + "&skip=" + skip, { fetchImpl });
+      if (!Array.isArray(response.items)) throw new Error("INVALID_PAYMENTS_RESPONSE");
+      for (const candidate of response.items) {
+        if (candidate.subscription_id !== subscriptionId || candidate.status !== "captured") continue;
+        if (!candidate.id || seen.has(candidate.id)) continue;
+        seen.add(candidate.id);
+        const payment = await verifyCaptured(env, candidate, subscriptionId, fetchImpl);
+        if (payment.subscriptionId !== subscriptionId) throw new Error("SUBSCRIPTION_PAYMENT_MISMATCH");
+        if (payment.payment.amount !== 19900 || payment.payment.currency !== "INR")
+          throw new Error("UNEXPECTED_PAYMENT_AMOUNT");
+        verified.push(payment.payment);
+      }
+      if (response.items.length < count) break;
+      if (skip >= 9900) throw new Error("PAYMENT_HISTORY_TOO_LARGE");
     }
     if (!verified.length) return { status: 409, data: { success: false, message: "No verified captured payment for subscription" } };
     await Promise.all([
