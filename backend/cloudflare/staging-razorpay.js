@@ -146,7 +146,7 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
     const events = db.collection("webhookevents");
     const subscriptionId = subscription?.id || captured?.subscriptionId || payment?.subscription_id;
     const user = subscriptionId ? await users.findOne({ razorpaySubscriptionId: subscriptionId }) : null;
-    if (!user && type !== "subscription.authenticated")
+    if (!user && type !== "subscription.authenticated" && type !== "refund.processed")
       return { status: 503, data: { success: false, message: "Subscription owner not found" } };
     if (type === "subscription.charged" && user?.referredBy && env.ENABLE_STAGING_REFERRALS !== "true")
       return { status: 503, data: { success: false, message: "Referral accounting disabled" } };
