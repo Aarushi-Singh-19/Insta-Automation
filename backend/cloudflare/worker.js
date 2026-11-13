@@ -1100,11 +1100,11 @@ export default {
       }
     }
     // Native staging referrals and payout endpoints. Never fall through to Render.
-    const referralPath = url.pathname.replace(/^\\/api\\//, "/");
+    const referralPath = url.pathname.replace(/^\/api\//, "/");
     if (referralPath === "/referrals/summary" ||
         referralPath === "/referrals/payouts/requests" ||
         referralPath === "/referrals/payouts/admin/requests" ||
-        /^\\/referrals\\/payouts\\/admin\\/requests\\/[a-f0-9]{24}$/i.test(referralPath)) {
+        /^\/referrals\/payouts\/admin\/requests\/[a-f0-9]{24}$/i.test(referralPath)) {
       if (env?.ENABLE_STAGING_REFERRALS !== "true") return json({ error: "Not found" }, 404);
       const bearer = request.headers.get("Authorization") || "";
       if (!bearer.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
