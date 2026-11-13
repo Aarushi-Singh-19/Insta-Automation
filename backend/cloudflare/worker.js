@@ -3,7 +3,7 @@ import { referralSummary, payoutRequests } from "./staging-referrals.js";
 // Webhook POSTs deliberately return 501: acknowledging an event without processing it
 // would silently lose comments, DMs, payments, or referral commissions.
 import { verifyInstagramChallenge, verifyHmacSha256 } from "./webhook-security.js";
-import { createStagingSubscription, stagingPaymentHistory, processStagingRazorpayWebhook } from "./staging-razorpay.js";
+import { createStagingSubscription, stagingPaymentHistory, reconcileStagingSubscription, processStagingRazorpayWebhook } from "./staging-razorpay.js";
 import { consumeActionBatch } from "./action-queue.js";
 import { proxyRequest, cors } from "./upstream-proxy.js";
 import { runtimeReadiness } from "./runtime-readiness.js";
@@ -57,7 +57,8 @@ export default {
     });
     // Browser preflight must succeed at the Worker without relying on Render.
     // This grants no API access; the actual request still requires JWT and flags.
-    const nativePath = /^\/(?:api\/)?referrals(?:\/summary|\/payouts\/requests|\/payouts\/admin\/requests(?:\/[a-f0-9]{24})?)$/.test(url.pathname) || ["/billing/create-subscription", "/api/billing/create-subscription", "/billing/history", "/api/billing/history"].includes(url.pathname) || /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname) || ["/automations", "/api/automations", "/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/me" ||
+    const nativePath = /^\/(?:api\/)?referrals(?:\/summary|\/payouts\/requests|\/payouts\/admin\/requests(?:\/[a-f0-9]{24})?)$/.test(url.pathname) || ["/billing/create-subscription", "/api/billing/create-subscription", "/billing/history", "/api/billing/history",
+         "/billing/reconcile", "/api/billing/reconcile"].includes(url.pathname) || /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname) || ["/automations", "/api/automations", "/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/me" ||
       url.pathname === "/api/auth/login" ||
       url.pathname === "/api/auth/me" ||
       url.pathname === "/api/rules" ||
@@ -1087,6 +1088,10 @@ export default {
       try {
         if (url.pathname.endsWith("/create-subscription") && request.method === "POST") {
           const result = await createStagingSubscription({ env, MongoClient, userId, fetchImpl: fetch });
+          return json(result.data, result.status);
+        }
+        if (url.pathname.endsWith("/reconcile") && request.method === "POST") {
+          const result = await reconcileStagingSubscription({ env, MongoClient, userId, fetchImpl: fetch });
           return json(result.data, result.status);
         }
         if (url.pathname.endsWith("/history") && request.method === "GET") {
