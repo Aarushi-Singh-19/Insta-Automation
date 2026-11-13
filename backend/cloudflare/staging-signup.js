@@ -11,7 +11,7 @@ export async function signupStagingUser({ env, MongoClient, name, email, passwor
       !name.trim() || !email.trim() || !password) return failure(400, "All fields required");
   const normalizedEmail = email.trim().toLowerCase();
   if (name.trim().length > 120 || normalizedEmail.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) ||
-      password.length < 8 || password.length > 1024) return failure(400, "Invalid signup details");
+      password.length > 1024) return failure(400, "Invalid signup details");
   if (typeof suppliedCode !== "undefined" && typeof suppliedCode !== "string") return failure(400, "Invalid referral code.");
   const refCode = String(suppliedCode || "").trim().toUpperCase();
   if (refCode && !/^[A-Z0-9]{1,64}$/.test(refCode)) return failure(400, "Invalid referral code.");
