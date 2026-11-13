@@ -346,3 +346,43 @@ export async function reconcileStagingSubscription({ env, MongoClient, userId, f
       capturedPaymentsVerified: verified.length, referralReconciled: Boolean(user.referredBy) } };
   } finally { await client.close(); }
 }
+
+/**
+ * Bounded staging-only safety net for a missed or failed Razorpay webhook.
+ * Runs from the existing Worker cron; verifies Razorpay payment and subscription
+ * before any state change, and reuses the idempotent reconciliation transaction.
+ * Does not require a user session or a manual browser command.
+ */
+export async function recoverStagingBilling({ env, MongoClient, fetchImpl = fetch }) {
+  if (env?.ENABLE_STAGING_RAZORPAY !== "true") return { skipped: true };
+  const { uri, dbName } = billingConfig(env);
+  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+  try {
+    await client.connect();
+    const users = client.db(dbName).collection("users");
+    const candidates = await users.find({
+      razorpaySubscriptionId: { $type: "string" },
+      subscriptionStatus: { $in: ["trial", "expired", "past_due", "halted", "cancelled"] }
+    }).sort({ _id: -1 }).limit(3).project({ _id: 1 }).toArray();
+    let recovered = 0;
+    let pending = 0;
+    for (const candidate of candidates) {
+      try {
+        const result = await reconcileStagingSubscription({
+          env, MongoClient, userId: String(candidate._id), fetchImpl
+        });
+        if (result.status === 200) recovered++;
+        else pending++;
+      } catch (error) {
+        pending++;
+        console.error("Staging automatic billing recovery failed", {
+          category: error?.name || "Error",
+          code: error?.code ?? null
+        });
+      }
+    }
+    return { checked: candidates.length, recovered, pending };
+  } finally {
+    await client.close();
+  }
+}
