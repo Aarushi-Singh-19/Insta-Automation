@@ -1170,6 +1170,14 @@ export default {
     // processing would cause silent loss. Handle signature checks locally.
     const isWebhook = url.pathname === "/api/webhook/instagram" ||
       url.pathname === "/api/billing/razorpay-webhook";
+    // Render-free audit mode: deliberately fail unmatched routes rather than
+    // silently forwarding to Render. Enable ONLY on an isolated staging Worker
+    // after native routes are tested; leave unset on the current live staging Worker.
+    // This is a route-parity gate, NOT a production-ready switch.
+    if (env?.CLOUDFLARE_REQUIRE_NATIVE_ROUTES === "true" && !isWebhook) {
+      console.warn("Render dependency blocked", { method: request.method, pathname: url.pathname });
+      return json({ error: "RENDER_DEPENDENCY_BLOCKED", method: request.method, pathname: url.pathname }, 501);
+    }
     if (env?.UPSTREAM_ORIGIN && !isWebhook) {
       // Staging frontend uses paths without /api. Normalize only known API
       // namespaces; keep Cloudflare diagnostics and webhook routes isolated.
