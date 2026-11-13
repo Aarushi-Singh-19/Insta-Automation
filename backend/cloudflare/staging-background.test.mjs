@@ -43,7 +43,7 @@ test("background executor requires both independent send flags", async () => {
 test("explicitly enabled background execution runs after planning", async () => {
   const order = [];
   const result = await drainStagingInbox({
-    env: { ...base, ENABLE_STAGING_BACKGROUND_SEND: "true", ENABLE_STAGING_INSTAGRAM_SEND: "true", ENABLE_STAGING_EXCLUSIVE_SEND_OWNERSHIP: "true", STAGING_SEND_INSTAGRAM_BUSINESS_ID: "27759473043638911" },
+    env: { ...base, ENABLE_STAGING_BACKGROUND_SEND: "true", ENABLE_STAGING_INSTAGRAM_SEND: "true", ENABLE_STAGING_EXCLUSIVE_SEND_OWNERSHIP: "true", STAGING_SEND_INSTAGRAM_BUSINESS_ID: "27759473043638911", STAGING_AUTOMATIC_SEND_NOT_BEFORE: "2026-11-12T00:00:00.000Z" },
     plan: async () => { order.push("plan"); return { processed: 1 }; },
     prepare: async () => { order.push("prepare"); return { prepared: 1 }; },
     execute: async () => { order.push("execute"); return { inspected: 1, completed: 1 }; }
