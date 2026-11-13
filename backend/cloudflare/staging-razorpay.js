@@ -1,3 +1,4 @@
+import { recordCommission, reverseRefund } from "./staging-referrals.js";
 import { ObjectId } from "mongodb";
 import { validateStagingMongoConfig } from "./staging-mongodb.js";
 import { verifyHmacSha256 } from "./webhook-security.js";
@@ -124,12 +125,10 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
     return { status: 400, data: { success: false } };
   const subscription = event.payload?.subscription?.entity;
   const payment = event.payload?.payment?.entity;
-  // Refund accounting belongs to the separate referral migration. Never
-  // acknowledge refunds without processing their commission reversal.
-  if (type === "refund.processed") return { status: 503, data: { success: false, message: "Refund processing not migrated" } };
+  const refund = event.payload?.refund?.entity;
   const supported = new Set(["subscription.authenticated", "subscription.activated",
     "subscription.charged", "subscription.pending", "subscription.halted",
-    "subscription.cancelled", "subscription.completed", "payment.captured", "payment.failed"]);
+    "subscription.cancelled", "subscription.completed", "payment.captured", "payment.failed", "refund.processed"]);
   if (!supported.has(type)) return { status: 503, data: { success: false, message: "Event type not migrated" } };
   if (type.startsWith("subscription.") && !subscription?.id)
     return { status: 400, data: { success: false, message: "Missing subscription" } };
@@ -143,15 +142,23 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
   try {
     await client.connect();
     const db = client.db(dbName);
+    // Enforce database idempotency even when Mongoose has never initialized indexes.
+    await Promise.all([
+      db.collection("webhookevents").createIndex({ eventId: 1 }, { unique: true }),
+      db.collection("payments").createIndex({ razorpayPaymentId: 1 }, { unique: true }),
+      db.collection("referralearnings").createIndex({ razorpayPaymentId: 1 }, { unique: true }),
+      db.collection("referralrefundrecords").createIndex({ razorpayRefundId: 1 }, { unique: true })
+    ]);
     const users = db.collection("users");
     const events = db.collection("webhookevents");
     const subscriptionId = subscription?.id || captured?.subscriptionId || payment?.subscription_id;
     const user = subscriptionId ? await users.findOne({ razorpaySubscriptionId: subscriptionId }) : null;
-    if (!user && type !== "subscription.authenticated")
+    if (!user && type !== "subscription.authenticated" && type !== "refund.processed")
       return { status: 503, data: { success: false, message: "Subscription owner not found" } };
-    // Referral commissions must not be silently skipped while their port is pending.
-    if (type === "subscription.charged" && user?.referredBy)
-      return { status: 503, data: { success: false, message: "Referral accounting not migrated" } };
+    if (type === "subscription.charged" && user?.referredBy && env.ENABLE_STAGING_REFERRALS !== "true")
+      return { status: 503, data: { success: false, message: "Referral accounting disabled" } };
+    if (type === "refund.processed" && env.ENABLE_STAGING_REFERRALS !== "true")
+      return { status: 503, data: { success: false, message: "Refund accounting disabled" } };
     const now = new Date();
     const claim = await events.findOneAndUpdate(
       { eventId, $or: [{ status: "failed" }, { status: "processing", lockedUntil: { $lte: now } }] },
@@ -170,23 +177,40 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
       }
     }
     claimed = true;
-    if (user) {
-      const update = subscriptionUpdate(type, subscription || { id: subscriptionId });
-      if (Object.keys(update).length) await users.updateOne({ _id: user._id }, { $set: update });
-      if (captured || type === "payment.failed") {
-        const p = captured?.payment || payment;
-        if (p?.id && Number.isFinite(p.amount) && p.amount >= 0) {
-          await db.collection("payments").updateOne({ razorpayPaymentId: p.id },
-            { $setOnInsert: { userId: user._id, razorpayPaymentId: p.id,
-              razorpaySubscriptionId: subscriptionId, amount: p.amount / 100,
-              currency: p.currency || "INR", status: captured ? "captured" : "failed",
-              eventType: type, paidAt: captured ? dateFromEpoch(p.created_at) : null,
-              createdAt: now, updatedAt: now } }, { upsert: true });
+    // Transaction commits payment, subscription, commission/refund and webhook ack together.
+    const session = client.startSession();
+    try {
+      await session.withTransaction(async () => {
+        if (type === "refund.processed") {
+          if (!refund?.id || !refund.payment_id || !Number.isFinite(refund.amount) || refund.amount <= 0)
+            throw new Error("INVALID_REFUND");
+          // Verify refund belongs to the configured Razorpay Test Mode account.
+          const verifiedRefund = await razorpayApi(env, "GET", "refunds/" + encodeURIComponent(refund.id), { fetchImpl });
+          if (verifiedRefund?.id !== refund.id || verifiedRefund.payment_id !== refund.payment_id ||
+              verifiedRefund.amount !== refund.amount || verifiedRefund.status !== "processed")
+            throw new Error("REFUND_VERIFICATION_MISMATCH");
+          await reverseRefund(db, session, verifiedRefund);
         }
-      }
-    }
-    await events.updateOne({ eventId, status: "processing" },
-      { $set: { status: "processed", processedAt: new Date(), lockedUntil: null } });
+        if (user) {
+          const update = subscriptionUpdate(type, subscription || { id: subscriptionId });
+          if (Object.keys(update).length) await users.updateOne({ _id: user._id }, { $set: update }, { session });
+          if (captured || type === "payment.failed") {
+            const p = captured?.payment || payment;
+            if (p?.id && Number.isFinite(p.amount) && p.amount >= 0) {
+              await db.collection("payments").updateOne({ razorpayPaymentId: p.id },
+                { $setOnInsert: { userId: user._id, razorpayPaymentId: p.id,
+                  razorpaySubscriptionId: subscriptionId, amount: p.amount / 100,
+                  currency: p.currency || "INR", status: captured ? "captured" : "failed",
+                  eventType: type, paidAt: captured ? dateFromEpoch(p.created_at) : null,
+                  createdAt: now, updatedAt: now } }, { upsert: true, session });
+            }
+          }
+          if (type === "subscription.charged") await recordCommission(db, session, user, captured.payment);
+        }
+        await events.updateOne({ eventId, status: "processing" },
+          { $set: { status: "processed", processedAt: new Date(), lockedUntil: null } }, { session });
+      });
+    } finally { await session.endSession(); }
     return { status: 200, data: { success: true } };
   } catch (error) {
     if (claimed) await client.db(dbName).collection("webhookevents").updateOne(

@@ -1,0 +1,25 @@
+name: Cloudflare referral migration tests
+on:
+  pull_request:
+    paths:
+      - 'backend/cloudflare/**'
+      - '.github/workflows/cloudflare-referral-tests.yml'
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/cloudflare
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: backend/cloudflare/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: node --test staging-referrals.test.mjs staging-razorpay.test.mjs
+      - run: node --check worker.js
+      - run: node --check staging-referrals.js
+      - run: node --check staging-razorpay.js
