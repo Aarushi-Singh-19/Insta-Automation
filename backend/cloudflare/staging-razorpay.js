@@ -283,12 +283,22 @@ export async function reconcileStagingSubscription({ env, MongoClient, userId, f
       if (skip >= 9900) throw new Error("PAYMENT_HISTORY_TOO_LARGE");
     }
     if (!verified.length) return { status: 409, data: { success: false, message: "No verified captured payment for subscription" } };
-    await Promise.all([
-      db.collection("payments").createIndex({ razorpayPaymentId: 1 }, { unique: true }),
-      db.collection("referralearnings").createIndex({ razorpayPaymentId: 1 }, { unique: true })
-    ]);
+    // Existing legacy rows may lack razorpayPaymentId. A full unique index
+    // treats missing values as null and can fail on a second legacy row.
+    // Partial unique indexes protect real IDs without rejecting legacy rows.
+    let stage = "indexes";
+    try {
+      await db.collection("payments").createIndex(
+        { razorpayPaymentId: 1 }, { unique: true, partialFilterExpression: { razorpayPaymentId: { $type: "string" } }, name: "razorpayPaymentId_unique_string" });
+      await db.collection("referralearnings").createIndex(
+        { razorpayPaymentId: 1 }, { unique: true, partialFilterExpression: { razorpayPaymentId: { $type: "string" } }, name: "razorpayPaymentId_unique_string" });
+    } catch (error) {
+      console.error("Staging billing reconciliation Mongo failure", { stage, code: error.code ?? null, codeName: error.codeName ?? null });
+      throw error;
+    }
     const session = client.startSession();
     try {
+      stage = "transaction";
       await session.withTransaction(async () => {
         await db.collection("users").updateOne(
           { _id: user._id, razorpaySubscriptionId: subscriptionId },
@@ -306,6 +316,9 @@ export async function reconcileStagingSubscription({ env, MongoClient, userId, f
           }
         }
       });
+    } catch (error) {
+      console.error("Staging billing reconciliation Mongo failure", { stage, code: error.code ?? null, codeName: error.codeName ?? null });
+      throw error;
     } finally { await session.endSession(); }
     return { status: 200, data: { success: true, subscriptionStatus: "active",
       capturedPaymentsVerified: verified.length, referralReconciled: Boolean(user.referredBy) } };
