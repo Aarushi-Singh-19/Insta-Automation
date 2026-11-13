@@ -1,3 +1,4 @@
+import { referralSummary, payoutRequests } from "./staging-referrals.js";
 // Isolated Cloudflare migration probe. NEVER connect this URL to Meta or Razorpay yet.
 // Webhook POSTs deliberately return 501: acknowledging an event without processing it
 // would silently lose comments, DMs, payments, or referral commissions.
@@ -56,7 +57,7 @@ export default {
     });
     // Browser preflight must succeed at the Worker without relying on Render.
     // This grants no API access; the actual request still requires JWT and flags.
-    const nativePath = ["/billing/create-subscription", "/api/billing/create-subscription", "/billing/history", "/api/billing/history"].includes(url.pathname) || /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname) || ["/automations", "/api/automations", "/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/me" ||
+    const nativePath = /^\/(?:api\/)?referrals(?:\/summary|\/payouts\/requests|\/payouts\/admin\/requests(?:\/[a-f0-9]{24})?)$/.test(url.pathname) || ["/billing/create-subscription", "/api/billing/create-subscription", "/billing/history", "/api/billing/history"].includes(url.pathname) || /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname) || ["/automations", "/api/automations", "/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/me" ||
       url.pathname === "/api/auth/login" ||
       url.pathname === "/api/auth/me" ||
       url.pathname === "/api/rules" ||
@@ -1096,6 +1097,31 @@ export default {
         console.error("Staging Razorpay API failed", error?.message === "RAZORPAY_API_UNAVAILABLE" ?
           "RAZORPAY_API_UNAVAILABLE" : error?.name || "Error");
         return json({ success: false, message: "Billing temporarily unavailable" }, 503);
+      }
+    }
+    // Native staging referrals and payout endpoints. Never fall through to Render.
+    const referralPath = url.pathname.replace(/^\\/api\\//, "/");
+    if (referralPath === "/referrals/summary" ||
+        referralPath === "/referrals/payouts/requests" ||
+        referralPath === "/referrals/payouts/admin/requests" ||
+        /^\\/referrals\\/payouts\\/admin\\/requests\\/[a-f0-9]{24}$/i.test(referralPath)) {
+      if (env?.ENABLE_STAGING_REFERRALS !== "true") return json({ error: "Not found" }, 404);
+      const bearer = request.headers.get("Authorization") || "";
+      if (!bearer.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+      let userId;
+      try { userId = getTriggerDmUserId(await verifySessionJwt(bearer.slice(7), env.STAGING_JWT_SECRET)); }
+      catch { return json({ error: "Unauthorized" }, 401); }
+      try {
+        if (referralPath === "/referrals/summary" && request.method === "GET")
+          { const result = await referralSummary({ env, MongoClient, userId }); return json(result.data, result.status); }
+        const admin = referralPath.includes("/admin/");
+        const payoutId = admin && referralPath.split("/").length === 6 ? referralPath.split("/").at(-1) : null;
+        const body = request.method === "PATCH" ? await request.json().catch(() => null) : null;
+        const result = await payoutRequests({ env, MongoClient, userId, method: request.method, body, admin, payoutId });
+        return json(result.data, result.status);
+      } catch (error) {
+        console.error("Staging referral route failed", error?.name || "Error");
+        return json({ success: false, message: "Referral service temporarily unavailable" }, 503);
       }
     }
     // Razorpay webhooks are never proxied; only acknowledge after durable processing.
