@@ -17,6 +17,7 @@ import { listOwnCampaigns } from "./staging-campaigns.js";
 import { getStagingCurrentUser } from "./staging-current-user.js";
 import { listStagingRules } from "./staging-rules.js";
 import { loginStagingUser } from "./staging-login.js";
+import { signupStagingUser } from "./staging-signup.js";
 import { listStagingInstagramAccounts } from "./staging-instagram-accounts.js";
 import { listStagingInstagramMedia } from "./staging-instagram-media.js";
 import { stagingAutomations } from "./staging-automations.js";
@@ -65,8 +66,9 @@ export default {
     // Browser preflight must succeed at the Worker without relying on Render.
     // This grants no API access; the actual request still requires JWT and flags.
     const nativePath = /^\/(?:api\/)?referrals(?:\/summary|\/payouts\/requests|\/payouts\/admin\/requests(?:\/[a-f0-9]{24})?)$/.test(url.pathname) || ["/billing/create-subscription", "/api/billing/create-subscription", "/billing/history", "/api/billing/history",
-         "/billing/reconcile", "/api/billing/reconcile"].includes(url.pathname) || /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname) || ["/automations", "/api/automations", "/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/me" ||
+         "/billing/reconcile", "/api/billing/reconcile"].includes(url.pathname) || /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname) || ["/automations", "/api/automations", "/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/signup" || url.pathname === "/auth/me" ||
       url.pathname === "/api/auth/login" ||
+      url.pathname === "/api/auth/signup" ||
       url.pathname === "/api/auth/me" ||
       url.pathname === "/api/rules" ||
       /^\/api\/rules\/[a-f0-9]{24}(?:\/toggle)?$/i.test(url.pathname);
@@ -782,6 +784,21 @@ export default {
       } catch (error) {
         console.error("Staging account listing failed", error?.name || "Error");
         return json({ success: false, message: "Staging accounts unavailable" }, 503);
+      }
+    }
+    // Signup stays native to staging: never send account credentials to the Render upstream.
+    if (["/api/auth/signup", "/auth/signup"].includes(url.pathname) && request.method === "POST") {
+      if (env?.ENABLE_NATIVE_STAGING_LOGIN !== "true") return json({ message: "Staging signup unavailable" }, 503);
+      if (Number(request.headers.get("content-length") || 0) > 8192) return json({ message: "Payload too large" }, 413);
+      let body;
+      try { body = await request.json(); } catch { return json({ message: "Invalid request body" }, 400); }
+      try {
+        const result = await signupStagingUser({ env, MongoClient, name: body?.name, email: body?.email,
+          password: body?.password, referralCode: body?.referralCode });
+        return json(result.body, result.status);
+      } catch (error) {
+        console.error("Native staging signup failed", error?.name || "Error", error?.code || "");
+        return json({ message: "Staging signup unavailable" }, 503);
       }
     }
     // Native staging login canary; disabled until isolated credentials are configured.
