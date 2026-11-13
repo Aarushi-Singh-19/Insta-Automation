@@ -62,6 +62,12 @@ export default {
   },
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    // Production configuration is not an automatic cutover: native handlers
+    // below still use staging database guards. Refuse live traffic until the
+    // production route and executor migration is explicitly completed.
+    if (env?.TRIGGERDM_RUNTIME === "production") {
+      return Response.json({ error: "PRODUCTION_BACKEND_NOT_READY" }, { status: 503 });
+    }
     const allowedCors = cors(request.headers.get("Origin"));
     const json = (data, status = 200) => Response.json(data, {
       status, headers: { ...allowedCors, "Cache-Control": "no-store" }
