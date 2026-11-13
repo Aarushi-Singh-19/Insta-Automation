@@ -19,7 +19,14 @@ export async function razorpayApi(env, method, path, { fetchImpl = fetch, body }
     method, headers: { Authorization: "Basic " + auth, "Content-Type": "application/json" },
     ...(body ? { body: JSON.stringify(body) } : {})
   });
-  if (!response.ok) throw new Error("RAZORPAY_API_UNAVAILABLE");
+  if (!response.ok) {
+    // Never log credentials, request headers, response bodies, or customer data.
+    const safeEndpoint = path.replace(/\\?.*$/, "").replace(/\\/(sub|pay|rfnd|inv)_[A-Za-z0-9]+/g, "/:id");
+    console.error("Staging Razorpay API failed", {
+      method, endpoint: safeEndpoint, status: response.status
+    });
+    throw new Error("RAZORPAY_API_UNAVAILABLE");
+  }
   return response.json();
 }
 const subscriptionResponse = s => ({ success: true, subscription: {
