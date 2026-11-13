@@ -47,6 +47,7 @@ import { confirmFollowGate } from "./follow-gate-state.js";
 
 export default {
   async scheduled(event, env, ctx) {
+    if (env?.TRIGGERDM_RUNTIME === "production") return; // Production executor not yet validated; do not run staging cron.
     // Cron drains only durable staging records. No Instagram sends.
     ctx.waitUntil(drainStagingInbox({ env, MongoClient }));
     if (env?.ENABLE_STAGING_RAZORPAY === "true") {
