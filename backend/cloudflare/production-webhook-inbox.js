@@ -17,13 +17,15 @@ export async function persistProductionInstagramEvents({ env, MongoClient, event
     // The existing InstagramAccount model uses instagramBusinessId for the
     // subscribed account. Only active known accounts can enter the inbox.
     const accounts = await db.collection("instagramaccounts")
-      .find({ instagramBusinessId: { $in: owners }, status: "active" })
-      .project({ instagramBusinessId: 1, userId: 1 }).toArray();
+      .find({ $or: [{ instagramBusinessId: { $in: owners } }, { pageId: { $in: owners } }], status: "active" })
+      .project({ instagramBusinessId: 1, pageId: 1, userId: 1 }).toArray();
     const ownersById = new Map();
     for (const account of accounts) {
-      const key = String(account.instagramBusinessId);
-      if (ownersById.has(key) && String(ownersById.get(key)) !== String(account.userId)) throw new Error("AMBIGUOUS_ACCOUNT_OWNER");
-      ownersById.set(key, account.userId);
+      for (const key of [String(account.instagramBusinessId), String(account.pageId)]) {
+        if (!owners.includes(key)) continue;
+        if (ownersById.has(key) && String(ownersById.get(key).userId) !== String(account.userId)) throw new Error("AMBIGUOUS_ACCOUNT_OWNER");
+        ownersById.set(key, { userId: account.userId, instagramBusinessId: String(account.instagramBusinessId) });
+      }
     }
     // Unknown accounts must not be silently acknowledged and lost.
     if (owners.some(x => !ownersById.has(x))) throw new Error("UNMAPPED_INSTAGRAM_OWNER");
@@ -39,8 +41,9 @@ export async function persistProductionInstagramEvents({ env, MongoClient, event
       const key = row.kind + ":" + Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, "0")).join("");
       try {
         const result = await inbox.updateOne({ _id: key }, { $setOnInsert: {
-          _id: key, kind: row.kind, accountId: ownerId, userId: ownersById.get(ownerId),
-          event, status: "pending", receivedAt: new Date()
+          _id: key, kind: row.kind, accountId: ownersById.get(ownerId).instagramBusinessId, webhookEntryId: ownerId,
+          userId: ownersById.get(ownerId).userId,
+          event: { ...event, webhookEntryId: ownerId, entryId: ownersById.get(ownerId).instagramBusinessId }, status: "pending", receivedAt: new Date()
         } }, { upsert: true });
         inserted += result.upsertedCount;
       } catch (error) { if (error.code !== 11000) throw error; }
