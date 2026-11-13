@@ -1,5 +1,6 @@
 import { referralSummary, payoutRequests } from "./staging-referrals.js";
 import { stagingAnalytics } from "./staging-analytics.js";
+import { nativeStagingCampaigns } from "./staging-campaign-crud.js";
 // Isolated Cloudflare migration probe. NEVER connect this URL to Meta or Razorpay yet.
 // Webhook POSTs deliberately return 501: acknowledging an event without processing it
 // would silently lose comments, DMs, payments, or referral commissions.
@@ -68,7 +69,7 @@ export default {
     // This grants no API access; the actual request still requires JWT and flags.
     const nativePath = /^\/(?:api\/)?referrals(?:\/summary|\/payouts\/requests|\/payouts\/admin\/requests(?:\/[a-f0-9]{24})?)$/.test(url.pathname) || ["/billing/create-subscription", "/api/billing/create-subscription", "/billing/history", "/api/billing/history",
          "/billing/reconcile", "/api/billing/reconcile"].includes(url.pathname) || /^\/(?:api\/)?automations\/[a-f0-9]{24}$/i.test(url.pathname) || ["/automations", "/api/automations", "/instagram/accounts", "/api/instagram/accounts", "/instagram/media", "/api/instagram/media"].includes(url.pathname) || url.pathname === "/auth/login" || url.pathname === "/auth/signup" || url.pathname === "/auth/me" ||
-      url.pathname === "/api/campaigns" || url.pathname === "/campaigns" ||
+      /^\/(?:api\/)?campaigns(?:\/[a-f0-9]{24}(?:\/rules)?)?$/.test(url.pathname) ||
       /^\/(?:api\/)?analytics\/(?:dashboard|trends)$/.test(url.pathname) ||
       url.pathname === "/api/auth/login" ||
       url.pathname === "/api/auth/signup" ||
@@ -929,6 +930,31 @@ export default {
       } catch (error) {
         console.error("Native staging rules failed", error?.name || "Error");
         return json({ success: false, message: "Staging rules unavailable" }, 503);
+      }
+    }
+    // Full native staging campaign API, including owned rule attachments.
+    const campaignMatch = url.pathname.match(/^\/(?:api\/)?campaigns(?:\/([a-f0-9]{24})(?:\/(rules))?)?$/i);
+    if (campaignMatch && ["GET", "POST", "PUT", "PATCH", "DELETE"].includes(request.method) &&
+        env?.ENABLE_STAGING_CAMPAIGN_CRUD === "true") {
+      if (!env?.STAGING_JWT_SECRET) return json({ message: "Campaign service unavailable" }, 503);
+      const bearer = request.headers.get("Authorization") || "";
+      if (!bearer.startsWith("Bearer ")) return json({ message: "Unauthorized" }, 401);
+      let userId;
+      try { userId = getTriggerDmUserId(await verifySessionJwt(bearer.slice(7), env.STAGING_JWT_SECRET)); }
+      catch { return json({ message: "Unauthorized" }, 401); }
+      let input;
+      if (["POST", "PUT", "PATCH"].includes(request.method)) {
+        const raw = await request.text();
+        if (raw.length > 16384) return json({ message: "Payload too large" }, 413);
+        try { input = JSON.parse(raw); } catch { return json({ message: "Invalid JSON" }, 400); }
+      }
+      try {
+        const result = await nativeStagingCampaigns({ env, MongoClient, authenticatedUserId: userId,
+          method: request.method, campaignId: campaignMatch[1], action: campaignMatch[2], input });
+        return json(result.body, result.status);
+      } catch (error) {
+        console.error("Native campaign operation failed", error?.name || "Error");
+        return json({ message: "Campaign service unavailable" }, 503);
       }
     }
     // Native staging analytics, equivalent to the existing Express response shapes.
