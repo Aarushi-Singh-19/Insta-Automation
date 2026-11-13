@@ -1077,7 +1077,8 @@ export default {
     }
     // Native staging Razorpay billing: JWT authenticated and fail-closed.
     if (["/billing/create-subscription", "/api/billing/create-subscription",
-         "/billing/history", "/api/billing/history"].includes(url.pathname)) {
+         "/billing/history", "/api/billing/history",
+         "/billing/reconcile", "/api/billing/reconcile"].includes(url.pathname)) {
       if (env?.ENABLE_STAGING_RAZORPAY !== "true") return json({ error: "Not found" }, 404);
       const bearer = request.headers.get("Authorization") || "";
       if (!bearer.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
