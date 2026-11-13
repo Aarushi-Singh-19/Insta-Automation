@@ -16,10 +16,11 @@ test("Instagram verification accepts only configured challenge token", async () 
   assert.equal(bad.status, 403);
 });
 test("unsigned Instagram and Razorpay webhooks are rejected", async () => {
-  for (const path of ["/api/webhook/instagram", "/api/billing/razorpay-webhook"]) {
-    const response = await worker.fetch(new Request("https://example.workers.dev" + path, { method: "POST", body: "{}" }), fakeEnv);
-    assert.equal(response.status, 403);
-  }
+  const instagram = await worker.fetch(new Request("https://example.workers.dev/api/webhook/instagram", { method: "POST", body: "{}" }), fakeEnv);
+  assert.equal(instagram.status, 403);
+  // Disabled native billing must not expose the webhook handler at all.
+  const razorpay = await worker.fetch(new Request("https://example.workers.dev/api/billing/razorpay-webhook", { method: "POST", body: "{}" }), fakeEnv);
+  assert.equal(razorpay.status, 404);
 });
 test("queue handler retries without configured durable executor", async () => {
   const message = { body: { name: "process-comment" }, acked: 0, retried: 0,
