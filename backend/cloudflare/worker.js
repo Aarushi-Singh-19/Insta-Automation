@@ -1,6 +1,8 @@
 import { referralSummary, payoutRequests } from "./staging-referrals.js";
 import { stagingAnalytics } from "./staging-analytics.js";
 import { nativeStagingCampaigns } from "./staging-campaign-crud.js";
+import { validateProductionMongoConfig, productionMongoReadiness } from "./production-mongodb.js";
+import { persistProductionInstagramEvents } from "./production-webhook-inbox.js";
 import { beginStagingInstagramOAuth, completeStagingInstagramOAuth, disconnectStagingInstagram } from "./staging-instagram-oauth.js";
 // Isolated Cloudflare migration probe. NEVER connect this URL to Meta or Razorpay yet.
 // Webhook POSTs deliberately return 501: acknowledging an event without processing it
@@ -66,6 +68,41 @@ export default {
     // below still use staging database guards. Refuse live traffic until the
     // production route and executor migration is explicitly completed.
     if (env?.TRIGGERDM_RUNTIME === "production") {
+      // Separate, fail-closed production ingress. Never route staging APIs,
+      // staging cron, or the staging single-account executor into production.
+      if (request.method === "GET" && url.pathname === "/api/webhook/instagram") {
+        const challenge = verifyInstagramChallenge(request.url, env?.VERIFY_TOKEN);
+        return challenge === null ? new Response("Forbidden", { status: 403 }) :
+          new Response(challenge, { status: 200 });
+      }
+      if (request.method === "POST" && url.pathname === "/api/webhook/instagram") {
+        if (env?.ENABLE_PRODUCTION_META_INGRESS !== "true")
+          return Response.json({ error: "PRODUCTION_INGRESS_DISABLED" }, { status: 503 });
+        const raw = await request.text();
+        if (raw.length > 256000) return Response.json({ error: "Payload too large" }, { status: 413 });
+        const header = request.headers.get("x-hub-signature-256") || "";
+        const signature = header.startsWith("sha256=") ? header.slice(7) : "";
+        if (!await verifyHmacSha256(raw, signature, env?.META_APP_SECRET))
+          return Response.json({ error: "Invalid signature" }, { status: 403 });
+        let events;
+        try { events = extractInstagramEvents(JSON.parse(raw)); }
+        catch { return Response.json({ error: "Invalid event" }, { status: 400 }); }
+        try {
+          validateProductionMongoConfig(env);
+          const stored = await persistProductionInstagramEvents({ env, MongoClient, events });
+          // Acknowledgment is only permitted when durable, with a separate
+          // production executor release gate still required before cutover.
+          return Response.json({ ok: true, received: stored.received, inserted: stored.inserted });
+        } catch (error) {
+          console.error("Production webhook inbox failed", error?.name || "Error");
+          return Response.json({ error: "Production inbox unavailable" }, { status: 503 });
+        }
+      }
+      if (request.method === "GET" && url.pathname === "/__cloudflare/production-db-readiness" &&
+          env?.PRODUCTION_PROBE_TOKEN && request.headers.get("Authorization") === "Bearer " + env.PRODUCTION_PROBE_TOKEN) {
+        try { return Response.json(await productionMongoReadiness({ env, MongoClient })); }
+        catch { return Response.json({ ok: false, connected: false }, { status: 503 }); }
+      }
       return Response.json({ error: "PRODUCTION_BACKEND_NOT_READY" }, { status: 503 });
     }
     const allowedCors = cors(request.headers.get("Origin"));
