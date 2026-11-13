@@ -42,6 +42,8 @@ import { confirmFollowGate } from "./follow-gate-state.js";
 
 export default {
   async scheduled(event, env, ctx) {
+    // Never run staging cron jobs against a production-labelled Worker.
+    if (env?.TRIGGERDM_RUNTIME === "production") return;
     // Cron drains only durable staging records. No Instagram sends.
     ctx.waitUntil(drainStagingInbox({ env, MongoClient }));
     if (env?.ENABLE_STAGING_RAZORPAY === "true") {
@@ -59,6 +61,11 @@ export default {
   },
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    // This runtime still contains staging-only handlers and Render proxy fallbacks.
+    // Do not accidentally route live traffic to it under a production label.
+    if (env?.TRIGGERDM_RUNTIME === "production") {
+      return Response.json({ error: "Production cutover blocked: native migration incomplete" }, { status: 503 });
+    }
     const allowedCors = cors(request.headers.get("Origin"));
     const json = (data, status = 200) => Response.json(data, {
       status, headers: { ...allowedCors, "Cache-Control": "no-store" }
