@@ -151,6 +151,10 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
     await client.connect();
     const db = client.db(dbName);
     stage = "ensure-indexes";
+    // Historical staging records may already contain duplicate event IDs.
+    // An existing unique eventId index is sufficient; do not rebuild it here.
+    // Failures in other collection indexes are still surfaced and never
+    // silently acknowledged as successful payment processing.
     // Enforce database idempotency even when Mongoose has never initialized indexes.
     // Legacy records may not contain these IDs. Full unique indexes reject
     // multiple missing values and can make every signed webhook fail with 503.
