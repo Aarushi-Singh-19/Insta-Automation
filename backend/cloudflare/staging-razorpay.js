@@ -270,15 +270,6 @@ export async function reconcileStagingSubscription({ env, MongoClient, userId, f
       if (response.items.length < count) break;
       if (skip >= 9900) throw new Error("PAYMENT_HISTORY_TOO_LARGE");
     }
-    /* verified payments are fetched and checked above */
-    for (const candidate of []) {
-      if (candidate.status !== "captured") continue;
-      const payment = await verifyCaptured(env, candidate, subscriptionId, fetchImpl);
-      if (payment.subscriptionId !== subscriptionId) throw new Error("SUBSCRIPTION_PAYMENT_MISMATCH");
-      if (payment.payment.amount !== 19900 || payment.payment.currency !== "INR")
-        throw new Error("UNEXPECTED_PAYMENT_AMOUNT");
-      verified.push(payment.payment);
-    }
     if (!verified.length) return { status: 409, data: { success: false, message: "No verified captured payment for subscription" } };
     await Promise.all([
       db.collection("payments").createIndex({ razorpayPaymentId: 1 }, { unique: true }),
