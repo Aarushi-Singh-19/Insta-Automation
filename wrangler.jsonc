@@ -7,6 +7,7 @@
   ],
   "workers_dev": true,
   "previews": {},
+  "build": { "command": "npm --prefix backend/cloudflare ci --ignore-scripts" },
   "keep_vars": true,
   "vars": {
     "MONGODB_STAGING_DB": "triggerdm_staging",
