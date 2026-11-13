@@ -55,7 +55,10 @@ export async function payoutRequests({ env, MongoClient, userId, method, body, a
     if (!id) return failure(401, "Unauthorized");
     const requests = db.collection("referralpayoutrequests");
     const earnings = db.collection("referralearnings");
-    if (admin && !await db.collection("users").findOne({ _id: id, isAdmin: true })) return failure(403, "Forbidden");
+    if (admin) {
+      const actor = await db.collection("users").findOne({ _id: id }, { projection: { email: 1 } });
+      if (!env.ADMIN_EMAIL || String(actor?.email || "").trim().toLowerCase() !== String(env.ADMIN_EMAIL).trim().toLowerCase()) return failure(403, "Forbidden");
+    }
     if (method === "GET") {
       const docs = await requests.find(admin ? {} : { referrerId: id }).sort({ requestedAt: -1 }).toArray();
       if (admin) {
