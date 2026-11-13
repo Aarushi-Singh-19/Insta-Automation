@@ -150,11 +150,22 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
     await client.connect();
     const db = client.db(dbName);
     // Enforce database idempotency even when Mongoose has never initialized indexes.
+    // Legacy records may not contain these IDs. Full unique indexes reject
+    // multiple missing values and can make every signed webhook fail with 503.
     await Promise.all([
       db.collection("webhookevents").createIndex({ eventId: 1 }, { unique: true }),
-      db.collection("payments").createIndex({ razorpayPaymentId: 1 }, { unique: true }),
-      db.collection("referralearnings").createIndex({ razorpayPaymentId: 1 }, { unique: true }),
-      db.collection("referralrefundrecords").createIndex({ razorpayRefundId: 1 }, { unique: true })
+      db.collection("payments").createIndex({ razorpayPaymentId: 1 }, {
+        unique: true, partialFilterExpression: { razorpayPaymentId: { $type: "string" } },
+        name: "razorpayPaymentId_unique_string"
+      }),
+      db.collection("referralearnings").createIndex({ razorpayPaymentId: 1 }, {
+        unique: true, partialFilterExpression: { razorpayPaymentId: { $type: "string" } },
+        name: "razorpayPaymentId_unique_string"
+      }),
+      db.collection("referralrefundrecords").createIndex({ razorpayRefundId: 1 }, {
+        unique: true, partialFilterExpression: { razorpayRefundId: { $type: "string" } },
+        name: "razorpayRefundId_unique_string"
+      })
     ]);
     const users = db.collection("users");
     const events = db.collection("webhookevents");
@@ -223,6 +234,7 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
     if (claimed) await client.db(dbName).collection("webhookevents").updateOne(
       { eventId, status: "processing" }, { $set: { status: "failed",
         lockedUntil: null, lastError: String(error.message || error).slice(0, 200) } }).catch(() => {});
+    console.error("Staging Razorpay webhook processing failed", { code: error?.code ?? null, codeName: error?.codeName ?? null, category: error?.name ?? "Error" });
     return { status: 503, data: { success: false, message: "Webhook processing failed" } };
   } finally { await client.close(); }
 }
