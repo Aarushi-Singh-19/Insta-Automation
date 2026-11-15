@@ -182,6 +182,13 @@ const updateAutomation = async (req, res) => {
       {
         $set: {
           automationId: automation._id,
+          triggerType: automation.triggerType,
+          instagramMediaId: automation.instagramMediaId || "",
+          postIds: automation.triggerType === "specific-post"
+            ? [automation.instagramMediaId].filter(Boolean)
+            : [],
+          status: automation.status === "active" ? "active" : "paused",
+          "settings.enableReply": Boolean(automation.commentReplyEnabled && automation.commentReplyMessage),
           "settings.dmMessage": automation.dmMessage || "",
           "settings.dmButtons": dmButtons,
           "settings.enableDM": Boolean(
@@ -197,6 +204,22 @@ const updateAutomation = async (req, res) => {
       },
       { new: true }
     );
+
+    // The webhook processor reads Campaign.ruleIds, not Automation.keywords.
+    // Keep the linked rules in sync whenever an automation is edited.
+    if (campaign) {
+      await Rule.updateMany(
+        { _id: { $in: campaign.ruleIds || [] }, userId: req.user.id },
+        { $set: {
+          postId: automation.triggerType === "specific-post" ? (automation.instagramMediaId || "") : "",
+          triggerType: automation.commentTriggerType,
+          triggerKeywords: automation.commentTriggerType === "keyword" ? automation.keywords : [],
+          replies: automation.commentReplyEnabled && automation.commentReplyMessage
+            ? [automation.commentReplyMessage] : [],
+          isActive: automation.status === "active",
+        } }
+      );
+    }
 
     console.log("AUTOMATION UPDATE SYNC:", {
       automationId: automation._id,
