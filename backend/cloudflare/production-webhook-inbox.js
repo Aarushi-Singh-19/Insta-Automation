@@ -63,3 +63,19 @@ export async function persistProductionInstagramEvents({ env, MongoClient, event
     return { durable: true, received: entries.length, inserted };
   } finally { await client.close(); }
 }
+
+ // Read-only production inbox diagnostics. No event bodies, tokens or user IDs.
+export async function productionInboxReadiness({ env, MongoClient }) {
+  const { uri, dbName } = validateProductionMongoConfig(env);
+  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+  try {
+    await client.connect();
+    const inbox = client.db(dbName).collection("cloudflare_production_webhook_inbox");
+    const statuses = ["pending", "planning", "planned", "ignored", "needs_review"];
+    const counts = Object.fromEntries(await Promise.all(statuses.map(async status =>
+      [status, await inbox.countDocuments({ status }, { maxTimeMS: 5000 })])));
+    return { ok: true, durableInbox: true, executionReady: false, counts };
+  } finally {
+    await client.close();
+  }
+}
