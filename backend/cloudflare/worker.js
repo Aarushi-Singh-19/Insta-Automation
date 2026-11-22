@@ -3,6 +3,7 @@ import { stagingAnalytics } from "./staging-analytics.js";
 import { nativeStagingCampaigns } from "./staging-campaign-crud.js";
 import { validateProductionMongoConfig, productionMongoReadiness } from "./production-mongodb.js";
 import { persistProductionInstagramEvents, productionInboxReadiness } from "./production-webhook-inbox.js";
+import { planProductionInbox } from "./production-inbox-planner.js";
 import { beginStagingInstagramOAuth, completeStagingInstagramOAuth, disconnectStagingInstagram } from "./staging-instagram-oauth.js";
 // Isolated Cloudflare migration probe. NEVER connect this URL to Meta or Razorpay yet.
 // Webhook POSTs deliberately return 501: acknowledging an event without processing it
@@ -108,6 +109,12 @@ export default {
           env?.PRODUCTION_PROBE_TOKEN && request.headers.get("Authorization") === "Bearer " + env.PRODUCTION_PROBE_TOKEN) {
         try { return Response.json(await productionInboxReadiness({ env, MongoClient })); }
         catch { return Response.json({ ok: false, durableInbox: false, executionReady: false }, { status: 503 }); }
+      }
+      // Operator-only planning: persists unauthorized action plans, never sends DMs.
+      if (request.method === "POST" && url.pathname === "/__cloudflare/production-plan-inbox" &&
+          env?.PRODUCTION_PROBE_TOKEN && request.headers.get("Authorization") === "Bearer " + env.PRODUCTION_PROBE_TOKEN) {
+        try { return Response.json(await planProductionInbox({ env, MongoClient, limit: 10 })); }
+        catch { return Response.json({ error: "PRODUCTION_PLANNER_UNAVAILABLE" }, { status: 503 }); }
       }
       return Response.json({ error: "PRODUCTION_BACKEND_NOT_READY" }, { status: 503 });
     }
