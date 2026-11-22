@@ -79,3 +79,25 @@ export async function productionInboxReadiness({ env, MongoClient }) {
     await client.close();
   }
 }
+
+/**
+ * Read-only production backlog audit, including the number of unresolved
+ * comment events. This does not dispatch any actions or change state.
+ */
+export async function auditProductionInbox({ env, MongoClient }) {
+  const { uri, dbName } = validateProductionMongoConfig(env);
+  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+  try {
+    await client.connect();
+    const db = client.db(dbName);
+    const inbox = db.collection("cloudflare_production_webhook_inbox");
+    const [unprocessedComments, unprocessedPostbacks, ambiguous, plans] = await Promise.all([
+      inbox.countDocuments({ kind: "comment", status: "pending" }),
+      inbox.countDocuments({ kind: "postback", status: "pending" }),
+      inbox.countDocuments({ status: "needs_review" }),
+      db.collection("cloudflare_production_action_plans").countDocuments({})
+    ]);
+    return { ok: true, unprocessedComments, unprocessedPostbacks,
+      needsReview: ambiguous, preparedPlans: plans, executionReady: false };
+  } finally { await client.close(); }
+}
