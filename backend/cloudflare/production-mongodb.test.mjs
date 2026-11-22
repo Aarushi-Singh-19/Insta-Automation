@@ -15,9 +15,16 @@ test("production database requires explicit runtime and approval", () => {
 test("production database rejects Render fallback and staging database", () => {
   assert.throws(() => validateProductionMongoConfig({ ...base, UPSTREAM_ORIGIN: "https://example.com" }), /RENDER_DEPENDENCY/);
   assert.throws(() => validateProductionMongoConfig({ ...base, MONGODB_PRODUCTION_DB: "triggerdm_staging" }), /PRODUCTION_DATABASE_REQUIRED/);
+  assert.throws(() => validateProductionMongoConfig({ ...base, MONGODB_PRODUCTION_DB: "triggerdm_staging_backup" }), /PRODUCTION_DATABASE_REQUIRED/);
+  assert.throws(() => validateProductionMongoConfig({ ...base, MONGODB_PRODUCTION_DB: "admin" }), /PRODUCTION_DATABASE_REQUIRED/);
+  assert.throws(() => validateProductionMongoConfig({ ...base, MONGODB_PRODUCTION_DB: "" }), /PRODUCTION_DATABASE_REQUIRED/);
   assert.throws(() => validateProductionMongoConfig({ ...base, MONGODB_PRODUCTION_URI: "mongodb+srv://app:password@cluster.example.net/triggerdm_staging" }), /PRODUCTION_URI_DATABASE_MISMATCH/);
 });
 test("production database accepts explicit isolated production configuration", () => {
-  const result = validateProductionMongoConfig(base);
-  assert.equal(result.dbName, "automationDB");
+  assert.equal(validateProductionMongoConfig(base).dbName, "automationDB");
+  assert.equal(validateProductionMongoConfig({ ...base, MONGODB_PRODUCTION_DB: "triggerdm_live", MONGODB_PRODUCTION_URI: "mongodb+srv://app:password@cluster.example.net/triggerdm_live" }).dbName, "triggerdm_live");
+});
+test("production database rejects malformed or credentialless URI", () => {
+  assert.throws(() => validateProductionMongoConfig({ ...base, MONGODB_PRODUCTION_URI: "not-a-uri" }), /PRODUCTION_MONGODB_URI_REQUIRED/);
+  assert.throws(() => validateProductionMongoConfig({ ...base, MONGODB_PRODUCTION_URI: "mongodb://cluster.example.net/automationDB" }), /PRODUCTION_CREDENTIALS_REQUIRED/);
 });
