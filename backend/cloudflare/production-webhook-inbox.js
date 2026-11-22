@@ -4,6 +4,18 @@ import { validateProductionMongoConfig } from "./production-mongodb.js";
 // accepted event is durably stored. Execution remains a separate release gate.
 export async function persistProductionInstagramEvents({ env, MongoClient, events }) {
   if (!events || !Array.isArray(events.comments) || !Array.isArray(events.postbacks)) throw new Error("INVALID_EVENTS");
+  // Reject malformed events before opening a connection or writing a partial batch.
+  for (const event of events.comments) {
+    if (!/^\d+$/.test(String(event?.entryId || "")) ||
+        !/^\d+$/.test(String(event?.eventId || "")) ||
+        !/^\d+$/.test(String(event?.postId || ""))) throw new Error("INVALID_COMMENT_EVENT");
+  }
+  for (const event of events.postbacks) {
+    if (!/^\d+$/.test(String(event?.entryId || "")) ||
+        !/^\d+$/.test(String(event?.senderId || "")) ||
+        !/^\d+$/.test(String(event?.recipientId || "")) ||
+        !event?.postback || typeof event.postback !== "object") throw new Error("INVALID_POSTBACK_EVENT");
+  }
   const { uri, dbName } = validateProductionMongoConfig(env);
   if (events.comments.length + events.postbacks.length > 1000) throw new Error("TOO_MANY_EVENTS");
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
@@ -23,7 +35,7 @@ export async function persistProductionInstagramEvents({ env, MongoClient, event
     for (const account of accounts) {
       for (const key of [String(account.instagramBusinessId), String(account.pageId)]) {
         if (!owners.includes(key)) continue;
-        if (ownersById.has(key) && String(ownersById.get(key).userId) !== String(account.userId)) throw new Error("AMBIGUOUS_ACCOUNT_OWNER");
+        if (ownersById.has(key) && (String(ownersById.get(key).userId) !== String(account.userId) || ownersById.get(key).instagramBusinessId !== String(account.instagramBusinessId))) throw new Error("AMBIGUOUS_ACCOUNT_OWNER");
         ownersById.set(key, { userId: account.userId, instagramBusinessId: String(account.instagramBusinessId) });
       }
     }
