@@ -4,6 +4,7 @@ import { nativeStagingCampaigns } from "./staging-campaign-crud.js";
 import { validateProductionMongoConfig, productionMongoReadiness } from "./production-mongodb.js";
 import { persistProductionInstagramEvents, productionInboxReadiness } from "./production-webhook-inbox.js";
 import { planProductionInbox } from "./production-inbox-planner.js";
+import { loginProductionUser } from "./production-login.js";
 import { beginStagingInstagramOAuth, completeStagingInstagramOAuth, disconnectStagingInstagram } from "./staging-instagram-oauth.js";
 // Isolated Cloudflare migration probe. NEVER connect this URL to Meta or Razorpay yet.
 // Webhook POSTs deliberately return 501: acknowledging an event without processing it
@@ -109,6 +110,26 @@ export default {
           env?.PRODUCTION_PROBE_TOKEN && request.headers.get("Authorization") === "Bearer " + env.PRODUCTION_PROBE_TOKEN) {
         try { return Response.json(await productionInboxReadiness({ env, MongoClient })); }
         catch { return Response.json({ ok: false, durableInbox: false, executionReady: false }, { status: 503 }); }
+      }
+      if (request.method === "OPTIONS" && ["/auth/login", "/api/auth/login"].includes(url.pathname)) {
+        const headers = cors(request.headers.get("Origin"));
+        return new Response(null, { status: Object.keys(headers).length ? 204 : 403,
+          headers: { ...headers, "Cache-Control": "no-store" } });
+      }
+      if (request.method === "POST" && ["/auth/login", "/api/auth/login"].includes(url.pathname)) {
+        if (env?.ENABLE_PRODUCTION_AUTH !== "true")
+          return Response.json({ error: "PRODUCTION_AUTH_DISABLED" }, { status: 503 });
+        try {
+          if (Number(request.headers.get("content-length") || 0) > 8192)
+            return Response.json({ message: "Invalid credentials" }, { status: 413 });
+          const body = await request.json();
+          const result = await loginProductionUser({ env, MongoClient,
+            email: body?.email, password: body?.password });
+          return Response.json(result.body, { status: result.status,
+            headers: { ...cors(request.headers.get("Origin")), "Cache-Control": "no-store" } });
+        } catch {
+          return Response.json({ error: "PRODUCTION_AUTH_UNAVAILABLE" }, { status: 503 });
+        }
       }
       // Operator-only planning: persists unauthorized action plans, never sends DMs.
       if (request.method === "POST" && url.pathname === "/__cloudflare/production-plan-inbox" &&
