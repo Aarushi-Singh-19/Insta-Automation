@@ -19,18 +19,25 @@ export function validateProductionMongoConfig(env, { readOnlyProbe = false } = {
   let parsed;
   try { parsed = new URL(uri); }
   catch { throw new Error("PRODUCTION_MONGODB_URI_INVALID"); }
-  const pathDb = decodeURIComponent(parsed.pathname.slice(1));
+  let pathDb;
+  try { pathDb = decodeURIComponent(parsed.pathname.slice(1)); }
+  catch { throw new Error("PRODUCTION_MONGODB_URI_INVALID"); }
   if (pathDb && pathDb !== dbName) throw new Error("PRODUCTION_URI_DATABASE_MISMATCH");
   if (!parsed.hostname || parsed.username === "" || parsed.password === "") throw new Error("PRODUCTION_CREDENTIALS_REQUIRED");
   return { uri, dbName };
 }
 export async function productionMongoReadiness({ env, MongoClient }) {
   const { uri, dbName } = validateProductionMongoConfig(env, { readOnlyProbe: true });
-  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+  let client;
+  let stage = "client";
   try {
+    client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+    stage = "connect";
     await client.connect();
     const db = client.db(dbName);
+    stage = "ping";
     await db.command({ ping: 1 });
+    stage = "collections";
     const required = ["users", "instagramaccounts", "campaigns", "rules", "payments",
       "webhookevents", "referralearnings", "referralpayoutrequests", "actionlogs"];
     const inventory = await db.listCollections({ name: { $in: required } }, {
@@ -39,5 +46,11 @@ export async function productionMongoReadiness({ env, MongoClient }) {
     const accessible = new Set(inventory.map(row => row.name));
     return { ok: true, database: dbName, connected: true, readOnly: true,
       collections: Object.fromEntries(required.map(name => [name, accessible.has(name)])) };
-  } finally { await client.close(); }
+  } catch (error) {
+    const category = error?.code === 18 || error?.code === 8000 ? "AUTHENTICATION_FAILED" :
+      error?.code === 13 ? "ACCESS_DENIED" :
+      error?.name === "MongoParseError" ? "INVALID_MONGODB_URI" :
+      error?.name === "MongoServerSelectionError" ? "SERVER_SELECTION_FAILED" : "DATABASE_CHECK_FAILED";
+    return { ok: false, connected: ["ping", "collections"].includes(stage), stage, category };
+  } finally { if (client) await client.close().catch(() => {}); }
 }

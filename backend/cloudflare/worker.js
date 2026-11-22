@@ -128,8 +128,17 @@ export default {
       }
       if (request.method === "GET" && url.pathname === "/__cloudflare/production-db-readiness" &&
           env?.PRODUCTION_PROBE_TOKEN && request.headers.get("Authorization") === "Bearer " + env.PRODUCTION_PROBE_TOKEN) {
-        try { return Response.json(await productionMongoReadiness({ env, MongoClient })); }
-        catch { return Response.json({ ok: false, connected: false }, { status: 503 }); }
+        try {
+          const result = await productionMongoReadiness({ env, MongoClient });
+          return Response.json(result, { status: result.ok ? 200 : 503 });
+        } catch (error) {
+          const known = ["PRODUCTION_RUNTIME_REQUIRED", "PRODUCTION_CUTOVER_NOT_APPROVED",
+            "RENDER_DEPENDENCY_STILL_CONFIGURED", "PRODUCTION_DATABASE_REQUIRED",
+            "PRODUCTION_MONGODB_URI_REQUIRED", "PRODUCTION_MONGODB_URI_INVALID",
+            "PRODUCTION_URI_DATABASE_MISMATCH", "PRODUCTION_CREDENTIALS_REQUIRED"];
+          return Response.json({ ok: false, connected: false, stage: "configuration",
+            category: known.includes(error?.message) ? error.message : "DATABASE_CHECK_FAILED" }, { status: 503 });
+        }
       }
       if (request.method === "GET" && url.pathname === "/__cloudflare/production-inbox-readiness" &&
           env?.PRODUCTION_PROBE_TOKEN && request.headers.get("Authorization") === "Bearer " + env.PRODUCTION_PROBE_TOKEN) {
