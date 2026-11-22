@@ -5,6 +5,7 @@ import { validateProductionMongoConfig, productionMongoReadiness } from "./produ
 import { persistProductionInstagramEvents, productionInboxReadiness } from "./production-webhook-inbox.js";
 import { planProductionInbox } from "./production-inbox-planner.js";
 import { loginProductionUser } from "./production-login.js";
+import { getProductionCurrentUser } from "./production-current-user.js";
 import { beginStagingInstagramOAuth, completeStagingInstagramOAuth, disconnectStagingInstagram } from "./staging-instagram-oauth.js";
 // Isolated Cloudflare migration probe. NEVER connect this URL to Meta or Razorpay yet.
 // Webhook POSTs deliberately return 501: acknowledging an event without processing it
@@ -111,7 +112,7 @@ export default {
         try { return Response.json(await productionInboxReadiness({ env, MongoClient })); }
         catch { return Response.json({ ok: false, durableInbox: false, executionReady: false }, { status: 503 }); }
       }
-      if (request.method === "OPTIONS" && ["/auth/login", "/api/auth/login"].includes(url.pathname)) {
+      if (request.method === "OPTIONS" && ["/auth/login", "/api/auth/login", "/auth/me", "/api/auth/me"].includes(url.pathname)) {
         const headers = cors(request.headers.get("Origin"));
         return new Response(null, { status: Object.keys(headers).length ? 204 : 403,
           headers: { ...headers, "Cache-Control": "no-store" } });
@@ -125,6 +126,18 @@ export default {
           const body = await request.json();
           const result = await loginProductionUser({ env, MongoClient,
             email: body?.email, password: body?.password });
+          return Response.json(result.body, { status: result.status,
+            headers: { ...cors(request.headers.get("Origin")), "Cache-Control": "no-store" } });
+        } catch {
+          return Response.json({ error: "PRODUCTION_AUTH_UNAVAILABLE" }, { status: 503 });
+        }
+      }
+      if (request.method === "GET" && ["/auth/me", "/api/auth/me"].includes(url.pathname)) {
+        if (env?.ENABLE_PRODUCTION_AUTH !== "true")
+          return Response.json({ error: "PRODUCTION_AUTH_DISABLED" }, { status: 503 });
+        try {
+          const result = await getProductionCurrentUser({ env, MongoClient,
+            authorization: request.headers.get("Authorization") });
           return Response.json(result.body, { status: result.status,
             headers: { ...cors(request.headers.get("Origin")), "Cache-Control": "no-store" } });
         } catch {
