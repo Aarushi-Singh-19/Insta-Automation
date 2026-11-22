@@ -1,19 +1,26 @@
 {
-  "name": "triggerdm-backend-production",
+  "name": "triggerdm-backend-staging",
   "main": "./worker.js",
   "compatibility_date": "2026-11-11",
-  "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": false,
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
   "preview_urls": false,
   "vars": {
     "TRIGGERDM_RUNTIME": "production",
     "MONGODB_PRODUCTION_DB": "automationDB",
-    "PRODUCTION_CUTOVER_APPROVED": "false"
+    "UPSTREAM_ORIGIN": ""
   },
   "triggers": {
-    "crons": ["*/5 * * * *"]
+    "crons": [
+      "*/5 * * * *"
+    ]
   },
   "observability": {
-    "logs": { "enabled": true }
-  }
+    "logs": {
+      "enabled": true
+    }
+  },
+  "keep_vars": true
 }
