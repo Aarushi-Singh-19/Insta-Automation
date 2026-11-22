@@ -12,7 +12,7 @@ export function validateProductionMongoConfig(env) {
     throw new Error("PRODUCTION_DATABASE_REQUIRED");
   }
   const uri = env?.MONGODB_PRODUCTION_URI;
-  if (typeof uri !== "string" || !/^mongodb(?:\\+srv)?:\\/\\//.test(uri)) throw new Error("PRODUCTION_MONGODB_URI_REQUIRED");
+  if (typeof uri !== "string" || !/^mongodb(?:\+srv)?:\/\//.test(uri)) throw new Error("PRODUCTION_MONGODB_URI_REQUIRED");
   let parsed;
   try { parsed = new URL(uri); }
   catch { throw new Error("PRODUCTION_MONGODB_URI_INVALID"); }
