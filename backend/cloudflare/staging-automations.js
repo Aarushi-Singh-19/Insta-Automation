@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { validateStagingMongoConfig } from "./staging-mongodb.js";
+import { validateNativeServiceMongoConfig } from "./native-service-mongodb.js";
 
 const oid = id => new ObjectId(id);
 const asText = (v, max) => typeof v === "string" ? v.trim().slice(0, max) : "";
@@ -7,7 +7,7 @@ const validUrl = value => { try { const u = new URL(value); return ["https:", "h
 
 export async function stagingAutomations({ env, MongoClient, authenticatedUserId, method, input, automationId: targetId }) {
   if (typeof authenticatedUserId !== "string" || !/^[a-f0-9]{24}$/i.test(authenticatedUserId)) throw new TypeError("AUTHENTICATED_USER_REQUIRED");
-  const { uri, dbName } = validateStagingMongoConfig(env);
+  const { uri, dbName } = validateNativeServiceMongoConfig(env);
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
   try {
     await client.connect();

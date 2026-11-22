@@ -1,12 +1,12 @@
 import { ObjectId } from "mongodb";
-import { validateStagingMongoConfig } from "./staging-mongodb.js";
+import { validateNativeServiceMongoConfig } from "./native-service-mongodb.js";
 
 // Native equivalents of /api/analytics/dashboard and /api/analytics/trends.
 // All queries are restricted to the authenticated user. Never return logs or tokens.
 export async function stagingAnalytics({ env, MongoClient, authenticatedUserId, kind }) {
   if (!/^[a-f0-9]{24}$/i.test(String(authenticatedUserId || ""))) throw new Error("AUTHENTICATED_USER_REQUIRED");
   if (!["dashboard", "trends"].includes(kind)) throw new Error("INVALID_ANALYTICS_KIND");
-  const { uri, dbName } = validateStagingMongoConfig(env);
+  const { uri, dbName } = validateNativeServiceMongoConfig(env);
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
   try {
     await client.connect();

@@ -1,12 +1,12 @@
 import { ObjectId } from "mongodb";
-import { validateStagingMongoConfig } from "./staging-mongodb.js";
+import { validateNativeServiceMongoConfig } from "./native-service-mongodb.js";
 
 // Read-only staging account listing. Never return Meta access tokens.
 export async function listStagingInstagramAccounts({ env, MongoClient, authenticatedUserId }) {
   if (typeof authenticatedUserId !== "string" || !/^[a-f0-9]{24}$/i.test(authenticatedUserId)) {
     throw new TypeError("AUTHENTICATED_USER_REQUIRED");
   }
-  const { uri, dbName } = validateStagingMongoConfig(env);
+  const { uri, dbName } = validateNativeServiceMongoConfig(env);
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
   try {
     await client.connect();

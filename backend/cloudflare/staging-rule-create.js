@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { validateStagingMongoConfig } from "./staging-mongodb.js";
+import { validateNativeServiceMongoConfig } from "./native-service-mongodb.js";
 
 export function validateRule(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("INVALID_RULE");
@@ -32,7 +32,7 @@ export function validateRule(input) {
 }
 
 export async function createStagingRule({ env, MongoClient, authenticatedUserId, input }) {
-  const { uri, dbName } = validateStagingMongoConfig(env);
+  const { uri, dbName } = validateNativeServiceMongoConfig(env);
   if (typeof authenticatedUserId !== "string" || !/^[a-f0-9]{24}$/i.test(authenticatedUserId)) throw new Error("AUTHENTICATED_USER_REQUIRED");
   const fields = validateRule(input);
   const now = new Date();

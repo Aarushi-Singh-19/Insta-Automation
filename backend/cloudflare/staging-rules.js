@@ -1,10 +1,10 @@
 import { ObjectId } from "mongodb";
-import { validateStagingMongoConfig } from "./staging-mongodb.js";
+import { validateNativeServiceMongoConfig } from "./native-service-mongodb.js";
 
 // Native, read-only staging equivalent of Express GET /api/rules.
 // Never expose arbitrary user records or credentials.
 export async function listStagingRules({ env, MongoClient, authenticatedUserId }) {
-  const { uri, dbName } = validateStagingMongoConfig(env);
+  const { uri, dbName } = validateNativeServiceMongoConfig(env);
   if (typeof authenticatedUserId !== "string" || !/^[a-f0-9]{24}$/i.test(authenticatedUserId)) {
     throw new TypeError("AUTHENTICATED_USER_REQUIRED");
   }

@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { validateStagingMongoConfig } from "./staging-mongodb.js";
+import { validateNativeServiceMongoConfig } from "./native-service-mongodb.js";
 const id = value => typeof value === "string" && /^[a-f0-9]{24}$/i.test(value);
 const clean = (input, create = false) => {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("INVALID_CAMPAIGN");
@@ -35,7 +35,7 @@ const clean = (input, create = false) => {
 export async function nativeStagingCampaigns({ env, MongoClient, authenticatedUserId, method, campaignId, action, input }) {
   if (!id(authenticatedUserId)) return { status: 401, body: { message: "Unauthorized" } };
   if (campaignId && !id(campaignId)) return { status: 400, body: { message: "Invalid campaign ID" } };
-  const { uri, dbName } = validateStagingMongoConfig(env);
+  const { uri, dbName } = validateNativeServiceMongoConfig(env);
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
   try {
     await client.connect();

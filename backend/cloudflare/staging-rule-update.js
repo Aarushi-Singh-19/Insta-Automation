@@ -1,9 +1,9 @@
 import { ObjectId } from "mongodb";
-import { validateStagingMongoConfig } from "./staging-mongodb.js";
+import { validateNativeServiceMongoConfig } from "./native-service-mongodb.js";
 import { validateRule } from "./staging-rule-create.js";
 
 export async function updateStagingRule({ env, MongoClient, authenticatedUserId, ruleId, input }) {
-  const { uri, dbName } = validateStagingMongoConfig(env);
+  const { uri, dbName } = validateNativeServiceMongoConfig(env);
   if (typeof authenticatedUserId !== "string" || !/^[a-f0-9]{24}$/i.test(authenticatedUserId)) throw new Error("AUTHENTICATED_USER_REQUIRED");
   if (typeof ruleId !== "string" || !/^[a-f0-9]{24}$/i.test(ruleId)) return { status: 400, body: { message: "Invalid rule ID" } };
   const fields = validateRule(input);

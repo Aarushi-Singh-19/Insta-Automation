@@ -1,3 +1,4 @@
+import { handleProductionCustomerApi } from "./production-customer-api.js";
 import { referralSummary, payoutRequests } from "./staging-referrals.js";
 import { stagingAnalytics } from "./staging-analytics.js";
 import { nativeStagingCampaigns } from "./staging-campaign-crud.js";
@@ -150,7 +151,8 @@ export default {
         try { return Response.json(await planProductionInbox({ env, MongoClient, limit: 10 })); }
         catch { return Response.json({ error: "PRODUCTION_PLANNER_UNAVAILABLE" }, { status: 503 }); }
       }
-      return Response.json({ error: "PRODUCTION_BACKEND_NOT_READY" }, { status: 503 });
+      const customerResponse = await handleProductionCustomerApi({ request, env, MongoClient });
+      return customerResponse ?? Response.json({ error: "PRODUCTION_BACKEND_NOT_READY" }, { status: 503 });
     }
     const allowedCors = cors(request.headers.get("Origin"));
     const json = (data, status = 200) => Response.json(data, {
