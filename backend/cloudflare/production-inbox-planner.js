@@ -4,7 +4,7 @@ import { planCommentAutomation } from "./comment-planner.js";
 const oid = v => /^[a-f0-9]{24}$/i.test(String(v || "")) ? new ObjectId(String(v)) : null;
 
 // Resolve only a uniquely owned account/campaign; preserve rule ordering.
-export async function resolveProductionComment({ db, item }) {
+export async function resolveProductionComment({ db, item, claimNextPost = false }) {
   const e = item?.event, owner = oid(item?.userId);
   if (!owner || !/^\d+$/.test(String(e?.entryId || "")) ||
       !/^\d+$/.test(String(e?.postId || ""))) return null;
@@ -12,16 +12,32 @@ export async function resolveProductionComment({ db, item }) {
     instagramBusinessId: String(e.entryId), userId: owner, status: "active"
   }).limit(2).toArray();
   if (accounts.length !== 1) return null;
-  const campaigns = await db.collection("campaigns").find({
+  const account = accounts[0];
+  const ownUsername = String(account.username || "").replace(/^@/, "").trim().toLowerCase();
+  if (ownUsername && ownUsername === String(e.username || "").replace(/^@/, "").trim().toLowerCase()) return null;
+  const campaigns = db.collection("campaigns");
+  const postId = String(e.postId);
+  const scope = {
     userId: owner, status: "active",
     $or: [{ instagramAccountId: String(e.entryId) }, { instagramAccountId: "" },
       { instagramAccountId: null }, { instagramAccountId: { $exists: false } }],
+  };
+  const sort = { createdAt: -1, _id: -1 };
+  const findMatched = () => campaigns.find({ ...scope,
     $and: [{ $or: [{ triggerType: "any-post" },
-      { triggerType: "specific-post", instagramMediaId: String(e.postId) },
-      { triggerType: "specific-post", postIds: String(e.postId) }] }]
-  }).limit(2).toArray();
-  if (campaigns.length !== 1 || !Array.isArray(campaigns[0].ruleIds)) return null;
-  const campaign = campaigns[0], ids = campaign.ruleIds.map(oid);
+      { triggerType: "specific-post", instagramMediaId: postId },
+      { triggerType: "specific-post", postIds: postId }] }],
+  }).sort(sort).limit(1).toArray();
+  let [campaign] = await findMatched();
+  if (!campaign && claimNextPost) {
+    campaign = await campaigns.findOneAndUpdate({ ...scope, triggerType: "next-post",
+      $and: [{ $or: [{ postIds: { $exists: false } }, { postIds: { $size: 0 } }] }],
+    }, { $set: { triggerType: "specific-post", instagramMediaId: postId, postIds: [postId], updatedAt: new Date() } },
+    { sort, returnDocument: "after" });
+    if (!campaign) [campaign] = await findMatched();
+  }
+  if (!Array.isArray(campaign?.ruleIds)) return null;
+  const ids = campaign.ruleIds.map(oid);
   if (!ids.length || ids.some(x => !x)) return null;
   const rules = await db.collection("rules").find({
     _id: { $in: ids }, userId: owner, isActive: true
@@ -41,7 +57,7 @@ export async function resolveProductionComment({ db, item }) {
 }
 
 // Planning writes durable, unauthorized records only. No Meta calls or sends.
-export async function planProductionInbox({ env, MongoClient, limit = 10 }) {
+export async function planProductionInbox({ env, MongoClient, limit = 10, claimNextPost = false }) {
   const { uri, dbName } = validateProductionMongoConfig(env);
   if (env?.ENABLE_PRODUCTION_PLANNER !== "true") throw new Error("PRODUCTION_PLANNER_DISABLED");
   if (!Number.isInteger(limit) || limit < 1 || limit > 25) throw new Error("INVALID_LIMIT");
@@ -61,7 +77,7 @@ export async function planProductionInbox({ env, MongoClient, limit = 10 }) {
       if (!item?._id) break;
       summary.inspected++;
       try {
-        const resolved = await resolveProductionComment({ db, item });
+        const resolved = await resolveProductionComment({ db, item, claimNextPost });
         const decision = planCommentAutomation({
           comment: item.event, campaign: resolved?.campaign, rule: resolved?.rule
         });
@@ -69,7 +85,7 @@ export async function planProductionInbox({ env, MongoClient, limit = 10 }) {
           await plans.updateOne({ _id: item._id }, { $setOnInsert: {
             _id: item._id, userId: item.userId, accountId: item.accountId,
             plan: decision.plan, status: "awaiting_authorization",
-            authorized: false, createdAt: new Date()
+            authorized: false, createdAt: new Date(), receivedAt: item.receivedAt ?? null
           } }, { upsert: true });
         }
         const status = decision.matched ? "planned" : "ignored";

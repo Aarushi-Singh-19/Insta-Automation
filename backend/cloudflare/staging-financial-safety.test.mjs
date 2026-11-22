@@ -71,3 +71,29 @@ test("replayed captured commission never applies recovery twice", async () => {
   await recordCommission(db, null, user, payment);
   assert.equal(recoveryQueries, 1);
 });
+
+test("production commission created after a historical refund credits only the unrefunded amount", async () => {
+  let inserted;
+  const db = { collection(name) {
+    if (name === "referralrefundrecords") return { aggregate(pipeline) {
+      assert.equal(pipeline[0].$match.razorpayPaymentId, "pay_fixture");
+      return { async toArray() { return [{ amount: 99.5 }]; } };
+    } };
+    assert.equal(name, "referralearnings");
+    return {
+      async updateOne(filter, update) {
+        if (update.$setOnInsert) {
+          inserted = update.$setOnInsert;
+          return { upsertedCount: 1 };
+        }
+        assert.equal(update.$set.commissionAmount, 19.9);
+        return { modifiedCount: 1 };
+      },
+      find() { return { sort() { return this; }, async toArray() { return []; } }; },
+    };
+  } };
+  await recordCommission(db, null, { _id: "user1", referredBy: "a".repeat(24) },
+    { id: "pay_fixture", status: "captured", currency: "INR", amount: 19900 }, { includeRefunds: true });
+  assert.equal(inserted.commissionAmount, 19.9);
+  assert.equal(inserted.commissionReversedAmount, 19.9);
+});

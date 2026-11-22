@@ -99,3 +99,28 @@ test("production mutations require current subscription access before reaching t
   assert.equal(response.status, 403);
   assert.equal(closed, true);
 });
+
+test("campaign health denies access before reading logs for a campaign the caller does not own", async () => {
+  const token = await issueStagingJwt(owner, env.PRODUCTION_JWT_SECRET);
+  const campaignId = "e".repeat(24);
+  const request = new Request("https://worker.example/api/campaigns/" + campaignId + "/health", {
+    headers: { Authorization: "Bearer " + token },
+  });
+  class MongoClient {
+    async connect() {}
+    db(name) {
+      assert.equal(name, "automationDB");
+      return { collection(name) {
+        assert.equal(name, "campaigns");
+        return { async findOne(query) {
+          assert.equal(String(query.userId), owner);
+          assert.equal(String(query._id), campaignId);
+          return null;
+        } };
+      } };
+    }
+    async close() {}
+  }
+  const response = await handleProductionCustomerApi({ request, env, MongoClient });
+  assert.equal(response.status, 404);
+});

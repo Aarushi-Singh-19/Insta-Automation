@@ -19,7 +19,8 @@ export async function loginProductionUser({ env, MongoClient, email, password })
       return { status: 400, body: { message: "Invalid credentials" } };
     const token = await issueStagingJwt(String(user._id), env.PRODUCTION_JWT_SECRET);
     const { password: ignored, accessToken, passwordResetTokenHash, passwordResetExpires,
-      razorpaySubscriptionId, razorpayCustomerId, ...safe } = user;
+      razorpaySubscriptionId, razorpayCustomerId, cloudflareSubscriptionCreation,
+      cloudflareBillingCheckedAt, passwordResetRequestedAt, ...safe } = user;
     const sanitized = { ...safe, _id: String(user._id) };
     const now = Date.now();
     if (sanitized.subscriptionStatus === "active" &&

@@ -1,9 +1,9 @@
 // Inspect abandoned staging states without replaying uncertain external sends.
-import { validateStagingMongoConfig } from "./staging-mongodb.js";
+import { automationRuntime } from "./automation-runtime.js";
 
 export async function reconcileStagingStates({ env, MongoClient, now = new Date(), ageMinutes = 15 }) {
-  if (env?.ENABLE_STAGING_RECONCILIATION !== "true") return { skipped: "disabled" };
-  const { uri, dbName } = validateStagingMongoConfig(env);
+  if ((env?.TRIGGERDM_RUNTIME === "production" ? env.ENABLE_PRODUCTION_AUTOMATION : env?.ENABLE_STAGING_RECONCILIATION) !== "true") return { skipped: "disabled" };
+  const { uri, dbName, prefix } = automationRuntime(env);
   if (typeof MongoClient !== "function") throw new TypeError("MONGO_CLIENT_REQUIRED");
   if (!Number.isInteger(ageMinutes) || ageMinutes < 5 || ageMinutes > 1440) throw new RangeError("INVALID_AGE");
   const cutoff = new Date(now.getTime() - ageMinutes * 60000);
@@ -11,9 +11,9 @@ export async function reconcileStagingStates({ env, MongoClient, now = new Date(
   try {
     await client.connect();
     const db = client.db(dbName);
-    const inbox = db.collection("cloudflare_staging_webhook_inbox");
-    const outbox = db.collection("cloudflare_staging_action_outbox");
-    const sends = db.collection("cloudflare_staging_action_sends");
+    const inbox = db.collection(prefix + "_webhook_inbox");
+    const outbox = db.collection(prefix + "_action_outbox");
+    const sends = db.collection(prefix + "_action_sends");
     // A crashed planner has not called Instagram, but may have written a plan.
     // Mark for inspection instead of re-claiming; do not overwrite newer states.
     const abandonedPlanning = await inbox.updateMany({

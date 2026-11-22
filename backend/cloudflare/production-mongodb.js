@@ -1,9 +1,12 @@
 // Explicit production-only database configuration. Never infer the database
 // from the MongoDB URI, and never permit a staging/system database.
 const RESERVED_DATABASES = new Set(["admin", "local", "config", "test"]);
-export function validateProductionMongoConfig(env) {
+export function validateProductionMongoConfig(env, { readOnlyProbe = false } = {}) {
   if (env?.TRIGGERDM_RUNTIME !== "production") throw new Error("PRODUCTION_RUNTIME_REQUIRED");
-  if (env?.PRODUCTION_CUTOVER_APPROVED !== "true") throw new Error("PRODUCTION_CUTOVER_NOT_APPROVED");
+  if (env?.PRODUCTION_CUTOVER_APPROVED !== "true" &&
+      !(readOnlyProbe && env.PRODUCTION_READ_ONLY_PROBE_ENABLED === "true")) {
+    throw new Error("PRODUCTION_CUTOVER_NOT_APPROVED");
+  }
   if (env?.UPSTREAM_ORIGIN) throw new Error("RENDER_DEPENDENCY_STILL_CONFIGURED");
   const dbName = String(env?.MONGODB_PRODUCTION_DB || "").trim();
   if (!/^[a-zA-Z0-9_-]{1,64}$/.test(dbName) ||
@@ -22,11 +25,19 @@ export function validateProductionMongoConfig(env) {
   return { uri, dbName };
 }
 export async function productionMongoReadiness({ env, MongoClient }) {
-  const { uri, dbName } = validateProductionMongoConfig(env);
+  const { uri, dbName } = validateProductionMongoConfig(env, { readOnlyProbe: true });
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
   try {
     await client.connect();
-    await client.db(dbName).command({ ping: 1 });
-    return { ok: true, database: dbName, connected: true, readOnly: true };
+    const db = client.db(dbName);
+    await db.command({ ping: 1 });
+    const required = ["users", "instagramaccounts", "campaigns", "rules", "payments",
+      "webhookevents", "referralearnings", "referralpayoutrequests", "actionlogs"];
+    const inventory = await db.listCollections({ name: { $in: required } }, {
+      nameOnly: true, authorizedCollections: true,
+    }).toArray();
+    const accessible = new Set(inventory.map(row => row.name));
+    return { ok: true, database: dbName, connected: true, readOnly: true,
+      collections: Object.fromEntries(required.map(name => [name, accessible.has(name)])) };
   } finally { await client.close(); }
 }

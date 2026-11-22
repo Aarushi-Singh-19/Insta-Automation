@@ -18,7 +18,8 @@ export async function getProductionCurrentUser({ env, MongoClient, authorization
     const user = await client.db(dbName).collection("users").findOne(
       { _id: new ObjectId(userId) },
       { projection: { password: 0, accessToken: 0, passwordResetTokenHash: 0,
-        passwordResetExpires: 0, razorpaySubscriptionId: 0, razorpayCustomerId: 0 } });
+        passwordResetExpires: 0, passwordResetRequestedAt: 0, razorpaySubscriptionId: 0,
+        razorpayCustomerId: 0, cloudflareSubscriptionCreation: 0, cloudflareBillingCheckedAt: 0 } });
     if (!user) return { status: 401, body: { message: "Unauthorized" } };
     const now = Date.now(), safe = { ...user, _id: String(user._id) };
     if (safe.subscriptionStatus === "active" &&

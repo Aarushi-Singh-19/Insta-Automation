@@ -28,3 +28,9 @@ test("production database rejects malformed or credentialless URI", () => {
   assert.throws(() => validateProductionMongoConfig({ ...base, MONGODB_PRODUCTION_URI: "not-a-uri" }), /PRODUCTION_MONGODB_URI_REQUIRED/);
   assert.throws(() => validateProductionMongoConfig({ ...base, MONGODB_PRODUCTION_URI: "mongodb://cluster.example.net/automationDB" }), /PRODUCTION_CREDENTIALS_REQUIRED/);
 });
+
+test("read-only preflight can run without enabling production writes", () => {
+  const env = { ...base, PRODUCTION_CUTOVER_APPROVED: "false", PRODUCTION_READ_ONLY_PROBE_ENABLED: "true" };
+  assert.equal(validateProductionMongoConfig(env, { readOnlyProbe: true }).dbName, "automationDB");
+  assert.throws(() => validateProductionMongoConfig(env), /PRODUCTION_CUTOVER_NOT_APPROVED/);
+});

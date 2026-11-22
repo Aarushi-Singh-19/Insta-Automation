@@ -31,6 +31,7 @@ export async function verifySessionJwt(token, secret, { now = Date.now(), issuer
   if (!Number.isSafeInteger(payload.exp) || payload.exp <= epoch) throw new Error("TOKEN_EXPIRED");
   if (payload.nbf !== undefined && (!Number.isSafeInteger(payload.nbf) || payload.nbf > epoch)) throw new Error("TOKEN_NOT_ACTIVE");
   if (payload.iat !== undefined && (!Number.isSafeInteger(payload.iat) || payload.iat > epoch + 60)) throw new Error("INVALID_TOKEN");
+  if (issuer === undefined && payload.iss === "triggerdm-instagram-oauth") throw new Error("INVALID_TOKEN_PURPOSE");
   if (issuer !== undefined && payload.iss !== issuer) throw new Error("INVALID_TOKEN");
   if (audience !== undefined && !(Array.isArray(payload.aud) ? payload.aud.includes(audience) : payload.aud === audience)) throw new Error("INVALID_TOKEN");
   return payload;

@@ -6,7 +6,7 @@ import { ObjectId } from "mongodb";
 import { verifiedFollowGateRelease } from "./follow-gate-release.js";
 import { startFollowGate } from "./follow-gate-state.js";
 import { buildFollowPrompt } from "./follow-gate-prompt.js";
-import { validateStagingMongoConfig } from "./staging-mongodb.js";
+import { automationRuntime } from "./automation-runtime.js";
 import { authorizeCommentActions } from "./automation-authorization.js";
 import { buildCommentActionSpec } from "./comment-action-spec.js";
 import { replyToInstagramComment, sendInstagramDM, getInstagramFollowerStatus } from "./instagram-graph.js";
@@ -16,20 +16,23 @@ const numberId = value => /^\d+$/.test(String(value || ""));
 function usagePeriod(user, now) {
   if (user.subscriptionStatus === "trial") {
     if (!user.trialStartDate || !user.trialEndDate || new Date(user.trialStartDate) > now || new Date(user.trialEndDate) <= now) return null;
-    return { period: "trial", key: "trial:" + String(user.trialStartDate), limit: 500 };
+    return { period: "trial", start: new Date(user.trialStartDate), key: "trial:" + String(user.trialStartDate), limit: 500 };
   }
   const start = user.subscriptionCurrentStart;
   const end = user.subscriptionCurrentEnd || user.planEndDate;
   if (!start || !end || new Date(start) > now || new Date(end) <= now) return null;
-  return { period: "billing", key: "billing:" + new Date(start).toISOString(), limit: 10000 };
+  return { period: "billing", start: new Date(start), key: "billing:" + new Date(start).toISOString(), limit: 10000 };
 }
 export async function executeStagingActions({ env, MongoClient, fetchImpl, getFollower = getInstagramFollowerStatus, limit = 5, now = new Date(), receivedNotBefore = null }) {
-  const { uri, dbName } = validateStagingMongoConfig(env);
+  const { uri, dbName, production, prefix } = automationRuntime(env);
   if (receivedNotBefore !== null && (!(receivedNotBefore instanceof Date) || !Number.isFinite(receivedNotBefore.getTime()))) throw new Error("INVALID_AUTOMATIC_SEND_CUTOFF");
-  if (env?.ENABLE_STAGING_INSTAGRAM_SEND !== "true") throw new Error("STAGING_SEND_DISABLED");
+  if (production && (!receivedNotBefore || env.ENABLE_PRODUCTION_INSTAGRAM_SEND !== "true")) {
+    throw new Error("PRODUCTION_SEND_DISABLED");
+  }
+  if (!production && env?.ENABLE_STAGING_INSTAGRAM_SEND !== "true") throw new Error("STAGING_SEND_DISABLED");
   // Explicitly bind live staging sends to one operator-approved Instagram
   // account. An enabled flag alone must never send for every copied account.
-  if (!/^\d+$/.test(String(env?.STAGING_SEND_INSTAGRAM_BUSINESS_ID || ""))) {
+  if (!production && !/^\d+$/.test(String(env?.STAGING_SEND_INSTAGRAM_BUSINESS_ID || ""))) {
     throw new Error("STAGING_SEND_ACCOUNT_NOT_APPROVED");
   }
   if (typeof MongoClient !== "function" || typeof fetchImpl !== "function") throw new TypeError("DEPENDENCIES_REQUIRED");
@@ -39,26 +42,31 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
   try {
     await client.connect();
     const db = client.db(dbName);
-    const outbox = db.collection("cloudflare_staging_action_outbox");
-    const sends = db.collection("cloudflare_staging_action_sends");
-    const quotas = db.collection("cloudflare_staging_dm_quotas");
+    const outbox = db.collection(prefix + "_action_outbox");
+    const sends = db.collection(prefix + "_action_sends");
+    const quotas = db.collection(prefix + "_dm_quotas");
     // Filter eligible inbox IDs before limiting outbox rows. Otherwise the oldest
     // pre-cutoff rows occupy every slot forever and starve fresh automatic events.
-    const eligibleInboxIds = receivedNotBefore
-      ? (await db.collection("cloudflare_staging_webhook_inbox")
+    const eligibleInboxIds = receivedNotBefore && !production
+      ? (await db.collection(prefix + "_webhook_inbox")
           .find({ kind: "comment", status: "planned", receivedAt: { $gte: receivedNotBefore } })
           .project({ _id: 1 }).limit(100).toArray()).map(row => row._id)
       : null;
     const cursor = outbox.find({
       status: { $in: ["awaiting_authorization", "awaiting_follow"] }, authorized: false,
-      ...(eligibleInboxIds ? { _id: { $in: eligibleInboxIds } } : {})
-    }).sort({ createdAt: 1, _id: 1 }).limit(limit);
+      ...(eligibleInboxIds ? { _id: { $in: eligibleInboxIds } } : {}),
+      ...(production ? { receivedAt: { $gte: receivedNotBefore } } : {})
+    }).sort(production ? { lastInspectedAt: 1, createdAt: 1, _id: 1 } : { createdAt: 1, _id: 1 }).limit(limit);
     for await (const item of cursor) {
       summary.inspected++;
+      if (production) {
+        await outbox.updateOne({ _id: item._id, status: item.status },
+          { $set: { lastInspectedAt: now } });
+      }
       const plan = item.plan;
       if (!plan || !numberId(plan.eventId) || !numberId(plan.postId) ||
           !objectId(plan.campaignId) || !objectId(plan.ruleId)) { summary.blocked++; continue; }
-      const inbox = await db.collection("cloudflare_staging_webhook_inbox").findOne({ _id: item._id, status: "planned" });
+      const inbox = await db.collection(prefix + "_webhook_inbox").findOne({ _id: item._id, status: "planned" });
       if (receivedNotBefore && (!(inbox?.receivedAt instanceof Date) || inbox.receivedAt < receivedNotBefore)) { summary.blocked++; continue; }
       if (!inbox || inbox.event?.eventId !== plan.eventId || inbox.event?.postId !== plan.postId ||
           !numberId(inbox.event?.entryId)) { summary.blocked++; continue; }
@@ -73,7 +81,25 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
       });
       const user = await db.collection("users").findOne({ _id: campaign.userId });
       if (!account || !user || !account.accessToken || (campaign.settings?.enableDM !== false && !account.pageAccessToken)) { summary.blocked++; continue; }
-      if (String(account.instagramBusinessId) !== String(env.STAGING_SEND_INSTAGRAM_BUSINESS_ID)) {
+      const receivedTimestamp = inbox.event.commentTimestamp;
+      if (production && receivedTimestamp) {
+        const numeric = Number(receivedTimestamp);
+        const timestamp = Number.isFinite(numeric)
+          ? numeric * (numeric < 1e12 ? 1000 : 1)
+          : Date.parse(receivedTimestamp);
+        if (!Number.isFinite(timestamp) || timestamp < now.getTime() - 6 * 86400000) {
+          await outbox.updateOne({ _id: item._id, status: item.status },
+            { $set: { status: "ignored", reconciliationReason: "COMMENT_EXPIRED" } });
+          summary.blocked++; continue;
+        }
+      }
+      if (production && (String(inbox.userId) !== String(user._id) ||
+          String(inbox.accountId) !== String(account.instagramBusinessId) ||
+          String(item._id) !== "comment:" + account.instagramBusinessId + ":" + plan.eventId ||
+          await db.collection("processedevents").findOne({ eventId: plan.eventId }))) {
+        summary.blocked++; continue;
+      }
+      if (!production && String(account.instagramBusinessId) !== String(env.STAGING_SEND_INSTAGRAM_BUSINESS_ID)) {
         summary.blocked++; continue;
       }
       if (campaign.instagramAccountId && String(campaign.instagramAccountId) !== String(account.instagramBusinessId)) {
@@ -98,7 +124,8 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
       let followGateVerified = false;
       let followPrompt = null;
       if (action.spec.followGateRequired) {
-        const session = await db.collection("cloudflare_staging_follow_gate_sessions").findOne({
+        if (production && env.ENABLE_PRODUCTION_FOLLOW_GATE !== "true") { summary.blocked++; continue; }
+        const session = await db.collection(prefix + "_follow_gate_sessions").findOne({
           _id: "follow:" + String(item._id), status: "VERIFIED"
         });
         const release = verifiedFollowGateRelease({
@@ -106,6 +133,10 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
           recipientId: inbox.event.recipientId, commentId: plan.eventId
         });
         if (release.allowed) {
+          if (production && (!(session.verifiedAt instanceof Date) ||
+              now.getTime() - session.verifiedAt.getTime() >= 23 * 3600000)) {
+            summary.blocked++; continue;
+          }
           followGateVerified = true;
         } else if (item.status === "awaiting_authorization" && !session) {
           if (!numberId(inbox.event.recipientId)) { summary.blocked++; continue; }
@@ -136,18 +167,19 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
       const quotaId = period ? String(user._id) + ":" + period.key : null;
       // Owner-approved fresh allowance for the existing subscription period.
       // Atomic setOnInsert never resets an existing Cloudflare counter.
-      if (action.spec.dm) {
+      const newPeriod = production && period?.start >= receivedNotBefore;
+      if (action.spec.dm && (!production || newPeriod || env.PRODUCTION_DM_QUOTA_POLICY === "fresh-start")) {
         await quotas.updateOne({ _id: quotaId }, { $setOnInsert: {
           userId: user._id, period: period.period, limit: period.limit,
           baselineSent: 0, reserved: 0, baselineVerified: true,
-          baselineSource: "fresh-start-owner-approved", createdAt: new Date()
+          baselineSource: newPeriod ? "period-started-after-cutover" : "fresh-start-owner-approved", createdAt: new Date()
         } }, { upsert: true });
       }
       const counter = quotaId ? await quotas.findOne({ _id: quotaId }) : null;
       const validCounter = counter && String(counter.userId) === String(user._id) &&
         counter.period === period?.period && counter.limit === period?.limit &&
         counter.baselineVerified === true &&
-        ["fresh-start-owner-approved", "render-reconciliation"].includes(counter.baselineSource) &&
+        ["fresh-start-owner-approved", "render-reconciliation", "period-started-after-cutover"].includes(counter.baselineSource) &&
         Number.isSafeInteger(counter.baselineSent) && counter.baselineSent >= 0 &&
         Number.isSafeInteger(counter.reserved) && counter.reserved >= 0 &&
         counter.baselineSent + counter.reserved <= period.limit;
@@ -163,7 +195,8 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
       if (followPrompt) {
         await startFollowGate({ db, inboxId: String(item._id),
           campaignId: String(campaign._id), userId: String(user._id),
-          recipientId: String(inbox.event.recipientId), commentId: String(plan.eventId) });
+          recipientId: String(inbox.event.recipientId), commentId: String(plan.eventId),
+          sessionsCollection: prefix + "_follow_gate_sessions" });
       }
       const claim = await outbox.updateOne({ _id: item._id, status: item.status, authorized: false },
         { $set: { status: "executing", executionStartedAt: new Date() } });
@@ -208,11 +241,32 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
                 message: details.message, fetchImpl })
             : await sendInstagramDM({ accessToken: account.pageAccessToken, instagramBusinessId: account.instagramBusinessId,
                 ...(kind === "gate_prompt" ? { commentId: plan.eventId } :
-                  action.spec.followGateRequired ? { recipientId: inbox.event.recipientId } : { commentId: plan.eventId }),
+                  action.spec.followGateRequired && (!production || item.status === "awaiting_follow") ? { recipientId: inbox.event.recipientId } : { commentId: plan.eventId }),
                 message: kind === "gate_prompt" ? details.text : details.message,
                 buttons: details.buttons, fetchImpl });
-          await sends.updateOne({ _id: sendId, status: "sending" },
-            { $set: { status: "sent", providerId: result.id || result.messageId, completedAt: new Date() } });
+          const completedAt = new Date();
+          const sent = { status: "sent", providerId: result.id || result.messageId, completedAt };
+          if (production) {
+            const session = client.startSession();
+            try {
+              await session.withTransaction(async () => {
+                const written = await sends.updateOne({ _id: sendId, status: "sending" }, { $set: sent }, { session });
+                if (written.modifiedCount !== 1) throw new Error("SEND_STATE_CONFLICT");
+                await db.collection("actionlogs").updateOne({ eventId: plan.eventId, actionType: kind },
+                  { $setOnInsert: { eventId: plan.eventId, actionType: kind, campaignId: campaign._id,
+                    ruleId: String(rule._id), userId: String(user._id), createdAt: completedAt },
+                  $set: { status: "success", metricsUpdated: true, updatedAt: completedAt } }, { upsert: true, session });
+                if (kind !== "gate_prompt") {
+                  await db.collection("campaigns").updateOne({ _id: campaign._id, userId: user._id },
+                    { $inc: { [kind === "reply" ? "metrics.repliesSent" : "metrics.dmsSent"]: 1 } }, { session });
+                }
+              });
+            } finally {
+              await session.endSession();
+            }
+          } else {
+            await sends.updateOne({ _id: sendId, status: "sending" }, { $set: sent });
+          }
         } catch (error) {
           // A timeout or Graph error may still have sent the message.
           await sends.updateOne({ _id: sendId, status: "sending" },
@@ -226,10 +280,22 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
         : [action.spec.reply && "reply", action.spec.dm && "dm"].filter(Boolean);
       const states = await Promise.all(required.map(kind => sends.findOne({ _id: String(item._id) + ":" + kind })));
       if (states.length && states.every(state => state?.status === "sent")) {
-        await outbox.updateOne({ _id: item._id, status: "executing" },
-          { $set: followPrompt
-            ? { status: "awaiting_follow", dispatched: false, gatePromptSentAt: new Date() }
-            : { status: "completed", dispatched: true, completedAt: new Date() } });
+        const update = { $set: followPrompt
+          ? { status: "awaiting_follow", dispatched: false, gatePromptSentAt: new Date() }
+          : { status: "completed", dispatched: true, completedAt: new Date() } };
+        if (production && item.status !== "awaiting_follow") {
+          const session = client.startSession();
+          try {
+            await session.withTransaction(async () => {
+              const written = await outbox.updateOne({ _id: item._id, status: "executing" }, update, { session });
+              if (written.modifiedCount !== 1) throw new Error("OUTBOX_STATE_CONFLICT");
+              await db.collection("campaigns").updateOne({ _id: campaign._id, userId: user._id },
+                { $inc: { "metrics.commentsProcessed": 1 } }, { session });
+            });
+          } finally { await session.endSession(); }
+        } else {
+          await outbox.updateOne({ _id: item._id, status: "executing" }, update);
+        }
         summary.completed++;
       } else {
         // Do not retry uncertain Graph outcomes automatically: a timeout may

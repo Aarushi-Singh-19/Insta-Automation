@@ -1,7 +1,7 @@
 // Verify a staging Follow Gate postback against Meta before unlocking.
 // No outgoing messages. Never trust a postback's claimed follow status.
 import { ObjectId } from "mongodb";
-import { validateStagingMongoConfig } from "./staging-mongodb.js";
+import { automationRuntime } from "./automation-runtime.js";
 import { getInstagramFollowerStatus } from "./instagram-graph.js";
 import { confirmFollowGate } from "./follow-gate-state.js";
 
@@ -9,8 +9,8 @@ export async function verifyStagingFollowPostback({
   env, MongoClient, postback, fetchImpl, getFollower = getInstagramFollowerStatus,
   confirm = confirmFollowGate
 }) {
-  if (env?.ENABLE_STAGING_FOLLOW_VERIFICATION !== "true") return { skipped: "disabled" };
-  const { uri, dbName } = validateStagingMongoConfig(env);
+  if ((env?.TRIGGERDM_RUNTIME === "production" ? env.ENABLE_PRODUCTION_FOLLOW_GATE : env?.ENABLE_STAGING_FOLLOW_VERIFICATION) !== "true") return { skipped: "disabled" };
+  const { uri, dbName, prefix } = automationRuntime(env);
   if (typeof MongoClient !== "function" || typeof fetchImpl !== "function") throw new TypeError("DEPENDENCIES_REQUIRED");
   const accountId = String(postback?.entryId || "");
   const senderId = String(postback?.senderId || "");
@@ -25,7 +25,7 @@ export async function verifyStagingFollowPostback({
   try {
     await client.connect();
     const db = client.db(dbName);
-    const session = await db.collection("cloudflare_staging_follow_gate_sessions").findOne({
+    const session = await db.collection(prefix + "_follow_gate_sessions").findOne({
       _id: sessionId, status: "WAITING", recipientId: senderId,
       inboxId: "comment:" + accountId + ":" + match[2]
     });
@@ -43,7 +43,7 @@ export async function verifyStagingFollowPostback({
       return { unlocked: false, reason: "FOLLOW_STATUS_UNAVAILABLE" };
     }
     if (follower?.followsBusiness !== true) return { unlocked: false, reason: "FOLLOW_NOT_VERIFIED" };
-    const result = await confirm({ db, sessionId, followerStatus: true, senderId, accountId });
+    const result = await confirm({ db, sessionId, followerStatus: true, senderId, accountId, sessionsCollection: prefix + "_follow_gate_sessions" });
     return { ...result, instagramMessagesSent: 0 };
   } finally {
     await client.close();

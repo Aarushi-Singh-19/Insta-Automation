@@ -1,3 +1,9 @@
+import { handleProductionAdminApi } from "./production-admin-api.js";
+import { handleProductionLegacyFollow } from "./production-legacy-follow.js";
+import { handleProductionAuthActions } from "./production-auth-actions.js";
+import { handleProductionInstagramOAuth } from "./production-instagram-oauth.js";
+import { drainProductionAutomation } from "./production-automation.js";
+import { handleProductionFinancialApi, recoverProductionBilling } from "./production-financial-api.js";
 import { handleProductionCustomerApi } from "./production-customer-api.js";
 import { referralSummary, payoutRequests } from "./staging-referrals.js";
 import { stagingAnalytics } from "./staging-analytics.js";
@@ -51,7 +57,19 @@ import { confirmFollowGate } from "./follow-gate-state.js";
 
 export default {
   async scheduled(event, env, ctx) {
-    if (env?.TRIGGERDM_RUNTIME === "production") return; // Production executor not yet validated; do not run staging cron.
+    if (env?.TRIGGERDM_RUNTIME === "production") {
+      if (env.ENABLE_PRODUCTION_AUTOMATION === "true") {
+        ctx.waitUntil(drainProductionAutomation({ env, MongoClient }).catch(error => {
+          console.error("Production automation drain unavailable", error?.name || "Error");
+        }));
+      }
+      if (env.ENABLE_PRODUCTION_BILLING_RECOVERY === "true") {
+        ctx.waitUntil(recoverProductionBilling({ env, MongoClient }).catch(error => {
+          console.error("Production billing recovery unavailable", error?.name || "Error");
+        }));
+      }
+      return;
+    }
     // Cron drains only durable staging records. No Instagram sends.
     ctx.waitUntil(drainStagingInbox({ env, MongoClient }));
     if (env?.ENABLE_STAGING_RAZORPAY === "true") {
@@ -76,18 +94,20 @@ export default {
       // Separate, fail-closed production ingress. Never route staging APIs,
       // staging cron, or the staging single-account executor into production.
       if (request.method === "GET" && url.pathname === "/api/webhook/instagram") {
-        const challenge = verifyInstagramChallenge(request.url, env?.VERIFY_TOKEN);
+        if (env?.ENABLE_PRODUCTION_META_INGRESS !== "true" || env.PRODUCTION_CUTOVER_APPROVED !== "true")
+          return Response.json({ error: "PRODUCTION_INGRESS_DISABLED" }, { status: 503 });
+        const challenge = verifyInstagramChallenge(request.url, env.PRODUCTION_META_VERIFY_TOKEN);
         return challenge === null ? new Response("Forbidden", { status: 403 }) :
           new Response(challenge, { status: 200 });
       }
       if (request.method === "POST" && url.pathname === "/api/webhook/instagram") {
-        if (env?.ENABLE_PRODUCTION_META_INGRESS !== "true")
+        if (env?.ENABLE_PRODUCTION_META_INGRESS !== "true" || env.PRODUCTION_CUTOVER_APPROVED !== "true")
           return Response.json({ error: "PRODUCTION_INGRESS_DISABLED" }, { status: 503 });
         const raw = await request.text();
         if (raw.length > 256000) return Response.json({ error: "Payload too large" }, { status: 413 });
         const header = request.headers.get("x-hub-signature-256") || "";
         const signature = header.startsWith("sha256=") ? header.slice(7) : "";
-        if (!await verifyHmacSha256(raw, signature, env?.META_APP_SECRET))
+        if (!await verifyHmacSha256(raw, signature, env.PRODUCTION_META_APP_SECRET))
           return Response.json({ error: "Invalid signature" }, { status: 403 });
         let events;
         try { events = extractInstagramEvents(JSON.parse(raw)); }
@@ -95,8 +115,11 @@ export default {
         try {
           validateProductionMongoConfig(env);
           const stored = await persistProductionInstagramEvents({ env, MongoClient, events });
-          // Acknowledgment is only permitted when durable, with a separate
-          // production executor release gate still required before cutover.
+          if (stored.inserted > 0 && env.ENABLE_PRODUCTION_AUTOMATION === "true" && ctx?.waitUntil) {
+            ctx.waitUntil(drainProductionAutomation({ env, MongoClient }).catch(error => {
+              console.error("Production automation drain unavailable", error?.name || "Error");
+            }));
+          }
           return Response.json({ ok: true, received: stored.received, inserted: stored.inserted });
         } catch (error) {
           console.error("Production webhook inbox failed", error?.name || "Error");
@@ -151,8 +174,13 @@ export default {
         try { return Response.json(await planProductionInbox({ env, MongoClient, limit: 10 })); }
         catch { return Response.json({ error: "PRODUCTION_PLANNER_UNAVAILABLE" }, { status: 503 }); }
       }
-      const customerResponse = await handleProductionCustomerApi({ request, env, MongoClient });
-      return customerResponse ?? Response.json({ error: "PRODUCTION_BACKEND_NOT_READY" }, { status: 503 });
+      const args = { request, env, MongoClient, ctx };
+      return await handleProductionAuthActions(args) ??
+        await handleProductionInstagramOAuth(args) ??
+        await handleProductionAdminApi(args) ??
+        await handleProductionLegacyFollow(args) ??
+        await handleProductionFinancialApi(args) ??
+        await handleProductionCustomerApi(args) ?? Response.json({ error: "PRODUCTION_BACKEND_NOT_READY" }, { status: 503 });
     }
     const allowedCors = cors(request.headers.get("Origin"));
     const json = (data, status = 200) => Response.json(data, {

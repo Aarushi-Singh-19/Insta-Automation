@@ -1,4 +1,5 @@
-import { recordCommission, reverseRefund } from "./staging-referrals.js";
+import { validateProductionMongoConfig } from "./production-mongodb.js";
+import { recordCommission, reverseRefund, referralsEnabled } from "./staging-referrals.js";
 import { ObjectId } from "mongodb";
 import { validateStagingMongoConfig } from "./staging-mongodb.js";
 import { verifyHmacSha256 } from "./webhook-security.js";
@@ -6,8 +7,11 @@ import { verifyHmacSha256 } from "./webhook-security.js";
 // Native staging billing. Deliberately refuses production DBs and unconfigured
 // credentials. Razorpay API verification is mandatory before granting access.
 export function billingConfig(env) {
-  const db = validateStagingMongoConfig(env);
-  if (env?.ENABLE_STAGING_RAZORPAY !== "true") throw new Error("BILLING_DISABLED");
+  const production = env?.TRIGGERDM_RUNTIME === "production";
+  const db = production ? validateProductionMongoConfig(env) : validateStagingMongoConfig(env);
+  if (production && (!/^rzp_live_[A-Za-z0-9]+$/.test(env.RAZORPAY_KEY_ID || "") ||
+      env.ENABLE_PRODUCTION_FINANCIAL_OWNERSHIP !== "true")) throw new Error("PRODUCTION_BILLING_DISABLED");
+  if ((production ? env.ENABLE_PRODUCTION_RAZORPAY : env?.ENABLE_STAGING_RAZORPAY) !== "true") throw new Error("BILLING_DISABLED");
   if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET ||
       !env.RAZORPAY_MONTHLY_PLAN_ID || !env.RAZORPAY_WEBHOOK_SECRET)
     throw new Error("BILLING_NOT_CONFIGURED");
@@ -50,14 +54,27 @@ export async function createStagingSubscription({ env, MongoClient, userId, fetc
       if (["created", "authenticated", "pending"].includes(existing.status))
         return { status: 200, data: subscriptionResponse(existing) };
     }
+    const production = env.TRIGGERDM_RUNTIME === "production";
+    const creationClaim = production ? crypto.randomUUID() : null;
+    if (creationClaim) {
+      const claim = await users.updateOne({
+        _id: user._id, razorpaySubscriptionId: user.razorpaySubscriptionId ?? null,
+        cloudflareSubscriptionCreation: { $exists: false },
+      }, { $set: { cloudflareSubscriptionCreation: { id: creationClaim, startedAt: new Date() } } });
+      if (claim.modifiedCount !== 1) return { status: 409, data: { success: false,
+        message: "Subscription creation already pending" } };
+    }
+    // If Razorpay's response is lost, preserve the claim for reconciliation.
     const subscription = await razorpayApi(env, "POST", "subscriptions", { fetchImpl,
       body: { plan_id: env.RAZORPAY_MONTHLY_PLAN_ID, total_count: 120,
-        quantity: 1, customer_notify: true, notes: { userId, email: user.email } } });
-    if (!subscription?.id || !subscription?.plan_id) throw new Error("INVALID_RAZORPAY_RESPONSE");
+        quantity: 1, customer_notify: true, notes: { userId, email: user.email, ...(creationClaim ? { creationClaim } : {}) } } });
+    if (!subscription?.id || subscription.plan_id !== env.RAZORPAY_MONTHLY_PLAN_ID) throw new Error("INVALID_RAZORPAY_RESPONSE");
     // Compare-and-swap prevents overwriting a concurrent subscription ID.
     const saved = await users.updateOne({ _id: user._id,
-      razorpaySubscriptionId: user.razorpaySubscriptionId ?? null },
-      { $set: { razorpaySubscriptionId: subscription.id } });
+      razorpaySubscriptionId: user.razorpaySubscriptionId ?? null,
+      ...(creationClaim ? { "cloudflareSubscriptionCreation.id": creationClaim } : {}) },
+      { $set: { razorpaySubscriptionId: subscription.id },
+        ...(creationClaim ? { $unset: { cloudflareSubscriptionCreation: "" } } : {}) });
     if (saved.modifiedCount !== 1) throw new Error("SUBSCRIPTION_CONCURRENT_CREATION");
     return { status: 200, data: subscriptionResponse(subscription) };
   } finally { await client.close(); }
@@ -130,7 +147,7 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
   const type = event.event;
   if (!eventId || typeof eventId !== "string" || eventId.length > 200 || !type)
     return { status: 400, data: { success: false } };
-  const subscription = event.payload?.subscription?.entity;
+  let subscription = event.payload?.subscription?.entity;
   const payment = event.payload?.payment?.entity;
   const refund = event.payload?.refund?.entity;
   const supported = new Set(["subscription.authenticated", "subscription.activated",
@@ -143,6 +160,18 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
   try {
     if (type === "subscription.charged" || type === "payment.captured")
       captured = await verifyCaptured(env, payment, subscription?.id, fetchImpl);
+    const verifiedSubscriptionId = subscription?.id || captured?.subscriptionId;
+    if (env.TRIGGERDM_RUNTIME === "production" && verifiedSubscriptionId) {
+      const verifiedSubscription = await razorpayApi(env, "GET",
+        "subscriptions/" + encodeURIComponent(verifiedSubscriptionId), { fetchImpl });
+      if (verifiedSubscription.id !== verifiedSubscriptionId ||
+          verifiedSubscription.plan_id !== env.RAZORPAY_MONTHLY_PLAN_ID)
+        throw new Error("SUBSCRIPTION_VERIFICATION_MISMATCH");
+      subscription = verifiedSubscription;
+      if (type === "subscription.charged" &&
+          (captured.payment.amount !== 19900 || captured.payment.currency !== "INR"))
+        throw new Error("UNEXPECTED_PAYMENT_AMOUNT");
+    }
   } catch { return { status: 503, data: { success: false, message: "Payment verification failed" } }; }
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
   let claimed = false;
@@ -180,9 +209,12 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
     const user = subscriptionId ? await users.findOne({ razorpaySubscriptionId: subscriptionId }) : null;
     if (!user && type !== "subscription.authenticated" && type !== "refund.processed")
       return { status: 503, data: { success: false, message: "Subscription owner not found" } };
-    if (type === "subscription.charged" && user?.referredBy && env.ENABLE_STAGING_REFERRALS !== "true")
+    const shouldRecordCommission = type === "subscription.charged" ||
+      (env.TRIGGERDM_RUNTIME === "production" && type === "payment.captured" &&
+        captured?.payment?.amount === 19900 && captured.payment.currency === "INR");
+    if (shouldRecordCommission && user?.referredBy && !referralsEnabled(env))
       return { status: 503, data: { success: false, message: "Referral accounting disabled" } };
-    if (type === "refund.processed" && env.ENABLE_STAGING_REFERRALS !== "true")
+    if (type === "refund.processed" && !referralsEnabled(env))
       return { status: 503, data: { success: false, message: "Refund accounting disabled" } };
     const now = new Date();
     stage = "claim-event";
@@ -220,8 +252,19 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
           await reverseRefund(db, session, verifiedRefund);
         }
         if (user) {
-          const update = subscriptionUpdate(type, subscription || { id: subscriptionId });
-          if (Object.keys(update).length) await users.updateOne({ _id: user._id }, { $set: update }, { session });
+          const currentEvent = env.TRIGGERDM_RUNTIME === "production" && subscription && !["subscription.authenticated", "payment.captured"].includes(type)
+            ? {
+              active: "subscription.activated", pending: "subscription.pending",
+              halted: "subscription.halted", cancelled: "subscription.cancelled",
+              completed: "subscription.completed", expired: "subscription.completed",
+            }[subscription.status]
+            : type;
+          const update = subscriptionUpdate(env.TRIGGERDM_RUNTIME === "production" && type === "payment.failed"
+            ? undefined : currentEvent, subscription || { id: subscriptionId });
+          if (Object.keys(update).length) {
+            await users.updateOne({ _id: user._id, razorpaySubscriptionId: subscriptionId },
+              { $set: update }, { session });
+          }
           if (captured || type === "payment.failed") {
             const p = captured?.payment || payment;
             if (p?.id && Number.isFinite(p.amount) && p.amount >= 0) {
@@ -233,7 +276,9 @@ export async function processStagingRazorpayWebhook({ request, env, MongoClient,
                   createdAt: now, updatedAt: now } }, { upsert: true, session });
             }
           }
-          if (type === "subscription.charged") await recordCommission(db, session, user, captured.payment);
+          if (shouldRecordCommission) {
+            await recordCommission(db, session, user, captured.payment, { includeRefunds: env.TRIGGERDM_RUNTIME === "production" });
+          }
         }
         await events.updateOne({ eventId, status: "processing" },
           { $set: { status: "processed", processedAt: new Date(), lockedUntil: null } }, { session });
@@ -333,8 +378,8 @@ export async function reconcileStagingSubscription({ env, MongoClient, userId, f
               paidAt: dateFromEpoch(payment.created_at), createdAt: new Date(), updatedAt: new Date() } },
             { upsert: true, session });
           if (user.referredBy) {
-            if (env.ENABLE_STAGING_REFERRALS !== "true") throw new Error("REFERRALS_DISABLED");
-            await recordCommission(db, session, user, payment);
+            if (!referralsEnabled(env)) throw new Error("REFERRALS_DISABLED");
+            await recordCommission(db, session, user, payment, { includeRefunds: env.TRIGGERDM_RUNTIME === "production" });
           }
         }
       });
@@ -354,20 +399,27 @@ export async function reconcileStagingSubscription({ env, MongoClient, userId, f
  * Does not require a user session or a manual browser command.
  */
 export async function recoverStagingBilling({ env, MongoClient, fetchImpl = fetch }) {
-  if (env?.ENABLE_STAGING_RAZORPAY !== "true") return { skipped: true };
+  if ((env?.TRIGGERDM_RUNTIME === "production" ? env.ENABLE_PRODUCTION_RAZORPAY : env?.ENABLE_STAGING_RAZORPAY) !== "true") return { skipped: true };
   const { uri, dbName } = billingConfig(env);
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
   try {
     await client.connect();
     const users = client.db(dbName).collection("users");
+    const production = env.TRIGGERDM_RUNTIME === "production";
+    const recoverable = { subscriptionStatus: { $in: ["trial", "expired", "past_due", "halted", "cancelled"] } };
     const candidates = await users.find({
       razorpaySubscriptionId: { $type: "string" },
-      subscriptionStatus: { $in: ["trial", "expired", "past_due", "halted", "cancelled"] }
-    }).sort({ _id: -1 }).limit(3).project({ _id: 1 }).toArray();
+      ...(production ? { $or: [recoverable,
+        { subscriptionStatus: "active", $or: [{ planEndDate: null }, { planEndDate: { $lte: new Date() } }] }],
+        } : recoverable),
+    }).sort(production ? { cloudflareBillingCheckedAt: 1, _id: 1 } : { _id: -1 })
+      .limit(3).project({ _id: 1 }).toArray();
     let recovered = 0;
     let pending = 0;
     for (const candidate of candidates) {
       try {
+        if (production) await users.updateOne({ _id: candidate._id },
+          { $set: { cloudflareBillingCheckedAt: new Date() } });
         const result = await reconcileStagingSubscription({
           env, MongoClient, userId: String(candidate._id), fetchImpl
         });

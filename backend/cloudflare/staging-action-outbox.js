@@ -1,23 +1,23 @@
 // Staging-only durable action outbox. This is a preparation stage, not a
 // sending executor: it cannot call Instagram or debit quotas.
-import { validateStagingMongoConfig } from "./staging-mongodb.js";
+import { automationRuntime } from "./automation-runtime.js";
 
 export async function prepareStagingActionOutbox({ env, MongoClient, limit = 10 }) {
-  const { uri, dbName } = validateStagingMongoConfig(env);
+  const { uri, dbName, production, prefix } = automationRuntime(env);
   if (typeof MongoClient !== "function") throw new TypeError("MongoClient required");
   if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw new RangeError("INVALID_LIMIT");
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
   try {
     await client.connect();
     const db = client.db(dbName);
-    const plans = db.collection("cloudflare_staging_action_plans");
-    const outbox = db.collection("cloudflare_staging_action_outbox");
+    const plans = db.collection(prefix + "_action_plans");
+    const outbox = db.collection(prefix + "_action_outbox");
     // Exclude already-prepared plans BEFORE limiting the batch. Otherwise the
     // oldest ten plans occupy every cron run and newer comments never reach
     // the outbox (even though they are correctly marked planned).
     const cursor = plans.aggregate([
       { $match: { status: "awaiting_authorization" } },
-      { $lookup: { from: "cloudflare_staging_action_outbox",
+      { $lookup: { from: prefix + "_action_outbox",
           localField: "_id", foreignField: "_id", as: "existingOutbox" } },
       { $match: { existingOutbox: { $eq: [] } } },
       { $sort: { createdAt: 1, _id: 1 } },
@@ -44,7 +44,8 @@ export async function prepareStagingActionOutbox({ env, MongoClient, limit = 10 
           campaignId: String(plan.campaignId), ruleId: String(plan.ruleId) },
         status: "awaiting_authorization",
         // Explicitly impossible to dispatch without a separate executor.
-        authorized: false, dispatched: false, createdAt: new Date()
+        authorized: false, dispatched: false, createdAt: new Date(),
+        ...(production ? { receivedAt: record.receivedAt ?? null } : {})
       } }, { upsert: true });
       results.push({ status: write.upsertedCount ? "prepared" : "already_prepared" });
     }

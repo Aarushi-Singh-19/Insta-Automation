@@ -1,21 +1,21 @@
 // Optional staging-only verification of durable postbacks.
 // A Meta-confirmed follow unlocks a session, but this worker never sends DMs.
-import { validateStagingMongoConfig } from "./staging-mongodb.js";
+import { automationRuntime } from "./automation-runtime.js";
 import { verifyStagingFollowPostback } from "./staging-follow-verifier.js";
 
 export async function processStagingFollowPostbacks({
   env, MongoClient, fetchImpl, limit = 5, verify = verifyStagingFollowPostback
 }) {
-  if (env?.ENABLE_STAGING_FOLLOW_POSTBACK_PROCESSOR !== "true") return { skipped: "disabled" };
-  const { uri, dbName } = validateStagingMongoConfig(env);
-  if (env?.ENABLE_STAGING_FOLLOW_VERIFICATION !== "true") throw new Error("FOLLOW_VERIFICATION_DISABLED");
+  if ((env?.TRIGGERDM_RUNTIME === "production" ? env.ENABLE_PRODUCTION_FOLLOW_GATE : env?.ENABLE_STAGING_FOLLOW_POSTBACK_PROCESSOR) !== "true") return { skipped: "disabled" };
+  const { uri, dbName, prefix } = automationRuntime(env);
+  if ((env?.TRIGGERDM_RUNTIME === "production" ? env.ENABLE_PRODUCTION_FOLLOW_GATE : env?.ENABLE_STAGING_FOLLOW_VERIFICATION) !== "true") throw new Error("FOLLOW_VERIFICATION_DISABLED");
   if (typeof MongoClient !== "function" || typeof fetchImpl !== "function") throw new TypeError("DEPENDENCIES_REQUIRED");
   if (!Number.isInteger(limit) || limit < 1 || limit > 10) throw new RangeError("INVALID_LIMIT");
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
   const summary = { inspected: 0, verified: 0, held: 0, instagramMessagesSent: 0 };
   try {
     await client.connect();
-    const inbox = client.db(dbName).collection("cloudflare_staging_webhook_inbox");
+    const inbox = client.db(dbName).collection(prefix + "_webhook_inbox");
     for (let i = 0; i < limit; i++) {
       // Claim before calling Meta; competing cron invocations cannot process twice.
       const claimed = await inbox.findOneAndUpdate(

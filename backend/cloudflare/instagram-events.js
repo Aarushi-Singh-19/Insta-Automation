@@ -41,7 +41,8 @@ export function extractInstagramEvents(payload) {
       // Preserve full postback metadata for Follow Gate routing; never execute
       // directly in the ingress parser.
       postbacks.push({ entryId: ownerId, senderId: item.sender?.id || null,
-        recipientId: item.recipient?.id || null, postback: item.postback });
+        recipientId: item.recipient?.id || null, postback: item.postback,
+        ...(Number.isSafeInteger(item.timestamp) ? { timestamp: item.timestamp } : {}) });
     }
   }
   return { comments, postbacks };

@@ -1,12 +1,12 @@
 import { ObjectId } from "mongodb";
 import bcrypt from "bcryptjs";
-import { validateStagingMongoConfig } from "./staging-mongodb.js";
+import { validateNativeServiceMongoConfig } from "./native-service-mongodb.js";
 
 const failure = (status, message) => ({ status, body: { message } });
 const referralCode = () => Array.from(crypto.getRandomValues(new Uint8Array(5)), b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
 
 export async function signupStagingUser({ env, MongoClient, name, email, password, referralCode: suppliedCode }) {
-  const { uri, dbName } = validateStagingMongoConfig(env);
+  const { uri, dbName } = validateNativeServiceMongoConfig(env);
   if (typeof name !== "string" || typeof email !== "string" || typeof password !== "string" ||
       !name.trim() || !email.trim() || !password) return failure(400, "All fields required");
   const normalizedEmail = email.trim().toLowerCase();

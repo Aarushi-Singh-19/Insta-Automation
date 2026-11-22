@@ -1,0 +1,19 @@
+{
+  "name": "triggerdm-backend-production",
+  "main": "./worker.js",
+  "compatibility_date": "2026-11-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": {
+    "TRIGGERDM_RUNTIME": "production",
+    "MONGODB_PRODUCTION_DB": "automationDB",
+    "PRODUCTION_CUTOVER_APPROVED": "false"
+  },
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+  "observability": {
+    "logs": { "enabled": true }
+  }
+}

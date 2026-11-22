@@ -1,3 +1,4 @@
+import { validateProductionMongoConfig } from "./production-mongodb.js";
 import { ObjectId } from "mongodb";
 import { validateStagingMongoConfig } from "./staging-mongodb.js";
 
@@ -5,9 +6,14 @@ const oid = id => /^[0-9a-f]{24}$/i.test(String(id || "")) ? new ObjectId(String
 const round = n => Math.round((n + Number.EPSILON) * 100) / 100;
 const failure = (status, message) => ({ status, data: { success: false, message } });
 const success = (data, status = 200) => ({ status, data: { success: true, ...data } });
+export function referralsEnabled(env) {
+  return env?.TRIGGERDM_RUNTIME === "production"
+    ? env.ENABLE_PRODUCTION_REFERRALS === "true" && env.ENABLE_PRODUCTION_FINANCIAL_OWNERSHIP === "true"
+    : env?.ENABLE_STAGING_REFERRALS === "true";
+}
 export function referralConfig(env) {
-  if (env?.ENABLE_STAGING_REFERRALS !== "true") throw new Error("REFERRALS_DISABLED");
-  return validateStagingMongoConfig(env);
+  if (!referralsEnabled(env)) throw new Error("REFERRALS_DISABLED");
+  return env?.TRIGGERDM_RUNTIME === "production" ? validateProductionMongoConfig(env) : validateStagingMongoConfig(env);
 }
 export async function withReferralDb({ env, MongoClient }, fn) {
   const { uri, dbName } = referralConfig(env);
@@ -119,7 +125,7 @@ export async function payoutRequests({ env, MongoClient, userId, method, body, a
     finally { await session.endSession(); }
   });
 }
-export async function recordCommission(db, session, user, payment) {
+export async function recordCommission(db, session, user, payment, { includeRefunds = false } = {}) {
   if (!user?.referredBy) return;
   if (!payment?.id || payment.status !== "captured" || payment.currency !== "INR" || payment.amount !== 19900) return;
   const earnings = db.collection("referralearnings");
@@ -130,8 +136,18 @@ export async function recordCommission(db, session, user, payment) {
     grossAmount: 199, commissionRate: 20, commissionAmount: 39.8, originalCommissionAmount: 39.8,
     recoveryApplied: 0, recoveryAppliedReversedAmount: 0, refundedAmount: 0, commissionReversedAmount: 0,
     recoveryDue: 0, currency: "INR", status: "eligible", createdAt: now, updatedAt: now };
+  if (includeRefunds) {
+    const refunds = await db.collection("referralrefundrecords").aggregate([
+      { $match: { razorpayPaymentId: payment.id } },
+      { $group: { _id: null, amount: { $sum: "$amount" } } },
+    ], { session }).toArray();
+    doc.refundedAmount = Math.min(doc.grossAmount, Math.max(0, round(refunds[0]?.amount || 0)));
+    doc.commissionReversedAmount = round(doc.refundedAmount / doc.grossAmount * doc.originalCommissionAmount);
+    doc.commissionAmount = round(doc.originalCommissionAmount - doc.commissionReversedAmount);
+    if (!doc.commissionAmount) doc.status = "reversed";
+  }
   const inserted = await earnings.updateOne({ razorpayPaymentId: payment.id }, { $setOnInsert: doc }, { upsert: true, session });
-  if (!inserted.upsertedCount) return;
+  if (!inserted.upsertedCount || !doc.commissionAmount) return;
   let remaining = doc.commissionAmount, applied = 0;
   const sources = await earnings.find({ referrerId, _id: { $ne: doc._id }, recoveryDue: { $gt: 0 } }, { session }).sort({ createdAt: 1, _id: 1 }).toArray();
   for (const source of sources) {

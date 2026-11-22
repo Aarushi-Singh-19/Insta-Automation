@@ -1,3 +1,4 @@
+import { validateProductionMongoConfig } from "./production-mongodb.js";
 import { ObjectId } from "mongodb";
 import { validateStagingMongoConfig } from "./staging-mongodb.js";
 import { verifySessionJwt, getTriggerDmUserId } from "./session-jwt.js";
@@ -10,12 +11,23 @@ async function signState(userId, secret) {
   const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return h + "." + p + "." + b64(new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(h + "." + p))));
 }
+function oauthDatabase(env) {
+  if (env?.TRIGGERDM_RUNTIME !== "production") return validateStagingMongoConfig(env);
+  if (env.ENABLE_PRODUCTION_INSTAGRAM_OAUTH !== "true") throw new Error("PRODUCTION_OAUTH_DISABLED");
+  return validateProductionMongoConfig(env);
+}
 function config(env) {
-  validateStagingMongoConfig(env);
+  const database = oauthDatabase(env);
+  const production = env?.TRIGGERDM_RUNTIME === "production";
+  const secret = production ? env.PRODUCTION_JWT_SECRET : env.STAGING_JWT_SECRET;
   if (!env?.INSTAGRAM_APP_ID || !env?.INSTAGRAM_APP_SECRET || !env?.INSTAGRAM_REDIRECT_URI_V2 ||
-      !env?.STAGING_JWT_SECRET || !env?.FRONTEND_URL) throw new Error("OAUTH_NOT_CONFIGURED");
+      !secret || !env?.FRONTEND_URL) throw new Error("OAUTH_NOT_CONFIGURED");
   const redirect = new URL(env.INSTAGRAM_REDIRECT_URI_V2);
   if (redirect.protocol !== "https:" || !redirect.pathname.endsWith("/instagram/callback-v2")) throw new Error("INVALID_OAUTH_REDIRECT");
+  if (production && (typeof secret !== "string" || secret.length < 32 ||
+      secret === env.STAGING_JWT_SECRET || redirect.username || redirect.password ||
+      redirect.search || redirect.hash)) throw new Error("INVALID_PRODUCTION_OAUTH_CONFIG");
+  return { ...database, secret, production };
 }
 async function graphJson(url, init = {}) {
   const response = await fetch(url, { ...init, redirect: "error", signal: AbortSignal.timeout(12000) });
@@ -23,9 +35,9 @@ async function graphJson(url, init = {}) {
   return response.json();
 }
 export async function beginStagingInstagramOAuth({ env, userId }) {
-  config(env);
+  const { secret } = config(env);
   if (!/^[a-f0-9]{24}$/i.test(userId)) throw new Error("INVALID_USER");
-  const state = await signState(userId, env.STAGING_JWT_SECRET);
+  const state = await signState(userId, secret);
   const url = new URL("https://www.instagram.com/oauth/authorize");
   url.searchParams.set("force_reauth", "true");
   url.searchParams.set("client_id", env.INSTAGRAM_APP_ID);
@@ -36,9 +48,9 @@ export async function beginStagingInstagramOAuth({ env, userId }) {
   return { success: true, authUrl: url.toString() };
 }
 export async function completeStagingInstagramOAuth({ env, MongoClient, code, state }) {
-  config(env);
+  const { uri, dbName, secret, production } = config(env);
   if (typeof code !== "string" || !code || code.length > 2048) throw new Error("INVALID_OAUTH_CODE");
-  const claims = await verifySessionJwt(state, env.STAGING_JWT_SECRET, { issuer: "triggerdm-instagram-oauth", audience: "instagram-v2" });
+  const claims = await verifySessionJwt(state, secret, { issuer: "triggerdm-instagram-oauth", audience: "instagram-v2" });
   const userId = new ObjectId(getTriggerDmUserId(claims));
   const token = await graphJson("https://api.instagram.com/oauth/access_token", {
     method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -54,11 +66,18 @@ export async function completeStagingInstagramOAuth({ env, MongoClient, code, st
   if (!long?.access_token || !Number.isFinite(Number(long.expires_in))) throw new Error("INVALID_LONG_LIVED_TOKEN");
   const profile = await graphJson("https://graph.instagram.com/me?fields=id%2Cusername&access_token=" + encodeURIComponent(long.access_token));
   if (!/^\d+$/.test(String(profile.id || "")) || String(profile.id) !== String(token.user_id)) throw new Error("INSTAGRAM_IDENTITY_MISMATCH");
-  const client = new MongoClient(validateStagingMongoConfig(env).uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
+  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
   try {
     await client.connect();
-    const db = client.db(validateStagingMongoConfig(env).dbName);
+    const db = client.db(dbName);
     const accounts = db.collection("instagramaccounts");
+    if (production) {
+      // Enforce both ownership invariants under concurrent OAuth callbacks.
+      await Promise.all([
+        accounts.createIndex({ userId: 1 }, { unique: true, name: "cloudflare_one_instagram_account_per_user" }),
+        accounts.createIndex({ instagramBusinessId: 1 }, { unique: true, name: "cloudflare_unique_instagram_owner" }),
+      ]);
+    }
     const [other, own, user, redemption] = await Promise.all([
       accounts.findOne({ instagramBusinessId: String(profile.id), userId: { $ne: userId } }),
       accounts.findOne({ userId }),
@@ -91,7 +110,7 @@ export async function completeStagingInstagramOAuth({ env, MongoClient, code, st
 }
 export async function disconnectStagingInstagram({ env, MongoClient, userId, accountId }) {
   if (!/^[a-f0-9]{24}$/i.test(accountId)) return { status: 400, body: { message: "Invalid account ID" } };
-  const { uri, dbName } = validateStagingMongoConfig(env);
+  const { uri, dbName } = oauthDatabase(env);
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
   try {
     await client.connect();

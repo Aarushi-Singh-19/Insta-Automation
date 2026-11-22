@@ -1,9 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { executeStagingActions } from "./staging-action-executor.js";
+import { verifyStagingFollowPostback } from "./staging-follow-verifier.js";
 import { ObjectId } from "mongodb";
 
-test("Follow Gate prompts once, waits for verified session, then resumes content DM", async () => {
+for (const production of [false, true]) {
+test((production ? "production" : "staging") + " Follow Gate verifies a postback before sending content once", async () => {
+  const prefix = production ? "cloudflare_production" : "cloudflare_staging";
   const owner = new ObjectId("aaaaaaaaaaaaaaaaaaaaaaaa");
   const campaignId = new ObjectId("bbbbbbbbbbbbbbbbbbbbbbbb");
   const ruleId = new ObjectId("cccccccccccccccccccccccc");
@@ -28,7 +31,7 @@ test("Follow Gate prompts once, waits for verified session, then resumes content
   let session = null;
   const calls = [];
   const collections = {
-    cloudflare_staging_action_outbox: {
+    [prefix + "_action_outbox"]: {
       find() { return { sort() { return this; }, limit() { return this; },
         async *[Symbol.asyncIterator]() { if (outbox.status !== "completed") yield { ...outbox }; } }; },
       async updateOne(filter, update) {
@@ -36,12 +39,12 @@ test("Follow Gate prompts once, waits for verified session, then resumes content
         Object.assign(outbox, update.$set); return { modifiedCount: 1 };
       }
     },
-    cloudflare_staging_action_sends: {
+    [prefix + "_action_sends"]: {
       async findOne({ _id }) { return sends.get(_id) || null; },
       async insertOne(row) { if (sends.has(row._id)) throw Object.assign(new Error("duplicate"), { code: 11000 }); sends.set(row._id, row); },
       async updateOne(filter, update) { const row = sends.get(filter._id); if (row) Object.assign(row, update.$set); return { modifiedCount: row ? 1 : 0 }; }
     },
-    cloudflare_staging_dm_quotas: {
+    [prefix + "_dm_quotas"]: {
       async findOne() { return { ...quota }; },
       async updateOne(filter, update) {
         // Mirror the two MongoDB operations used by the executor:
@@ -55,13 +58,22 @@ test("Follow Gate prompts once, waits for verified session, then resumes content
         return { modifiedCount: 1 };
       }
     },
-    cloudflare_staging_webhook_inbox: { async findOne() { return { _id: itemId, status: "planned", event }; } },
-    campaigns: { async findOne() { return campaign; } },
+    [prefix + "_webhook_inbox"]: { async findOne() { return { _id: itemId, status: "planned", event, userId: owner, accountId: "123", receivedAt: now }; } },
+    processedevents: { async findOne() { return null; } },
+    campaigns: { async findOne() { return campaign; }, async updateOne() { return { modifiedCount: 1 }; } },
+    actionlogs: { async updateOne() { return { modifiedCount: 1 }; } },
     rules: { async findOne() { return rule; } },
     instagramaccounts: { async findOne() { return account; } },
     users: { async findOne() { return user; } },
-    cloudflare_staging_follow_gate_sessions: {
-      async findOne() { return session; },
+    [prefix + "_follow_gate_sessions"]: {
+      async findOne(filter) {
+        return session && Object.entries(filter).every(([key, value]) => session[key] === value) ? session : null;
+      },
+      async findOneAndUpdate(filter, update) {
+        if (!await this.findOne(filter)) return null;
+        Object.assign(session, update.$set);
+        return session;
+      },
       async updateOne(_filter, update) {
         if (session) return { upsertedCount: 0 };
         session = { ...update.$setOnInsert }; return { upsertedCount: 1 };
@@ -70,12 +82,19 @@ test("Follow Gate prompts once, waits for verified session, then resumes content
   };
   class MongoClient {
     async connect() {}
-    db(name) { assert.equal(name, "triggerdm_staging"); return { collection(name) {
+    db(name) { assert.equal(name, production ? "automationDB" : "triggerdm_staging"); return { collection(name) {
       assert.ok(collections[name], "unexpected collection: " + name); return collections[name];
     } }; }
+    startSession() { return { async withTransaction(fn) { await fn(); }, async endSession() {} }; }
     async close() {}
   }
-  const env = { MONGODB_STAGING_DB: "triggerdm_staging",
+  const env = production ? {
+    TRIGGERDM_RUNTIME: "production", PRODUCTION_CUTOVER_APPROVED: "true",
+    ENABLE_PRODUCTION_AUTOMATION: "true", ENABLE_PRODUCTION_EXCLUSIVE_SEND_OWNERSHIP: "true",
+    ENABLE_PRODUCTION_INSTAGRAM_SEND: "true", ENABLE_PRODUCTION_FOLLOW_GATE: "true",
+    MONGODB_PRODUCTION_DB: "automationDB",
+    MONGODB_PRODUCTION_URI: "mongodb://fixture:fixture@localhost/automationDB",
+  } : { ENABLE_STAGING_FOLLOW_VERIFICATION: "true", MONGODB_STAGING_DB: "triggerdm_staging",
     MONGODB_STAGING_URI: "mongodb://localhost:27017/triggerdm_staging",
     ENABLE_STAGING_INSTAGRAM_SEND: "true", STAGING_SEND_INSTAGRAM_BUSINESS_ID: "123" };
   const fetchImpl = async (url, options) => {
@@ -91,7 +110,7 @@ test("Follow Gate prompts once, waits for verified session, then resumes content
     }
     return { ok: true, json: async () => ({ message_id: "dm-id" }) };
   };
-  const args = { env, MongoClient, fetchImpl, now,
+  const args = { env, MongoClient, fetchImpl, now, ...(production ? { receivedNotBefore: now } : {}),
     getFollower: async () => ({ followsBusiness: false }) };
   const first = await executeStagingActions(args);
   assert.equal(first.completed, 1);
@@ -103,7 +122,17 @@ test("Follow Gate prompts once, waits for verified session, then resumes content
   const waiting = await executeStagingActions(args);
   assert.equal(waiting.blocked, 1);
   assert.deepEqual(calls, ["reply", "gate_prompt"]);
-  session.status = "VERIFIED";
+  const postback = { entryId: "123", senderId: "789",
+    postback: { payload: "VERIFY:follow:comment:123:456" } };
+  const verification = { env, MongoClient, fetchImpl, postback,
+    getFollower: async () => ({ followsBusiness: true }) };
+  const wrongSender = await verifyStagingFollowPostback({
+    ...verification, postback: { ...postback, senderId: "111" },
+  });
+  assert.equal(wrongSender.unlocked, false);
+  assert.equal(session.status, "WAITING");
+  assert.equal((await verifyStagingFollowPostback(verification)).unlocked, true);
+  assert.equal((await verifyStagingFollowPostback(verification)).unlocked, false);
   const resumed = await executeStagingActions(args);
   assert.equal(resumed.completed, 1);
   assert.equal(outbox.status, "completed");
@@ -113,3 +142,4 @@ test("Follow Gate prompts once, waits for verified session, then resumes content
   assert.equal(replay.completed, 0);
   assert.equal(calls.length, 3);
 });
+}

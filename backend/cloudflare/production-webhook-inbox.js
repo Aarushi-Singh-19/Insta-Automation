@@ -32,35 +32,50 @@ export async function persistProductionInstagramEvents({ env, MongoClient, event
       .find({ $or: [{ instagramBusinessId: { $in: owners } }, { pageId: { $in: owners } }], status: "active" })
       .project({ instagramBusinessId: 1, pageId: 1, userId: 1 }).toArray();
     const ownersById = new Map();
+    const ambiguousOwners = new Set();
     for (const account of accounts) {
       for (const key of [String(account.instagramBusinessId), String(account.pageId)]) {
         if (!owners.includes(key)) continue;
-        if (ownersById.has(key) && (String(ownersById.get(key).userId) !== String(account.userId) || ownersById.get(key).instagramBusinessId !== String(account.instagramBusinessId))) throw new Error("AMBIGUOUS_ACCOUNT_OWNER");
+        if (ownersById.has(key) && (String(ownersById.get(key).userId) !== String(account.userId) ||
+            ownersById.get(key).instagramBusinessId !== String(account.instagramBusinessId))) {
+          ambiguousOwners.add(key);
+        }
         ownersById.set(key, { userId: account.userId, instagramBusinessId: String(account.instagramBusinessId) });
       }
     }
-    // Unknown accounts must not be silently acknowledged and lost.
-    if (owners.some(x => !ownersById.has(x))) throw new Error("UNMAPPED_INSTAGRAM_OWNER");
+    let needsReview = 0;
     let inserted = 0;
     const inbox = db.collection("cloudflare_production_webhook_inbox");
     for (const row of entries) {
       const event = row.event;
       const ownerId = String(event.entryId);
-      const source = row.kind === "comment" ? ownerId + ":" + String(event.eventId) :
-        JSON.stringify([ownerId, event.senderId, event.recipientId, event.postback]);
-      if (row.kind === "comment" && !/^\d+$/.test(String(event.eventId))) throw new Error("INVALID_EVENT_ID");
-      const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(row.kind + ":" + source));
-      const key = row.kind + ":" + Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, "0")).join("");
+      const account = ownersById.get(ownerId);
+      const reason = ambiguousOwners.has(ownerId) ? "AMBIGUOUS_ACCOUNT_OWNER" :
+        !/^\d+$/.test(account?.instagramBusinessId || "") || !/^[a-f0-9]{24}$/i.test(String(account?.userId || ""))
+          ? "UNMAPPED_INSTAGRAM_OWNER" : null;
+      const accountId = reason ? ownerId : account.instagramBusinessId;
+      if (!reason && row.kind === "comment" && String(event.recipientId || "") === accountId) continue;
+      let key = "comment:" + accountId + ":" + event.eventId;
+      if (row.kind === "postback") {
+        const source = JSON.stringify([accountId, event.senderId, event.recipientId, event.timestamp ?? null, event.postback]);
+        const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
+        key = "postback:" + Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, "0")).join("");
+      }
+      if (reason) {
+        key = "review:" + key;
+        needsReview++;
+      }
       try {
         const result = await inbox.updateOne({ _id: key }, { $setOnInsert: {
-          _id: key, kind: row.kind, accountId: ownersById.get(ownerId).instagramBusinessId, webhookEntryId: ownerId,
-          userId: ownersById.get(ownerId).userId,
-          event: { ...event, webhookEntryId: ownerId, entryId: ownersById.get(ownerId).instagramBusinessId }, status: "pending", receivedAt: new Date()
+          _id: key, kind: row.kind, webhookEntryId: ownerId,
+          ...(reason ? { status: "needs_review", outcome: reason } :
+            { accountId, userId: account.userId, status: "pending" }),
+          event: { ...event, webhookEntryId: ownerId, entryId: accountId }, receivedAt: new Date()
         } }, { upsert: true });
         inserted += result.upsertedCount;
       } catch (error) { if (error.code !== 11000) throw error; }
     }
-    return { durable: true, received: entries.length, inserted };
+    return { durable: true, received: entries.length, inserted, needsReview };
   } finally { await client.close(); }
 }
 

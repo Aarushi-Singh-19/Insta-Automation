@@ -1,3 +1,4 @@
+import { productionCampaignInsights } from "./production-campaign-insights.js";
 import { ObjectId } from "mongodb";
 import { validateNativeServiceMongoConfig } from "./native-service-mongodb.js";
 import { verifySessionJwt, getTriggerDmUserId } from "./session-jwt.js";
@@ -14,6 +15,10 @@ import { toggleStagingRule } from "./staging-rule-toggle.js";
 import { cors } from "./upstream-proxy.js";
 
 const routes = [
+  [/^\/campaigns\/([a-f0-9]{24})\/health$/i, ["GET"],
+    (args, match) => productionCampaignInsights({ ...args, campaignId: match[1], view: "health" })],
+  [/^\/(campaign-health|trend)\/([a-f0-9]{24})$/i, ["GET"],
+    (args, match) => productionCampaignInsights({ ...args, campaignId: match[2], view: match[1] })],
   [/^\/campaigns(?:\/([a-f0-9]{24})(?:\/(rules))?)?$/i, ["GET", "POST", "PUT", "PATCH", "DELETE"],
     (args, match) => nativeStagingCampaigns({ ...args, campaignId: match[1], action: match[2] })],
   [/^\/analytics\/(dashboard|trends)$/, ["GET"],
