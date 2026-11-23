@@ -40,14 +40,15 @@ export async function productionMongoReadiness({ env, MongoClient }) {
     stage = "ping";
     await db.command({ ping: 1 });
     stage = "collections";
-    const inventory = await db.listCollections({ name: { $in: required } }, {
+    const inventory = await db.listCollections({}, {
       nameOnly: true, authorizedCollections: true,
     }).toArray();
     const accessible = new Set(inventory.map(row => row.name));
     return { ok: true, database: dbName, connected: true, readOnly: true,
       collections: Object.fromEntries(required.map(name => [name, accessible.has(name)])) };
   } catch (error) {
-    const category = error?.code === 18 || error?.code === 8000 ? "AUTHENTICATION_FAILED" :
+    const category = error?.code === 18 ? "AUTHENTICATION_FAILED" :
+      error?.code === 8000 ? "ATLAS_COMMAND_FAILED" :
       error?.code === 13 ? "ACCESS_DENIED" :
       error?.name === "MongoParseError" ? "INVALID_MONGODB_URI" :
       error?.name === "MongoServerSelectionError" ? "SERVER_SELECTION_FAILED" : "DATABASE_CHECK_FAILED";
