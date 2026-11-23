@@ -109,12 +109,24 @@ export default {
         const signature = header.startsWith("sha256=") ? header.slice(7) : "";
         if (!await verifyHmacSha256(raw, signature, env.PRODUCTION_META_APP_SECRET))
           return Response.json({ error: "Invalid signature" }, { status: 403 });
+        let payload;
         let events;
-        try { events = extractInstagramEvents(JSON.parse(raw)); }
-        catch { return Response.json({ error: "Invalid event" }, { status: 400 }); }
+        try {
+          payload = JSON.parse(raw);
+          events = extractInstagramEvents(payload);
+        } catch {
+          return Response.json({ error: "Invalid event" }, { status: 400 });
+        }
         try {
           validateProductionMongoConfig(env);
           const stored = await persistProductionInstagramEvents({ env, MongoClient, events });
+          const commentChanges = payload.entry.reduce((count, entry) =>
+            count + (Array.isArray(entry?.changes) ?
+              entry.changes.filter(change => change?.field === "comments").length : 0), 0);
+          console.info("Production Instagram webhook intake", {
+            commentChanges, comments: events.comments.length, postbacks: events.postbacks.length,
+            inserted: stored.inserted, needsReview: stored.needsReview,
+          });
           if (stored.inserted > 0 && env.ENABLE_PRODUCTION_AUTOMATION === "true" && ctx?.waitUntil) {
             ctx.waitUntil(drainProductionAutomation({ env, MongoClient }).catch(error => {
               console.error("Production automation drain unavailable", error?.name || "Error");
