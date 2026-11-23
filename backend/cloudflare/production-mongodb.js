@@ -28,6 +28,8 @@ export function validateProductionMongoConfig(env, { readOnlyProbe = false } = {
 }
 export async function productionMongoReadiness({ env, MongoClient }) {
   const { uri, dbName } = validateProductionMongoConfig(env, { readOnlyProbe: true });
+  const required = ["users", "instagramaccounts", "campaigns", "rules", "payments",
+    "webhookevents", "referralearnings", "referralpayoutrequests", "actionlogs"];
   let client;
   let stage = "client";
   try {
@@ -38,8 +40,6 @@ export async function productionMongoReadiness({ env, MongoClient }) {
     stage = "ping";
     await db.command({ ping: 1 });
     stage = "collections";
-    const required = ["users", "instagramaccounts", "campaigns", "rules", "payments",
-      "webhookevents", "referralearnings", "referralpayoutrequests", "actionlogs"];
     const inventory = await db.listCollections({ name: { $in: required } }, {
       nameOnly: true, authorizedCollections: true,
     }).toArray();
@@ -51,6 +51,19 @@ export async function productionMongoReadiness({ env, MongoClient }) {
       error?.code === 13 ? "ACCESS_DENIED" :
       error?.name === "MongoParseError" ? "INVALID_MONGODB_URI" :
       error?.name === "MongoServerSelectionError" ? "SERVER_SELECTION_FAILED" : "DATABASE_CHECK_FAILED";
-    return { ok: false, connected: ["ping", "collections"].includes(stage), stage, category };
+    const result = { ok: false, connected: ["ping", "collections"].includes(stage), stage, category };
+    if (stage === "collections") {
+      result.mongoCode = [13, 18, 8000].includes(error?.code) ? error.code : null;
+      const db = client.db(dbName);
+      result.collectionReads = Object.fromEntries(await Promise.all(required.map(async name => {
+        try {
+          const row = await db.collection(name).findOne({}, { projection: { _id: 1 }, maxTimeMS: 2000 });
+          return [name, row ? "readable_with_data" : "empty_or_missing"];
+        } catch {
+          return [name, "read_failed"];
+        }
+      })));
+    }
+    return result;
   } finally { if (client) await client.close().catch(() => {}); }
 }
