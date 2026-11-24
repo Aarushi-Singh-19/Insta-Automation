@@ -276,7 +276,6 @@ const daysRemaining = user?.trialEndDate
     <div>✅ Unlimited Automation Rules</div>
     <div>✅ Automatic Comment Replies</div>
     <div>✅ 10,000 automated DMs per billing cycle</div>
-    <div>Free trial includes 500 automated DMs total over 7 days.</div>
   </div>
 
   <div style={{ marginTop: "auto" }}>
