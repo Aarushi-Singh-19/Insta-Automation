@@ -40,10 +40,20 @@ export async function referralSummary({ env, MongoClient, userId }) {
       }
     }
     if (!user?.referralCode) return failure(503, "Referral code unavailable");
-    const [referrals, earnings] = await Promise.all([
-      users.find({ referredBy: id }, { projection: { name: 1, createdAt: 1, subscriptionStatus: 1, currentPlan: 1 } }).sort({ createdAt: -1 }).toArray(),
+    const [referredUsers, earnings] = await Promise.all([
+      users.find({ referredBy: id }, { projection: { name: 1, createdAt: 1, subscriptionStatus: 1, currentPlan: 1, planEndDate: 1 } }).sort({ createdAt: -1 }).toArray(),
       db.collection("referralearnings").find({ referrerId: id }).sort({ createdAt: -1 }).toArray()
     ]);
+    const now = Date.now();
+    const referrals = referredUsers.map(({ _id, name, createdAt, subscriptionStatus, currentPlan, planEndDate }) => ({
+      id: _id,
+      name: name || "TriggerDM user",
+      joinedAt: createdAt,
+      subscriptionStatus: subscriptionStatus === "cancelled" && new Date(planEndDate).getTime() > now
+        ? "active"
+        : subscriptionStatus,
+      currentPlan,
+    }));
     const sum = states => round(earnings.filter(e => states.includes(e.status)).reduce((n,e) => n + Number(e.commissionAmount || 0),0));
     const eligibleBalance = sum(["eligible"]);
     return success({ referralCode: user.referralCode, referralLink: "https://triggerdm.in/signup?ref=" + encodeURIComponent(user.referralCode),
@@ -51,7 +61,7 @@ export async function referralSummary({ env, MongoClient, userId }) {
       totalReferrals: referrals.length, payingReferrals: referrals.filter(u => u.subscriptionStatus === "active").length,
       totalEarned: sum(["paid"]), eligibleBalance, pendingBalance: sum(["requested"]),
       canRequestPayout: eligibleBalance >= 199,
-      referrals: referrals.map(u => ({ id: u._id, name: u.name || "TriggerDM user", joinedAt: u.createdAt, subscriptionStatus: u.subscriptionStatus, currentPlan: u.currentPlan })),
+      referrals,
       earnings: earnings.map(e => ({ id: e._id, grossAmount: e.grossAmount, commissionAmount: e.commissionAmount, status: e.status, createdAt: e.createdAt, paidAt: e.paidAt })) });
   });
 }
