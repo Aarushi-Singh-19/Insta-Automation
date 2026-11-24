@@ -33,12 +33,14 @@ export async function handleProductionInstagramOAuth({ request, env, MongoClient
   };
   if (callback) {
     const redirect = new URL("/accounts", oauthEnv.FRONTEND_URL);
+    let stage = "callback";
     try {
       const configured = new URL(oauthEnv.INSTAGRAM_REDIRECT_URI_V2);
       if (url.origin !== configured.origin || url.pathname !== configured.pathname)
         return json({ message: "Invalid OAuth callback" }, 400);
       await completeStagingInstagramOAuth({ env: oauthEnv, MongoClient,
-        code: url.searchParams.get("code"), state: url.searchParams.get("state") });
+        code: url.searchParams.get("code"), state: url.searchParams.get("state"),
+        onStage: current => { stage = current; } });
     } catch (error) {
       const errorCodes = new Map([
         ["INSTAGRAM_ACCOUNT_ALREADY_CONNECTED", "instagram_account_already_connected"],
@@ -54,6 +56,7 @@ export async function handleProductionInstagramOAuth({ request, env, MongoClient
       const publicError = errorCodes.get(error?.message);
       if (!publicError) {
         console.warn("Production Instagram OAuth callback failed", {
+          stage,
           reason: knownFailures.includes(error?.message) ? error.message : "UNCLASSIFIED",
           databaseCode: Number.isInteger(error?.code) ? error.code : null,
         });
