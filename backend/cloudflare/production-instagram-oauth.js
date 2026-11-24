@@ -45,7 +45,20 @@ export async function handleProductionInstagramOAuth({ request, env, MongoClient
         ["ONE_INSTAGRAM_ACCOUNT_LIMIT", "one_instagram_account_limit"],
         ["INSTAGRAM_TRIAL_ALREADY_USED", "instagram_trial_already_used"],
       ]);
-      redirect.searchParams.set("error", errorCodes.get(error?.message) || "instagram_connection_failed");
+      const knownFailures = [
+        "INVALID_OAUTH_CODE", "OAUTH_NOT_CONFIGURED", "INVALID_OAUTH_REDIRECT",
+        "INVALID_PRODUCTION_OAUTH_CONFIG", "INSTAGRAM_GRAPH_ERROR", "INVALID_INSTAGRAM_TOKEN",
+        "INVALID_LONG_LIVED_TOKEN", "INSTAGRAM_IDENTITY_MISMATCH", "USER_NOT_FOUND",
+        "INSTAGRAM_SUBSCRIPTION_FAILED",
+      ];
+      const publicError = errorCodes.get(error?.message);
+      if (!publicError) {
+        console.warn("Production Instagram OAuth callback failed", {
+          reason: knownFailures.includes(error?.message) ? error.message : "UNCLASSIFIED",
+          databaseCode: Number.isInteger(error?.code) ? error.code : null,
+        });
+      }
+      redirect.searchParams.set("error", publicError || "instagram_connection_failed");
     }
     return new Response(null, { status: 302, headers: { ...headers, Location: redirect.href } });
   }
