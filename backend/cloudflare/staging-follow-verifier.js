@@ -34,10 +34,12 @@ export async function verifyStagingFollowPostback({
     const account = await db.collection("instagramaccounts").findOne({
       instagramBusinessId: accountId, userId: new ObjectId(String(session.userId)), status: "active"
     });
-    if (!account?.accessToken) return { unlocked: false, reason: "ACCOUNT_UNAVAILABLE" };
+    const accessToken = env.TRIGGERDM_RUNTIME === "production"
+      ? account?.pageAccessToken || account?.accessToken : account?.accessToken;
+    if (!accessToken) return { unlocked: false, reason: "ACCOUNT_UNAVAILABLE" };
     let follower;
     try {
-      follower = await getFollower({ accessToken: account.accessToken,
+      follower = await getFollower({ accessToken,
         instagramScopedUserId: senderId, fetchImpl });
     } catch {
       return { unlocked: false, reason: "FOLLOW_STATUS_UNAVAILABLE" };

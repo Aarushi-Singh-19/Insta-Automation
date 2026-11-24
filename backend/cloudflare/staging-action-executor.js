@@ -150,7 +150,8 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
           let follows;
           try {
             const result = await getFollower({
-              accessToken: account.accessToken, instagramScopedUserId: inbox.event.recipientId, fetchImpl
+              accessToken: production ? account.pageAccessToken || account.accessToken : account.accessToken,
+              instagramScopedUserId: inbox.event.recipientId, fetchImpl
             });
             follows = result?.followsBusiness;
           } catch { block("META_FOLLOW_STATUS_UNAVAILABLE"); continue; }

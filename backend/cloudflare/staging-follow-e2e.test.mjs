@@ -111,7 +111,10 @@ test((production ? "production" : "staging") + " Follow Gate verifies a postback
     return { ok: true, json: async () => ({ message_id: "dm-id" }) };
   };
   const args = { env, MongoClient, fetchImpl, now, ...(production ? { receivedNotBefore: now } : {}),
-    getFollower: async () => ({ followsBusiness: false }) };
+    getFollower: async ({ accessToken }) => {
+      assert.equal(accessToken, production ? "dm-token" : "reply-token");
+      return { followsBusiness: false };
+    } };
   const first = await executeStagingActions(args);
   assert.equal(first.completed, 1);
   assert.equal(outbox.status, "awaiting_follow");
@@ -125,7 +128,10 @@ test((production ? "production" : "staging") + " Follow Gate verifies a postback
   const postback = { entryId: "123", senderId: "789",
     postback: { payload: "VERIFY:follow:comment:123:456" } };
   const verification = { env, MongoClient, fetchImpl, postback,
-    getFollower: async () => ({ followsBusiness: true }) };
+    getFollower: async ({ accessToken }) => {
+      assert.equal(accessToken, production ? "dm-token" : "reply-token");
+      return { followsBusiness: true };
+    } };
   const wrongSender = await verifyStagingFollowPostback({
     ...verification, postback: { ...postback, senderId: "111" },
   });
