@@ -51,6 +51,8 @@ export async function createStagingSubscription({ env, MongoClient, userId, fetc
     if (user.razorpaySubscriptionId) {
       const existing = await razorpayApi(env, "GET", "subscriptions/" +
         encodeURIComponent(user.razorpaySubscriptionId), { fetchImpl });
+      if (env.TRIGGERDM_RUNTIME === "production" && existing.status === "active")
+        return { status: 409, data: { success: false, message: "Your subscription is active in Razorpay. Contact support if Billing has not updated." } };
       if (["created", "authenticated", "pending"].includes(existing.status))
         return { status: 200, data: subscriptionResponse(existing) };
     }
