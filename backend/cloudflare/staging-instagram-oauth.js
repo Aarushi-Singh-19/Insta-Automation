@@ -88,15 +88,19 @@ export async function completeStagingInstagramOAuth({ env, MongoClient, code, st
   const long = await graphJson(exchange.toString());
   if (!long?.access_token || !Number.isFinite(Number(long.expires_in))) throw new Error("INVALID_LONG_LIVED_TOKEN");
   onStage("profile");
-  const profile = await graphJson("https://graph.instagram.com/me?fields=user_id%2Cusername&access_token=" + encodeURIComponent(long.access_token));
-  const instagramUserId = String(profile?.user_id ?? "");
-  // Meta can encode the exchange ID as a JSON number. Keep the profile's
-  // exact string for storage and compare at the exchange's available precision.
-  const sameUser = typeof token.user_id === "number"
-    ? Number(instagramUserId) === token.user_id
-    : instagramUserId === token.user_id;
-  if (!/^\d+$/.test(instagramUserId) || !sameUser ||
-      (typeof profile.user_id === "number" && !Number.isSafeInteger(profile.user_id))) {
+  // Compare the same field from the same endpoint across the token exchange.
+  // The OAuth exchange's user_id may use a different representation or ID scope.
+  const profileUrl = "https://graph.instagram.com/me?fields=user_id%2Cusername";
+  const [authorizedProfile, profile] = await Promise.all(
+    [token.access_token, long.access_token].map(accessToken => graphJson(profileUrl, {
+      headers: { Authorization: "Bearer " + accessToken },
+    }))
+  );
+  const exactId = value =>
+    (typeof value === "string" || Number.isSafeInteger(value)) && /^[1-9]\d*$/.test(String(value))
+      ? String(value) : null;
+  const instagramUserId = exactId(profile?.user_id);
+  if (!instagramUserId || instagramUserId !== exactId(authorizedProfile?.user_id)) {
     throw new Error("INSTAGRAM_IDENTITY_MISMATCH");
   }
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
