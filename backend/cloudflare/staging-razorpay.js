@@ -45,7 +45,7 @@ export async function createStagingSubscription({ env, MongoClient, userId, fetc
     const users = client.db(dbName).collection("users");
     const user = await users.findOne({ _id: new ObjectId(userId) });
     if (!user) return { status: 404, data: { success: false, message: "User not found" } };
-    if (user.subscriptionStatus === "active" && user.planEndDate &&
+    if (["active", "cancelled"].includes(user.subscriptionStatus) && user.planEndDate &&
         new Date(user.planEndDate).getTime() > Date.now())
       return { status: 400, data: { success: false, message: "Subscription already active" } };
     if (user.razorpaySubscriptionId) {
@@ -107,7 +107,7 @@ export function subscriptionUpdate(type, subscription) {
   } else if (["subscription.halted", "subscription.cancelled", "subscription.completed"].includes(type)) {
     fields.subscriptionStatus = type === "subscription.halted" ? "halted" :
       type === "subscription.cancelled" ? "cancelled" : "expired";
-    if (subscription.current_end) {
+    if (type !== "subscription.cancelled" && subscription.current_end) {
       fields.subscriptionCurrentEnd = dateFromEpoch(subscription.current_end);
       fields.planEndDate = fields.subscriptionCurrentEnd;
     }
