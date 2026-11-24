@@ -51,13 +51,15 @@ export async function handleProductionInstagramOAuth({ request, env, MongoClient
         "INVALID_OAUTH_CODE", "OAUTH_NOT_CONFIGURED", "INVALID_OAUTH_REDIRECT",
         "INVALID_PRODUCTION_OAUTH_CONFIG", "INSTAGRAM_GRAPH_ERROR", "INVALID_INSTAGRAM_TOKEN",
         "INVALID_LONG_LIVED_TOKEN", "INSTAGRAM_IDENTITY_MISMATCH", "USER_NOT_FOUND",
-        "INSTAGRAM_SUBSCRIPTION_FAILED",
+        "INSTAGRAM_SUBSCRIPTION_FAILED", "INSTAGRAM_REQUEST_TIMEOUT", "INSTAGRAM_REQUEST_FAILED",
+        "INSTAGRAM_UNEXPECTED_REDIRECT", "INSTAGRAM_INVALID_JSON",
       ];
       const publicError = errorCodes.get(error?.message);
       if (!publicError) {
         console.warn("Production Instagram OAuth callback failed", {
           stage,
           reason: knownFailures.includes(error?.message) ? error.message : "UNCLASSIFIED",
+          upstreamStatus: Number.isInteger(error?.upstreamStatus) ? error.upstreamStatus : null,
           databaseCode: Number.isInteger(error?.code) ? error.code : null,
         });
       }
