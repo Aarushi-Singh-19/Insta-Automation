@@ -129,10 +129,12 @@ const daysRemaining = user?.trialEndDate
         fontWeight: "700",
       }}
     >
-      {user?.currentPlan
-  ? user.currentPlan.charAt(0).toUpperCase() +
-    user.currentPlan.slice(1)
-  : "Starter"}
+      {displaySubscriptionStatus === "trial" ? "Free Trial" : "Paid Plan"}
+    </div>
+    <div style={{ color: "#6B7280", fontSize: "14px", marginTop: "6px" }}>
+      {displaySubscriptionStatus === "trial"
+        ? "500 automated DMs total during the 7-day trial"
+        : "10,000 automated DMs per billing cycle"}
     </div>
   </div>
 
@@ -190,7 +192,7 @@ const daysRemaining = user?.trialEndDate
   )}
 </div>
 
-{/* Starter Plan */}
+{/* Paid Plan */}
 
 <div
   style={{
@@ -227,7 +229,7 @@ const daysRemaining = user?.trialEndDate
         fontWeight: "700",
       }}
     >
-      Starter Plan
+      Paid Plan
     </h2>
 
     <div
@@ -273,7 +275,8 @@ const daysRemaining = user?.trialEndDate
     <div>✅ Unlimited Campaigns</div>
     <div>✅ Unlimited Automation Rules</div>
     <div>✅ Automatic Comment Replies</div>
-    <div>✅ Instagram DM Automation</div>
+    <div>✅ 10,000 automated DMs per billing cycle</div>
+    <div>Free trial includes 500 automated DMs total over 7 days.</div>
   </div>
 
   <div style={{ marginTop: "auto" }}>
@@ -333,7 +336,7 @@ const daysRemaining = user?.trialEndDate
           name: "TriggerDM",
 
           description:
-            "TriggerDM Starter - ₹199/month",
+            "TriggerDM Paid Plan - ₹199/month",
 
           prefill: {
             name: user?.name || "",
@@ -434,7 +437,7 @@ const daysRemaining = user?.trialEndDate
   </div>
 </div>
 
-        {/* Starter Plan card */}
+        {/* Paid Plan card */}
 
       </div> {/* Grid */}
 
