@@ -50,6 +50,19 @@ app.use(cors({
   credentials: true
 }));
 
+// Reject financial writes on the legacy backend once Cloudflare owns them.
+// Register before the raw webhook handler so a retry cannot reach Render billing.
+if (process.env.DISABLE_RENDER_FINANCIAL_WRITES === "true") {
+  app.use(["/api/billing", "/api/referrals"], (req, res, next) => {
+    const method = req.method;
+    const readOnly = method === "GET" || method === "HEAD";
+    const initializesReferralCode = /^\/summary\/?$/i.test(req.path);
+    if (method === "OPTIONS" || (readOnly && !initializesReferralCode)) return next();
+    res.set("Cache-Control", "no-store");
+    return res.status(503).json({ error: "FINANCIAL_WRITES_MOVED" });
+  });
+}
+
 // ==========================================
 // RAZORPAY WEBHOOK
 // MUST BE BEFORE express.json()
