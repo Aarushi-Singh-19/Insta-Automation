@@ -39,6 +39,11 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
   if (!Number.isInteger(limit) || limit < 1 || limit > 10) throw new RangeError("INVALID_LIMIT");
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
   const summary = { inspected: 0, completed: 0, blocked: 0, uncertain: 0 };
+  const blockedReasons = {};
+  const block = reason => {
+    summary.blocked++;
+    if (production) blockedReasons[reason] = (blockedReasons[reason] || 0) + 1;
+  };
   try {
     await client.connect();
     const db = client.db(dbName);
@@ -80,7 +85,7 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
         instagramBusinessId: String(inbox.event.entryId), userId: campaign.userId, status: "active"
       });
       const user = await db.collection("users").findOne({ _id: campaign.userId });
-      if (!account || !user || !account.accessToken || (campaign.settings?.enableDM !== false && !account.pageAccessToken)) { summary.blocked++; continue; }
+      if (!account || !user || !account.accessToken || (campaign.settings?.enableDM !== false && !account.pageAccessToken)) { block("ACCOUNT_CONTEXT_UNAVAILABLE"); continue; }
       const receivedTimestamp = inbox.event.commentTimestamp;
       if (production && receivedTimestamp) {
         const numeric = Number(receivedTimestamp);
@@ -120,11 +125,11 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
             String(inbox.event.commentText || "").toLowerCase().includes(k.trim().toLowerCase())));
       if (!keyword) { summary.blocked++; continue; }
       const action = buildCommentActionSpec({ comment: inbox.event, campaign, rule });
-      if (!action.ready) { summary.blocked++; continue; }
+      if (!action.ready) { block(action.reason); continue; }
       let followGateVerified = false;
       let followPrompt = null;
       if (action.spec.followGateRequired) {
-        if (production && env.ENABLE_PRODUCTION_FOLLOW_GATE !== "true") { summary.blocked++; continue; }
+        if (production && env.ENABLE_PRODUCTION_FOLLOW_GATE !== "true") { block("FOLLOW_GATE_DISABLED"); continue; }
         const session = await db.collection(prefix + "_follow_gate_sessions").findOne({
           _id: "follow:" + String(item._id), status: "VERIFIED"
         });
@@ -139,7 +144,7 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
           }
           followGateVerified = true;
         } else if (item.status === "awaiting_authorization" && !session) {
-          if (!numberId(inbox.event.recipientId)) { summary.blocked++; continue; }
+          if (!numberId(inbox.event.recipientId)) { block("FOLLOW_RECIPIENT_MISSING"); continue; }
           // Never infer follower status from a button click or local data.
           // An unavailable Meta status blocks the send rather than bypassing the gate.
           let follows;
@@ -148,7 +153,7 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
               accessToken: account.accessToken, instagramScopedUserId: inbox.event.recipientId, fetchImpl
             });
             follows = result?.followsBusiness;
-          } catch { summary.blocked++; continue; }
+          } catch { block("META_FOLLOW_STATUS_UNAVAILABLE"); continue; }
           if (follows === true) {
             followGateVerified = true;
           } else if (follows === false && account.username) {
@@ -157,12 +162,12 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
                 sessionId: "follow:" + String(item._id),
                 profileUrl: "https://www.instagram.com/" + String(account.username) + "/"
               });
-            } catch { summary.blocked++; continue; }
-          } else { summary.blocked++; continue; }
+            } catch { block("FOLLOW_PROMPT_INVALID"); continue; }
+          } else { block("FOLLOW_PROMPT_CONTEXT_MISSING"); continue; }
         } else { summary.blocked++; continue; }
       }
       const period = usagePeriod(user, now);
-      if (!period && action.spec.dm) { summary.blocked++; continue; }
+      if (!period && action.spec.dm) { block("USAGE_PERIOD_UNAVAILABLE"); continue; }
       if (item.status === "awaiting_follow" && !followGateVerified) { summary.blocked++; continue; }
       const quotaId = period ? String(user._id) + ":" + period.key : null;
       // Owner-approved fresh allowance for the existing subscription period.
@@ -183,13 +188,13 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
         Number.isSafeInteger(counter.baselineSent) && counter.baselineSent >= 0 &&
         Number.isSafeInteger(counter.reserved) && counter.reserved >= 0 &&
         counter.baselineSent + counter.reserved <= period.limit;
-      if (action.spec.dm && !validCounter) { summary.blocked++; continue; }
+      if (action.spec.dm && !validCounter) { block("QUOTA_COUNTER_UNVERIFIED"); continue; }
       const usage = { period: period?.period || "billing",
         sent: validCounter ? counter.baselineSent + counter.reserved : 0 };
       // A prompt is allowed after subscription/quota checks, not gated content.
       const authorization = authorizeCommentActions({ user, campaign, rule, account, usage,
         followGateVerified: followGateVerified || Boolean(followPrompt), now });
-      if (!authorization.authorized) { summary.blocked++; continue; }
+      if (!authorization.authorized) { block(authorization.reason); continue; }
       // Atomically claim this outbox row before any provider call. Two Worker
       // invocations must never concurrently send actions for the same comment.
       if (followPrompt) {
@@ -303,6 +308,9 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
         await outbox.updateOne({ _id: item._id, status: "executing" },
           { $set: { status: "needs_review", updatedAt: new Date() } });
       }
+    }
+    if (production && summary.blocked) {
+      console.info("Production Instagram execution blocked", { blocked: summary.blocked, reasons: blockedReasons });
     }
     return summary;
   } finally { await client.close(); }
