@@ -1,5 +1,12 @@
 import { validateProductionMongoConfig } from "./production-mongodb.js";
 
+async function inboxKey(kind, accountId, event) {
+  if (kind === "comment") return "comment:" + accountId + ":" + event.eventId;
+  const source = JSON.stringify([accountId, event.senderId, event.recipientId, event.timestamp ?? null, event.postback]);
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
+  return "postback:" + Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
 // Production multi-account ingress. Do not acknowledge events unless every
 // accepted event is durably stored. Execution remains a separate release gate.
 export async function persistProductionInstagramEvents({ env, MongoClient, events }) {
@@ -28,19 +35,40 @@ export async function persistProductionInstagramEvents({ env, MongoClient, event
     if (owners.some(x => !/^\d+$/.test(x))) throw new Error("INVALID_WEBHOOK_OWNER");
     // The existing InstagramAccount model uses instagramBusinessId for the
     // subscribed account. Only active known accounts can enter the inbox.
-    const accounts = await db.collection("instagramaccounts")
-      .find({ $or: [{ instagramBusinessId: { $in: owners } }, { pageId: { $in: owners } }], status: "active" })
-      .project({ instagramBusinessId: 1, pageId: 1, userId: 1 }).toArray();
+    const accountCollection = db.collection("instagramaccounts");
+    const accounts = await accountCollection.find({ status: "active", $or: [
+      { instagramBusinessId: { $in: owners } }, { pageId: { $in: owners } },
+      { webhookEntryId: { $in: owners } },
+    ] }).project({ instagramBusinessId: 1, pageId: 1, webhookEntryId: 1, userId: 1 }).toArray();
+    const ownerIds = new Set(owners);
     const ownersById = new Map();
     const ambiguousOwners = new Set();
     for (const account of accounts) {
-      for (const key of [String(account.instagramBusinessId), String(account.pageId)]) {
-        if (!owners.includes(key)) continue;
-        if (ownersById.has(key) && (String(ownersById.get(key).userId) !== String(account.userId) ||
-            ownersById.get(key).instagramBusinessId !== String(account.instagramBusinessId))) {
+      const directIds = new Set([String(account.instagramBusinessId), String(account.pageId)]);
+      const keys = new Set([...directIds, account.webhookEntryId]);
+      for (const key of keys) {
+        if (!ownerIds.has(key)) continue;
+        const approvedAlias = !directIds.has(key);
+        const existing = ownersById.get(key);
+        if (existing && (approvedAlias || existing.approvedAlias ||
+            String(existing.userId) !== String(account.userId) ||
+            existing.instagramBusinessId !== String(account.instagramBusinessId))) {
           ambiguousOwners.add(key);
         }
-        ownersById.set(key, { userId: account.userId, instagramBusinessId: String(account.instagramBusinessId) });
+        ownersById.set(key, { userId: account.userId, instagramBusinessId: String(account.instagramBusinessId), approvedAlias });
+      }
+    }
+    const aliasTargets = [...new Set([...ownersById.values()]
+      .filter(account => account.approvedAlias).map(account => account.instagramBusinessId))];
+    if (aliasTargets.length) {
+      const targets = await accountCollection.find({ status: "active", instagramBusinessId: { $in: aliasTargets } })
+        .project({ instagramBusinessId: 1 }).toArray();
+      const counts = new Map();
+      for (const { instagramBusinessId } of targets) {
+        counts.set(instagramBusinessId, (counts.get(instagramBusinessId) || 0) + 1);
+      }
+      for (const [key, account] of ownersById) {
+        if (account.approvedAlias && counts.get(account.instagramBusinessId) !== 1) ambiguousOwners.add(key);
       }
     }
     let needsReview = 0;
@@ -52,14 +80,20 @@ export async function persistProductionInstagramEvents({ env, MongoClient, event
       const account = ownersById.get(ownerId);
       const reason = ambiguousOwners.has(ownerId) ? "AMBIGUOUS_ACCOUNT_OWNER" :
         !/^\d+$/.test(account?.instagramBusinessId || "") || !/^[a-f0-9]{24}$/i.test(String(account?.userId || ""))
-          ? "UNMAPPED_INSTAGRAM_OWNER" : null;
+          ? "UNMAPPED_INSTAGRAM_OWNER" :
+          account.approvedAlias && row.kind === "postback" &&
+            ![ownerId, account.instagramBusinessId].includes(String(event.recipientId))
+            ? "MISMATCHED_POSTBACK_RECIPIENT" : null;
       const accountId = reason ? ownerId : account.instagramBusinessId;
       if (!reason && row.kind === "comment" && String(event.recipientId || "") === accountId) continue;
-      let key = "comment:" + accountId + ":" + event.eventId;
-      if (row.kind === "postback") {
-        const source = JSON.stringify([accountId, event.senderId, event.recipientId, event.timestamp ?? null, event.postback]);
-        const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
-        key = "postback:" + Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, "0")).join("");
+      let key = await inboxKey(row.kind, accountId, event);
+      if (!reason && account.approvedAlias) {
+        // A Meta redelivery must not activate an event already held for review.
+        const reviewKey = "review:" + await inboxKey(row.kind, ownerId, event);
+        if (await inbox.findOne({ _id: reviewKey }, { projection: { _id: 1 } })) {
+          needsReview++;
+          continue;
+        }
       }
       if (reason) {
         key = "review:" + key;
