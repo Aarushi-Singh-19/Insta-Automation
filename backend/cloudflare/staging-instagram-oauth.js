@@ -55,10 +55,14 @@ export async function completeStagingInstagramOAuth({ env, MongoClient, code, st
   const claims = await verifySessionJwt(state, secret, { issuer: "triggerdm-instagram-oauth", audience: "instagram-v2" });
   const userId = new ObjectId(getTriggerDmUserId(claims));
   onStage("code-exchange");
+  const form = new FormData();
+  form.set("client_id", env.INSTAGRAM_APP_ID);
+  form.set("client_secret", env.INSTAGRAM_APP_SECRET);
+  form.set("grant_type", "authorization_code");
+  form.set("redirect_uri", env.INSTAGRAM_REDIRECT_URI_V2);
+  form.set("code", code);
   const token = await graphJson("https://api.instagram.com/oauth/access_token", {
-    method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id: env.INSTAGRAM_APP_ID, client_secret: env.INSTAGRAM_APP_SECRET,
-      grant_type: "authorization_code", redirect_uri: env.INSTAGRAM_REDIRECT_URI_V2, code })
+    method: "POST", body: form,
   });
   if (!token?.access_token || !/^\d+$/.test(String(token.user_id || ""))) throw new Error("INVALID_INSTAGRAM_TOKEN");
   const exchange = new URL("https://graph.instagram.com/access_token");
