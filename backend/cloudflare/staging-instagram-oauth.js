@@ -88,8 +88,17 @@ export async function completeStagingInstagramOAuth({ env, MongoClient, code, st
   const long = await graphJson(exchange.toString());
   if (!long?.access_token || !Number.isFinite(Number(long.expires_in))) throw new Error("INVALID_LONG_LIVED_TOKEN");
   onStage("profile");
-  const profile = await graphJson("https://graph.instagram.com/me?fields=id%2Cusername&access_token=" + encodeURIComponent(long.access_token));
-  if (!/^\d+$/.test(String(profile.id || "")) || String(profile.id) !== String(token.user_id)) throw new Error("INSTAGRAM_IDENTITY_MISMATCH");
+  const profile = await graphJson("https://graph.instagram.com/me?fields=user_id%2Cusername&access_token=" + encodeURIComponent(long.access_token));
+  const instagramUserId = String(profile?.user_id ?? "");
+  // Meta can encode the exchange ID as a JSON number. Keep the profile's
+  // exact string for storage and compare at the exchange's available precision.
+  const sameUser = typeof token.user_id === "number"
+    ? Number(instagramUserId) === token.user_id
+    : instagramUserId === token.user_id;
+  if (!/^\d+$/.test(instagramUserId) || !sameUser ||
+      (typeof profile.user_id === "number" && !Number.isSafeInteger(profile.user_id))) {
+    throw new Error("INSTAGRAM_IDENTITY_MISMATCH");
+  }
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, maxPoolSize: 1 });
   try {
     onStage("database-connect");
@@ -106,17 +115,17 @@ export async function completeStagingInstagramOAuth({ env, MongoClient, code, st
     }
     onStage("ownership-check");
     const [other, own, user, redemption] = await Promise.all([
-      accounts.findOne({ instagramBusinessId: String(profile.id), userId: { $ne: userId } }),
+      accounts.findOne({ instagramBusinessId: instagramUserId, userId: { $ne: userId } }),
       accounts.findOne({ userId }),
       db.collection("users").findOne({ _id: userId }, { projection: { subscriptionStatus: 1 } }),
-      db.collection("trialredemptions").findOne({ instagramBusinessId: String(profile.id) })
+      db.collection("trialredemptions").findOne({ instagramBusinessId: instagramUserId })
     ]);
     if (!user) throw new Error("USER_NOT_FOUND");
     if (other) throw new Error("INSTAGRAM_ACCOUNT_ALREADY_CONNECTED");
-    if (own && String(own.instagramBusinessId) !== String(profile.id)) throw new Error("ONE_INSTAGRAM_ACCOUNT_LIMIT");
+    if (own && String(own.instagramBusinessId) !== instagramUserId) throw new Error("ONE_INSTAGRAM_ACCOUNT_LIMIT");
     if (user.subscriptionStatus === "trial" && redemption && String(redemption.userId) !== String(userId)) throw new Error("INSTAGRAM_TRIAL_ALREADY_USED");
     onStage("webhook-subscription");
-    const subscribed = await graphJson("https://graph.instagram.com/v25.0/" + profile.id + "/subscribed_apps", {
+    const subscribed = await graphJson("https://graph.instagram.com/v25.0/" + instagramUserId + "/subscribed_apps", {
       method: "POST", headers: { Authorization: "Bearer " + long.access_token, "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ subscribed_fields: "comments,messages,messaging_postbacks" })
     });
@@ -125,14 +134,14 @@ export async function completeStagingInstagramOAuth({ env, MongoClient, code, st
     const now = new Date();
     // Keep ownership and trial identity immutable across reconnects.
     if (user.subscriptionStatus === "trial" && !redemption) {
-      try { await db.collection("trialredemptions").insertOne({ instagramBusinessId: String(profile.id), userId, createdAt: now }); }
-      catch (error) { if (error.code !== 11000) throw error; const existing = await db.collection("trialredemptions").findOne({ instagramBusinessId: String(profile.id) }); if (String(existing?.userId) !== String(userId)) throw new Error("INSTAGRAM_TRIAL_ALREADY_USED"); }
+      try { await db.collection("trialredemptions").insertOne({ instagramBusinessId: instagramUserId, userId, createdAt: now }); }
+      catch (error) { if (error.code !== 11000) throw error; const existing = await db.collection("trialredemptions").findOne({ instagramBusinessId: instagramUserId }); if (String(existing?.userId) !== String(userId)) throw new Error("INSTAGRAM_TRIAL_ALREADY_USED"); }
     }
-    const result = await accounts.updateOne({ userId, instagramBusinessId: String(profile.id) }, {
-      $set: { pageId: String(profile.id), username: String(profile.username || ""), accessToken: long.access_token,
+    const result = await accounts.updateOne({ userId, instagramBusinessId: instagramUserId }, {
+      $set: { pageId: instagramUserId, username: String(profile.username || ""), accessToken: long.access_token,
         pageAccessToken: long.access_token, tokenExpiresAt: new Date(Date.now() + Number(long.expires_in) * 1000),
         status: "active", lastSyncedAt: now, updatedAt: now },
-      $setOnInsert: { userId, instagramBusinessId: String(profile.id), connectedAt: now, createdAt: now }
+      $setOnInsert: { userId, instagramBusinessId: instagramUserId, connectedAt: now, createdAt: now }
     }, { upsert: true });
     return { success: true, connected: result.acknowledged };
   } finally { await client.close(); }
