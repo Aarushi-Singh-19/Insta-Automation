@@ -30,9 +30,24 @@ function config(env) {
   return { ...database, secret, production };
 }
 async function graphJson(url, init = {}) {
-  const response = await fetch(url, { ...init, redirect: "error", signal: AbortSignal.timeout(12000) });
-  if (!response.ok) throw new Error("INSTAGRAM_GRAPH_ERROR");
-  return response.json();
+  let response;
+  try {
+    response = await fetch(url, { ...init, redirect: "manual", signal: AbortSignal.timeout(12000) });
+  } catch (error) {
+    const timeout = error?.name === "TimeoutError" || error?.name === "AbortError";
+    throw new Error(timeout ? "INSTAGRAM_REQUEST_TIMEOUT" : "INSTAGRAM_REQUEST_FAILED");
+  }
+  if (response.status >= 300 && response.status < 400) throw new Error("INSTAGRAM_UNEXPECTED_REDIRECT");
+  if (!response.ok) {
+    const error = new Error("INSTAGRAM_GRAPH_ERROR");
+    error.upstreamStatus = response.status;
+    throw error;
+  }
+  try {
+    return await response.json();
+  } catch {
+    throw new Error("INSTAGRAM_INVALID_JSON");
+  }
 }
 export async function beginStagingInstagramOAuth({ env, userId }) {
   const { secret } = config(env);
