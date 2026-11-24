@@ -44,7 +44,11 @@ const fetchPaymentHistory = async () => {
   }
 };
 
-const displaySubscriptionStatus = user?.subscriptionStatus === "active" && (!user?.planEndDate || new Date(user.planEndDate) <= new Date()) ? "expired" : user?.subscriptionStatus;
+const renewalCancelled = user?.subscriptionStatus === "cancelled";
+const hasPaidAccess = ["active", "cancelled"].includes(user?.subscriptionStatus) &&
+  new Date(user?.planEndDate) > new Date();
+const displaySubscriptionStatus = hasPaidAccess ? "active" :
+  user?.subscriptionStatus === "active" ? "expired" : user?.subscriptionStatus;
 
 const daysRemaining = user?.trialEndDate
   ? Math.max(
@@ -290,7 +294,7 @@ const daysRemaining = user?.trialEndDate
       fontWeight: "600",
     }}
   >
-    ✓ You're on this plan
+    {renewalCancelled ? "AutoPay off. Access continues until your paid period ends." : "✓ You're on this plan"}
   </div>
 ) : (
   <button
