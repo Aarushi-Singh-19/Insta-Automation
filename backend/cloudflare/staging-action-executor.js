@@ -161,7 +161,8 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
             try {
               followPrompt = buildFollowPrompt({
                 sessionId: "follow:" + String(item._id),
-                profileUrl: "https://www.instagram.com/" + String(account.username) + "/"
+                profileUrl: "https://www.instagram.com/" + String(account.username) + "/",
+                openingMessage: campaign.gate.openingMessage
               });
             } catch { block("FOLLOW_PROMPT_INVALID"); continue; }
           } else { block("FOLLOW_PROMPT_CONTEXT_MISSING"); continue; }

@@ -4,8 +4,14 @@ import { buildFollowPrompt } from "./follow-gate-prompt.js";
 import { sendInstagramDM } from "./instagram-graph.js";
 test("Follow Gate prompt binds the button to the exact session", () => {
   const result = buildFollowPrompt({ sessionId: "follow:comment:123:456", profileUrl: "https://www.instagram.com/staging.test/" });
+  assert.equal(result.text, "Follow our Instagram account, then tap I've Followed to continue.");
   assert.equal(result.buttons[1].payload, "VERIFY:follow:comment:123:456");
   assert.equal(result.buttons[0].type, "web_url");
+});
+test("Follow Gate uses the default for a blank saved message", () => {
+  const result = buildFollowPrompt({ sessionId: "follow:comment:123:456",
+    profileUrl: "https://www.instagram.com/staging.test/", openingMessage: "   " });
+  assert.equal(result.text, "Follow our Instagram account, then tap I've Followed to continue.");
 });
 test("Follow Gate prompt refuses unrelated URLs and malformed session", () => {
   assert.throws(() => buildFollowPrompt({ sessionId: "follow:comment:123:456", profileUrl: "https://example.com/" }), /INVALID_PROFILE_URL/);

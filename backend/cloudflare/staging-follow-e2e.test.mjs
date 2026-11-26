@@ -17,7 +17,7 @@ test((production ? "production" : "staging") + " Follow Gate verifies a postback
   const campaign = { _id: campaignId, userId: owner, status: "active", ruleIds: [ruleId],
     triggerType: "specific-post", instagramMediaId: "555", settings: {
       enableReply: true, enableDM: true, dmMessage: "Here is your guide"
-    }, gate: { gateType: "FOLLOW", status: "enabled" } };
+    }, gate: { gateType: "FOLLOW", status: "enabled", openingMessage: "Hey cutie please follow first to unlock your dm message💖" } };
   const rule = { _id: ruleId, userId: owner, isActive: true, triggerType: "keyword",
     keywords: ["guide"], replies: ["Check your DM"] };
   const account = { userId: owner, instagramBusinessId: "123", status: "active",
@@ -103,6 +103,7 @@ test((production ? "production" : "staging") + " Follow Gate verifies a postback
     if (payload.message.attachment) {
       calls.push("gate_prompt");
       assert.equal(payload.recipient.comment_id, "456");
+      assert.equal(payload.message.attachment.payload.text, campaign.gate.openingMessage);
       assert.equal(payload.message.attachment.payload.buttons[1].payload, "VERIFY:follow:comment:123:456");
     } else {
       calls.push("content_dm");

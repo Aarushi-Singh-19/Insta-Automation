@@ -1,5 +1,5 @@
 // Construct a deterministic, session-bound Follow Gate prompt. No Graph side effects.
-export function buildFollowPrompt({ sessionId, profileUrl }) {
+export function buildFollowPrompt({ sessionId, profileUrl, openingMessage }) {
   if (typeof sessionId !== "string" || !/^follow:comment:[0-9]+:[0-9]+$/.test(sessionId)) {
     throw new TypeError("INVALID_FOLLOW_SESSION");
   }
@@ -10,7 +10,8 @@ export function buildFollowPrompt({ sessionId, profileUrl }) {
     throw new TypeError("INVALID_PROFILE_URL");
   }
   return {
-    text: "Follow our Instagram account, then tap I've Followed to continue.",
+    text: (typeof openingMessage === "string" && openingMessage.trim()) ||
+      "Follow our Instagram account, then tap I've Followed to continue.",
     buttons: [
       { type: "web_url", title: "Visit Profile", url: url.toString() },
       { type: "postback", title: "I've Followed", payload: "VERIFY:" + sessionId }
