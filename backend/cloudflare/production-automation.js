@@ -5,6 +5,17 @@ import { processStagingFollowPostbacks } from "./staging-follow-postback-process
 import { executeStagingActions } from "./staging-action-executor.js";
 import { reconcileStagingStates } from "./staging-reconciliation.js";
 
+async function measureStage(stage, run) {
+  const startedAt = Date.now();
+  try {
+    return await run();
+  } finally {
+    console.info("Production Instagram runner stage timing", {
+      stage, elapsedMs: Date.now() - startedAt
+    });
+  }
+}
+
 export async function drainProductionAutomation({ env, MongoClient, fetchImpl = fetch }) {
   if (env?.TRIGGERDM_RUNTIME !== "production" || env.ENABLE_PRODUCTION_AUTOMATION !== "true")
     return { skipped: "disabled" };
@@ -12,12 +23,13 @@ export async function drainProductionAutomation({ env, MongoClient, fetchImpl = 
   const cutoff = env.PRODUCTION_AUTOMATIC_SEND_NOT_BEFORE;
   if (typeof cutoff !== "string" || !/^\d{4}-\d{2}-\d{2}T/.test(cutoff) || !Number.isFinite(Date.parse(cutoff)))
     throw new Error("INVALID_PRODUCTION_AUTOMATION_CUTOFF");
-  const reconciliation = await reconcileStagingStates({ env, MongoClient });
-  const planned = await planProductionInbox({ env, MongoClient, claimNextPost: true });
-  const prepared = await prepareStagingActionOutbox({ env, MongoClient });
-  const postbacks = await processStagingFollowPostbacks({ env, MongoClient, fetchImpl });
+  const reconciliation = await measureStage("reconciliation", () => reconcileStagingStates({ env, MongoClient }));
+  const planned = await measureStage("comment_planning", () => planProductionInbox({ env, MongoClient, claimNextPost: true }));
+  const prepared = await measureStage("outbox_preparation", () => prepareStagingActionOutbox({ env, MongoClient }));
+  const postbacks = await measureStage("follow_verification", () => processStagingFollowPostbacks({ env, MongoClient, fetchImpl }));
   const execution = env.ENABLE_PRODUCTION_INSTAGRAM_SEND === "true"
-    ? await executeStagingActions({ env, MongoClient, fetchImpl, receivedNotBefore: new Date(cutoff) })
+    ? await measureStage("action_execution", () =>
+      executeStagingActions({ env, MongoClient, fetchImpl, receivedNotBefore: new Date(cutoff) }))
     : { skipped: "disabled" };
   return { reconciliation, planned, prepared, postbacks, execution };
 }

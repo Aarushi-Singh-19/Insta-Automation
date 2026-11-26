@@ -243,6 +243,7 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
           summary.uncertain++; break;
         }
         try {
+          const providerStartedAt = Date.now();
           const result = kind === "reply"
             ? await replyToInstagramComment({ accessToken: account.accessToken, commentId: plan.eventId,
                 message: details.message, fetchImpl })
@@ -252,6 +253,13 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
                 message: kind === "gate_prompt" ? details.text : details.message,
                 buttons: details.buttons, fetchImpl });
           const completedAt = new Date();
+          if (production && kind !== "reply") {
+            console.info("Production Instagram DM accepted timing", {
+              kind,
+              providerMs: completedAt.getTime() - providerStartedAt,
+              sinceCommentIntakeMs: completedAt.getTime() - inbox.receivedAt.getTime()
+            });
+          }
           const sent = { status: "sent", providerId: result.id || result.messageId, completedAt };
           if (production) {
             const session = client.startSession();
