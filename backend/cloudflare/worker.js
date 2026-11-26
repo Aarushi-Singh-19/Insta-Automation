@@ -128,7 +128,7 @@ export default {
             inserted: stored.inserted, needsReview: stored.needsReview,
           });
           if (stored.inserted > 0 && env.ENABLE_PRODUCTION_AUTOMATION === "true" && ctx?.waitUntil) {
-            ctx.waitUntil(drainProductionAutomation({ env, MongoClient }).catch(error => {
+            ctx.waitUntil(drainProductionAutomation({ env, MongoClient, runReconciliation: false }).catch(error => {
               console.error("Production automation drain unavailable", error?.name || "Error");
             }));
           }

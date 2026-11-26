@@ -16,14 +16,16 @@ async function measureStage(stage, run) {
   }
 }
 
-export async function drainProductionAutomation({ env, MongoClient, fetchImpl = fetch }) {
+export async function drainProductionAutomation({ env, MongoClient, fetchImpl = fetch, runReconciliation = true }) {
   if (env?.TRIGGERDM_RUNTIME !== "production" || env.ENABLE_PRODUCTION_AUTOMATION !== "true")
     return { skipped: "disabled" };
   automationRuntime(env);
   const cutoff = env.PRODUCTION_AUTOMATIC_SEND_NOT_BEFORE;
   if (typeof cutoff !== "string" || !/^\d{4}-\d{2}-\d{2}T/.test(cutoff) || !Number.isFinite(Date.parse(cutoff)))
     throw new Error("INVALID_PRODUCTION_AUTOMATION_CUTOFF");
-  const reconciliation = await measureStage("reconciliation", () => reconcileStagingStates({ env, MongoClient }));
+  const reconciliation = runReconciliation
+    ? await measureStage("reconciliation", () => reconcileStagingStates({ env, MongoClient }))
+    : { skipped: "scheduled_only" };
   const planned = await measureStage("comment_planning", () => planProductionInbox({ env, MongoClient, claimNextPost: true }));
   const prepared = await measureStage("outbox_preparation", () => prepareStagingActionOutbox({ env, MongoClient }));
   const postbacks = await measureStage("follow_verification", () => processStagingFollowPostbacks({ env, MongoClient, fetchImpl }));
