@@ -73,6 +73,7 @@ export async function persistProductionInstagramEvents({ env, MongoClient, event
     }
     let needsReview = 0;
     let inserted = 0;
+    const insertedPostbackIds = [];
     const inbox = db.collection("cloudflare_production_webhook_inbox");
     for (const row of entries) {
       const event = row.event;
@@ -107,9 +108,10 @@ export async function persistProductionInstagramEvents({ env, MongoClient, event
           event: { ...event, webhookEntryId: ownerId, entryId: accountId }, receivedAt: new Date()
         } }, { upsert: true });
         inserted += result.upsertedCount;
+        if (result.upsertedCount && !reason && row.kind === "postback") insertedPostbackIds.push(key);
       } catch (error) { if (error.code !== 11000) throw error; }
     }
-    return { durable: true, received: entries.length, inserted, needsReview };
+    return { durable: true, received: entries.length, inserted, needsReview, insertedPostbackIds };
   } finally { await client.close(); }
 }
 

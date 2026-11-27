@@ -16,7 +16,7 @@ async function measureStage(stage, run) {
   }
 }
 
-export async function drainProductionAutomation({ env, MongoClient, fetchImpl = fetch, runReconciliation = true }) {
+export async function drainProductionAutomation({ env, MongoClient, fetchImpl = fetch, runReconciliation = true, postbackIds = [] }) {
   if (env?.TRIGGERDM_RUNTIME !== "production" || env.ENABLE_PRODUCTION_AUTOMATION !== "true")
     return { skipped: "disabled" };
   automationRuntime(env);
@@ -26,6 +26,22 @@ export async function drainProductionAutomation({ env, MongoClient, fetchImpl = 
   const reconciliation = runReconciliation
     ? await measureStage("reconciliation", () => reconcileStagingStates({ env, MongoClient }))
     : { skipped: "scheduled_only" };
+  if (!runReconciliation && postbackIds.length) {
+    // Keep each click paired with its own send and leave overflow for cron.
+    for (const postbackId of postbackIds.slice(0, 5)) {
+      let followInboxId;
+      await measureStage("targeted_follow_verification", () => processStagingFollowPostbacks({
+        env, MongoClient, fetchImpl, limit: 1, postbackId,
+        onUnlock: inboxId => { followInboxId = inboxId; }
+      }));
+      if (followInboxId && env.ENABLE_PRODUCTION_INSTAGRAM_SEND === "true") {
+        await measureStage("targeted_follow_execution", () => executeStagingActions({
+          env, MongoClient, fetchImpl, receivedNotBefore: new Date(cutoff), limit: 1, followInboxId
+        }));
+      }
+    }
+    return;
+  }
   const planned = await measureStage("comment_planning", () => planProductionInbox({ env, MongoClient, claimNextPost: true }));
   const prepared = await measureStage("outbox_preparation", () => prepareStagingActionOutbox({ env, MongoClient }));
   const postbacks = await measureStage("follow_verification", () => processStagingFollowPostbacks({ env, MongoClient, fetchImpl }));

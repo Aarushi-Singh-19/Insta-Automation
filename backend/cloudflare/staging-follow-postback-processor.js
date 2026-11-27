@@ -4,7 +4,7 @@ import { automationRuntime } from "./automation-runtime.js";
 import { verifyStagingFollowPostback } from "./staging-follow-verifier.js";
 
 export async function processStagingFollowPostbacks({
-  env, MongoClient, fetchImpl, limit = 5, verify = verifyStagingFollowPostback
+  env, MongoClient, fetchImpl, limit = 5, verify = verifyStagingFollowPostback, postbackId, onUnlock
 }) {
   if ((env?.TRIGGERDM_RUNTIME === "production" ? env.ENABLE_PRODUCTION_FOLLOW_GATE : env?.ENABLE_STAGING_FOLLOW_POSTBACK_PROCESSOR) !== "true") return { skipped: "disabled" };
   const { uri, dbName, prefix } = automationRuntime(env);
@@ -19,7 +19,7 @@ export async function processStagingFollowPostbacks({
     for (let i = 0; i < limit; i++) {
       // Claim before calling Meta; competing cron invocations cannot process twice.
       const claimed = await inbox.findOneAndUpdate(
-        { kind: "postback", status: "pending" },
+        { kind: "postback", status: "pending", ...(postbackId ? { _id: postbackId } : {}) },
         { $set: { status: "verifying", verificationStartedAt: new Date() } },
         { sort: { receivedAt: 1, _id: 1 }, returnDocument: "after" }
       );
@@ -38,8 +38,12 @@ export async function processStagingFollowPostbacks({
         outcome: verified ? "FOLLOW_VERIFIED" : "FOLLOW_VERIFICATION_REQUIRED",
         verifiedAt: verified ? new Date() : null, updatedAt: new Date()
       } });
-      if (verified) summary.verified++;
-      else summary.held++;
+      if (verified) {
+        summary.verified++;
+        if (onUnlock && /^follow:comment:[0-9]+:[0-9]+$/.test(result.sessionId)) {
+          await onUnlock(result.sessionId.slice("follow:".length));
+        }
+      } else summary.held++;
     }
     return summary;
   } finally { await client.close(); }

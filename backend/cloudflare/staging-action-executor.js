@@ -23,7 +23,7 @@ function usagePeriod(user, now) {
   if (!start || !end || new Date(start) > now || new Date(end) <= now) return null;
   return { period: "billing", start: new Date(start), key: "billing:" + new Date(start).toISOString(), limit: 10000 };
 }
-export async function executeStagingActions({ env, MongoClient, fetchImpl, getFollower = getInstagramFollowerStatus, limit = 5, now = new Date(), receivedNotBefore = null }) {
+export async function executeStagingActions({ env, MongoClient, fetchImpl, getFollower = getInstagramFollowerStatus, limit = 5, now = new Date(), receivedNotBefore = null, followInboxId }) {
   const { uri, dbName, production, prefix } = automationRuntime(env);
   if (receivedNotBefore !== null && (!(receivedNotBefore instanceof Date) || !Number.isFinite(receivedNotBefore.getTime()))) throw new Error("INVALID_AUTOMATIC_SEND_CUTOFF");
   if (production && (!receivedNotBefore || env.ENABLE_PRODUCTION_INSTAGRAM_SEND !== "true")) {
@@ -58,7 +58,10 @@ export async function executeStagingActions({ env, MongoClient, fetchImpl, getFo
           .project({ _id: 1 }).limit(100).toArray()).map(row => row._id)
       : null;
     const cursor = outbox.find({
-      status: { $in: ["awaiting_authorization", "awaiting_follow"] }, authorized: false,
+      ...(followInboxId
+        ? { _id: followInboxId, status: "awaiting_follow" }
+        : { status: { $in: ["awaiting_authorization", "awaiting_follow"] } }),
+      authorized: false,
       ...(eligibleInboxIds ? { _id: { $in: eligibleInboxIds } } : {}),
       ...(production ? { receivedAt: { $gte: receivedNotBefore } } : {})
     }).sort(production ? { lastInspectedAt: 1, createdAt: 1, _id: 1 } : { createdAt: 1, _id: 1 }).limit(limit);

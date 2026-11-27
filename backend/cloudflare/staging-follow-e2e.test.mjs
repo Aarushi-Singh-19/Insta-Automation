@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { executeStagingActions } from "./staging-action-executor.js";
 import { verifyStagingFollowPostback } from "./staging-follow-verifier.js";
+import { drainProductionAutomation } from "./production-automation.js";
 import { ObjectId } from "mongodb";
 
 for (const production of [false, true]) {
@@ -11,7 +12,11 @@ test((production ? "production" : "staging") + " Follow Gate verifies a postback
   const campaignId = new ObjectId("bbbbbbbbbbbbbbbbbbbbbbbb");
   const ruleId = new ObjectId("cccccccccccccccccccccccc");
   const itemId = "comment:123:456";
-  const now = new Date("2026-11-12T12:00:00Z");
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - 86400000);
+  const postback = { entryId: "123", senderId: "789",
+    postback: { payload: "VERIFY:follow:comment:123:456" } };
+  const click = { _id: "postback:current", status: "pending", event: postback };
   const event = { entryId: "123", eventId: "456", postId: "555", recipientId: "789", commentText: "guide" };
   const plan = { eventId: "456", postId: "555", campaignId: String(campaignId), ruleId: String(ruleId) };
   const campaign = { _id: campaignId, userId: owner, status: "active", ruleIds: [ruleId],
@@ -23,19 +28,29 @@ test((production ? "production" : "staging") + " Follow Gate verifies a postback
   const account = { userId: owner, instagramBusinessId: "123", status: "active",
     username: "staging_test", accessToken: "reply-token", pageAccessToken: "dm-token" };
   const user = { _id: owner, subscriptionStatus: "trial",
-    trialStartDate: new Date("2026-11-10"), trialEndDate: new Date("2026-11-20") };
+    trialStartDate: cutoff, trialEndDate: new Date(now.getTime() + 86400000) };
   const quota = { userId: owner, period: "trial", limit: 500, baselineVerified: true,
     baselineSource: "render-reconciliation", baselineSent: 0, reserved: 0 };
   const outbox = { _id: itemId, plan, status: "awaiting_authorization", authorized: false };
+  const olderOutboxRows = [];
   const sends = new Map();
   let session = null;
   const calls = [];
   const collections = {
     [prefix + "_action_outbox"]: {
-      find() { return { sort() { return this; }, limit() { return this; },
-        async *[Symbol.asyncIterator]() { if (outbox.status !== "completed") yield { ...outbox }; } }; },
+      find(filter) {
+        const rows = [...olderOutboxRows, outbox].filter(row =>
+          (!filter._id || filter._id === row._id) &&
+          (filter.status.$in?.includes(row.status) || filter.status === row.status));
+        return {
+          sort() { return this; },
+          async *limit(count) {
+            for (const row of rows.slice(0, count)) yield { ...row };
+          }
+        };
+      },
       async updateOne(filter, update) {
-        if (outbox.status !== filter.status) return { modifiedCount: 0 };
+        if (outbox._id !== filter._id || outbox.status !== filter.status) return { modifiedCount: 0 };
         Object.assign(outbox, update.$set); return { modifiedCount: 1 };
       }
     },
@@ -58,7 +73,19 @@ test((production ? "production" : "staging") + " Follow Gate verifies a postback
         return { modifiedCount: 1 };
       }
     },
-    [prefix + "_webhook_inbox"]: { async findOne() { return { _id: itemId, status: "planned", event, userId: owner, accountId: "123", receivedAt: now }; } },
+    [prefix + "_webhook_inbox"]: {
+      async findOne() { return { _id: itemId, status: "planned", event, userId: owner, accountId: "123", receivedAt: now }; },
+      async findOneAndUpdate(filter, update) {
+        assert.equal(filter._id, click._id);
+        if (filter.status !== click.status) return null;
+        Object.assign(click, update.$set);
+        return click;
+      },
+      async updateOne(filter, update) {
+        assert.equal(filter._id, click._id);
+        Object.assign(click, update.$set);
+      }
+    },
     processedevents: { async findOne() { return null; } },
     campaigns: { async findOne() { return campaign; }, async updateOne() { return { modifiedCount: 1 }; } },
     actionlogs: { async updateOne() { return { modifiedCount: 1 }; } },
@@ -89,6 +116,7 @@ test((production ? "production" : "staging") + " Follow Gate verifies a postback
     async close() {}
   }
   const env = production ? {
+    PRODUCTION_AUTOMATIC_SEND_NOT_BEFORE: cutoff.toISOString(),
     TRIGGERDM_RUNTIME: "production", PRODUCTION_CUTOVER_APPROVED: "true",
     ENABLE_PRODUCTION_AUTOMATION: "true", ENABLE_PRODUCTION_EXCLUSIVE_SEND_OWNERSHIP: "true",
     ENABLE_PRODUCTION_INSTAGRAM_SEND: "true", ENABLE_PRODUCTION_FOLLOW_GATE: "true",
@@ -98,6 +126,10 @@ test((production ? "production" : "staging") + " Follow Gate verifies a postback
     MONGODB_STAGING_URI: "mongodb://localhost:27017/triggerdm_staging",
     ENABLE_STAGING_INSTAGRAM_SEND: "true", STAGING_SEND_INSTAGRAM_BUSINESS_ID: "123" };
   const fetchImpl = async (url, options) => {
+    if (url.includes("?fields=is_user_follow_business")) {
+      assert.equal(options.headers.Authorization, "Bearer dm-token");
+      return { ok: true, json: async () => ({ is_user_follow_business: true }) };
+    }
     if (url.endsWith("/replies")) { calls.push("reply"); return { ok: true, json: async () => ({ id: "reply-id" }) }; }
     const payload = JSON.parse(options.body);
     if (payload.message.attachment) {
@@ -126,8 +158,6 @@ test((production ? "production" : "staging") + " Follow Gate verifies a postback
   const waiting = await executeStagingActions(args);
   assert.equal(waiting.blocked, 1);
   assert.deepEqual(calls, ["reply", "gate_prompt"]);
-  const postback = { entryId: "123", senderId: "789",
-    postback: { payload: "VERIFY:follow:comment:123:456" } };
   const verification = { env, MongoClient, fetchImpl, postback,
     getFollower: async ({ accessToken }) => {
       assert.equal(accessToken, production ? "dm-token" : "reply-token");
@@ -138,10 +168,23 @@ test((production ? "production" : "staging") + " Follow Gate verifies a postback
   });
   assert.equal(wrongSender.unlocked, false);
   assert.equal(session.status, "WAITING");
-  assert.equal((await verifyStagingFollowPostback(verification)).unlocked, true);
+  if (production) {
+    for (let index = 0; index < 5; index++) {
+      olderOutboxRows.push({ _id: "older:" + index, status: "awaiting_follow" });
+    }
+    const sharedBatch = await executeStagingActions(args);
+    assert.equal(sharedBatch.inspected, 5);
+    assert.equal(sharedBatch.blocked, 5);
+    const run = () => drainProductionAutomation({
+      env, MongoClient, fetchImpl, runReconciliation: false, postbackIds: [click._id]
+    });
+    await Promise.all([run(), run(), executeStagingActions(args)]);
+    assert.equal(click.status, "verified");
+  } else {
+    assert.equal((await verifyStagingFollowPostback(verification)).unlocked, true);
+    assert.equal((await executeStagingActions(args)).completed, 1);
+  }
   assert.equal((await verifyStagingFollowPostback(verification)).unlocked, false);
-  const resumed = await executeStagingActions(args);
-  assert.equal(resumed.completed, 1);
   assert.equal(outbox.status, "completed");
   assert.deepEqual(calls, ["reply", "gate_prompt", "content_dm"]);
   assert.equal(quota.reserved, 1);
